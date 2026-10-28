@@ -3441,10 +3441,6 @@ body.dark .hero-gradient-text,
     }
 
         const FALLBACK_HOME_TEMPLATES = [];
-    const DEMO_SEED_IDS_SET = new Set([
-      "tpl_glitter_birthday","tpl_romantic_starlight","tpl_golden_elegance","tpl_neon_party",
-      "tpl_parents_tribute","tpl_midnight_countdown","tpl_friendship_chronicles","tpl_festive_lights"
-    ]);
 
     // Load templates from API with instant cache/seed first-paint (0ms wait) + background sync
     window.refreshHomepageTemplates = initHomepageTemplates;
@@ -3452,12 +3448,12 @@ body.dark .hero-gradient-text,
       const grid = document.getElementById("templates-grid");
       if (!grid) return;
 
-      // 1. Instant first-paint from localStorage cache if real uploaded templates exist
+      // 1. Instant first-paint from localStorage cache if published templates exist
       try {
         const rawCache = localStorage.getItem("wm_public_templates_cache_v2");
         const cachedList = rawCache ? JSON.parse(rawCache) : null;
         if (Array.isArray(cachedList)) {
-          loadedTemplates = cachedList.filter(t => t && (!DEMO_SEED_IDS_SET.has(String(t.id || "")) || String(t.currentVersionId || "").startsWith("ver_")));
+          loadedTemplates = cachedList.filter(t => t && t.isPublished !== false && t.status !== "draft");
         } else {
           loadedTemplates = [];
         }
@@ -3478,7 +3474,7 @@ body.dark .hero-gradient-text,
         if (res.ok) data = await res.json();
         const apiTpls = (data && Array.isArray(data.templates)) ? data.templates : (data && data.data && Array.isArray(data.data.templates) ? data.data.templates : (Array.isArray(data) ? data : null));
         if (data && data.success !== false && Array.isArray(apiTpls)) {
-          loadedTemplates = apiTpls.filter(t => t && (!DEMO_SEED_IDS_SET.has(String(t.id || "")) || String(t.currentVersionId || "").startsWith("ver_")));
+          loadedTemplates = apiTpls.filter(t => t && t.isPublished !== false && t.status !== "draft");
           try {
             localStorage.setItem("wm_public_templates_cache_v2", JSON.stringify(loadedTemplates));
             sessionStorage.setItem("wm_public_templates_cache_v1", JSON.stringify(loadedTemplates));
@@ -3495,6 +3491,37 @@ body.dark .hero-gradient-text,
         renderTemplateCards(loadedTemplates || []);
       }
     }
+
+    // Real-time cross-tab & visibility sync for homepage templates
+    (function setupHomepageTemplateLiveSync() {
+      if (window._wmHomeTemplateSyncBound) return;
+      window._wmHomeTemplateSyncBound = true;
+      const triggerRefresh = () => {
+        try {
+          localStorage.removeItem("wm_public_templates_cache_v2");
+          sessionStorage.removeItem("wm_public_templates_cache_v1");
+        } catch (_) {}
+        if (typeof initHomepageTemplates === "function") initHomepageTemplates();
+      };
+      if (typeof BroadcastChannel !== "undefined") {
+        try {
+          const bc1 = new BroadcastChannel("wm_template_sync_v1");
+          bc1.onmessage = () => triggerRefresh();
+          const bc2 = new BroadcastChannel("wm_admin_live_sync_v1");
+          bc2.onmessage = () => triggerRefresh();
+        } catch (_) {}
+      }
+      window.addEventListener("storage", (ev) => {
+        if (ev && (ev.key === "wm_public_templates_updated_at" || ev.key === "wm_admin_last_mutation_ts")) {
+          triggerRefresh();
+        }
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && typeof initHomepageTemplates === "function") {
+          initHomepageTemplates();
+        }
+      });
+    })();
 
     function getSavedFavorites() {
       const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;

@@ -2412,6 +2412,9 @@ async function deployUploadedTemplate(publishImmediately = true) {
         (resultObj.fileCount || Object.keys(currentUploadedFiles).length) + " B2 files saved in D1)"
       );
 
+      if (typeof window.notifyPublicWebsiteTemplateSync === "function") {
+        window.notifyPublicWebsiteTemplateSync("deploy_template");
+      }
       loadDynamicTemplates();
     } else {
       if (!resultObj?.rolledBack?.imgbb && (Object.keys(preUploadedImgbbMap).length > 0 || Object.keys(preUploadedB2Map).length > 0)) {
@@ -3086,6 +3089,9 @@ async function submitDuplicateTemplate(event) {
     }
 
     closeDuplicateModal();
+    if (typeof window.notifyPublicWebsiteTemplateSync === 'function') {
+      window.notifyPublicWebsiteTemplateSync('duplicate_template');
+    }
     showToast('🎉 Template duplicated as Draft!');
     await loadDynamicTemplates();
   } catch (err) {
@@ -3122,6 +3128,9 @@ async function togglePublishTemplate(templateId, currentStatus) {
       throw new Error(resData.error?.message || resData.message || 'Failed to update publish status');
     }
     try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
+    if (typeof window.notifyPublicWebsiteTemplateSync === 'function') {
+      window.notifyPublicWebsiteTemplateSync('toggle_publish');
+    }
 
     showToast(isPub ? '🎉 Template published to live marketplace!' : '📁 Template moved to Drafts.');
     await loadDynamicTemplates();
@@ -3160,6 +3169,9 @@ async function toggleTierTemplate(templateId, currentTier, currentPrice) {
       throw new Error(resData.error?.message || resData.message || 'Failed to update template tier');
     }
     try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
+    if (typeof window.notifyPublicWebsiteTemplateSync === 'function') {
+      window.notifyPublicWebsiteTemplateSync('toggle_tier');
+    }
 
     showToast(isPremium ? '👑 Switched to VIP Pass (₹' + newPrice + ')' : '✨ Switched to Free Tier (₹0)');
     await loadDynamicTemplates();
@@ -3203,6 +3215,9 @@ async function deleteTemplate(templateId, name) {
 
     if (isDeleted) {
       try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
+      if (typeof window.notifyPublicWebsiteTemplateSync === 'function') {
+        window.notifyPublicWebsiteTemplateSync('delete_template');
+      }
       const rData = (result && result.data) ? result.data : (result || {});
       const extraCounts = [];
       if (rData.b2DeletedCount) extraCounts.push(`${rData.b2DeletedCount} B2 file(s)`);
@@ -3570,6 +3585,9 @@ window.saveTemplateEdits = async function(publishChanges = true) {
     }
 
     try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
+    if (typeof window.notifyPublicWebsiteTemplateSync === 'function') {
+      window.notifyPublicWebsiteTemplateSync('save_template_edits');
+    }
 
     if (publishChanges) {
       closeEditTemplateModal();
@@ -7632,6 +7650,9 @@ window.executeImportStudioConfirmedPublish = async function() {
 
     importStudioState.sessionData = data;
     closeImportPublishConfirmationModal();
+    if (typeof window.notifyPublicWebsiteTemplateSync === "function") {
+      window.notifyPublicWebsiteTemplateSync("import_studio_publish");
+    }
     if (typeof showToast === "function") {
       showToast("🚀 Published " + (data.publishedVersionLabel || data.publishedVersionId) + " for template " + data.publishedTemplateId + "!");
     }
@@ -7831,3 +7852,27 @@ window.syncUploadBrandingFooterToPreview = function() {
 document.addEventListener("DOMContentLoaded", () => {
   loadAdminBrandingFooterStudio();
 });
+
+window.notifyPublicWebsiteTemplateSync = function(reason) {
+  try {
+    localStorage.removeItem("wm_public_templates_cache_v2");
+    localStorage.removeItem("wishmagic_templates_v1");
+    sessionStorage.removeItem("wm_public_templates_cache_v1");
+    const ts = String(Date.now());
+    localStorage.setItem("wm_public_templates_updated_at", ts);
+    localStorage.setItem("wm_admin_last_mutation_ts", ts);
+  } catch (_) {}
+  if (typeof BroadcastChannel !== "undefined") {
+    try {
+      const bc1 = new BroadcastChannel("wm_template_sync_v1");
+      bc1.postMessage({ type: "TEMPLATE_MUTATION", reason: reason || "admin_update", ts: Date.now() });
+      bc1.close();
+    } catch (_) {}
+    try {
+      const bc2 = new BroadcastChannel("wm_admin_live_sync_v1");
+      bc2.postMessage({ type: "ADMIN_MUTATION", reason: reason || "admin_update", ts: Date.now() });
+      bc2.close();
+    } catch (_) {}
+  }
+};
+

@@ -541,19 +541,46 @@
     }
 
   const FALLBACK_SEED_TEMPLATES = [];
-  const DEMO_SEED_IDS_MP = new Set([
-    "tpl_glitter_birthday","tpl_romantic_starlight","tpl_golden_elegance","tpl_neon_party",
-    "tpl_parents_tribute","tpl_midnight_countdown","tpl_friendship_chronicles","tpl_festive_lights"
-  ]);
+
+  // Real-time cross-tab & visibility sync for marketplace page
+  (function setupMarketplacePageLiveSync() {
+    if (window._wmMarketplacePageSyncBound) return;
+    window._wmMarketplacePageSyncBound = true;
+    const triggerRefresh = () => {
+      try {
+        localStorage.removeItem("wm_public_templates_cache_v2");
+        sessionStorage.removeItem("wm_public_templates_cache_v1");
+      } catch (_) {}
+      if (typeof loadMarketplaceTemplates === "function") loadMarketplaceTemplates();
+    };
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        const bc1 = new BroadcastChannel("wm_template_sync_v1");
+        bc1.onmessage = () => triggerRefresh();
+        const bc2 = new BroadcastChannel("wm_admin_live_sync_v1");
+        bc2.onmessage = () => triggerRefresh();
+      } catch (_) {}
+    }
+    window.addEventListener("storage", (ev) => {
+      if (ev && (ev.key === "wm_public_templates_updated_at" || ev.key === "wm_admin_last_mutation_ts")) {
+        triggerRefresh();
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && typeof loadMarketplaceTemplates === "function") {
+        loadMarketplaceTemplates();
+      }
+    });
+  })();
 
   async function loadMarketplaceTemplates() {
     try {
-      // 1. Instant first-paint from localStorage cache if real uploaded templates exist
+      // 1. Instant first-paint from localStorage cache if published templates exist
       try {
         const rawCache = localStorage.getItem("wm_public_templates_cache_v2");
         const cached = rawCache ? JSON.parse(rawCache) : null;
         const initialList = Array.isArray(cached)
-          ? cached.filter(t => t && (!DEMO_SEED_IDS_MP.has(String(t.id || "")) || String(t.currentVersionId || "").startsWith("ver_")))
+          ? cached.filter(t => t && t.isPublished !== false && t.status !== "draft")
           : [];
         allLoadedTemplates = initialList;
         window.allMarketplaceTemplates = initialList;
@@ -576,7 +603,7 @@
           const data = await res.json();
           const rawArr = Array.isArray(data) ? data : (Array.isArray(data.templates) ? data.templates : (data && data.data && Array.isArray(data.data.templates) ? data.data.templates : null));
           if (data && data.success !== false && Array.isArray(rawArr)) {
-            templates = rawArr.filter(t => t && (!DEMO_SEED_IDS_MP.has(String(t.id || "")) || String(t.currentVersionId || "").startsWith("ver_")));
+            templates = rawArr.filter(t => t && t.isPublished !== false && t.status !== "draft");
             fetchedFromApi = true;
             try {
               localStorage.setItem("wm_public_templates_cache_v2", JSON.stringify(templates));

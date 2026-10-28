@@ -9503,7 +9503,7 @@ export default {
       else if (pathname === '/api/templates' && method === 'GET') {
         const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
         const forceReconcile = url.searchParams.get('reconcile') === 'true';
-        if (includeDrafts || forceReconcile) {
+        if (includeDrafts || forceReconcile || _lastD1TemplateReconcileTs === 0) {
           await reconcileUploadedTemplatesInD1(env, {
             allowB2Scan: forceReconcile || _lastB2OrphanRecoveryTs === 0,
             force: forceReconcile
@@ -9669,16 +9669,23 @@ export default {
               }
               const filteredDbTemplates = dbTemplates.filter(t => {
                 if (deletedSet.has(t.id) || deletedSet.has(t.slug)) return false;
-                const isUploadedB2 = Boolean((t.currentVersionId && String(t.currentVersionId).startsWith('ver_')) || t.hasVariants);
-                if (isUploadedB2 || (!seedIdsAndSlugs.has(t.id) && !seedIdsAndSlugs.has(t.slug))) {
+                const isUploadedOrEdited = Boolean(
+                  (t.currentVersionId && (String(t.currentVersionId).startsWith('ver_') || String(t.currentVersionId).startsWith('tv_'))) ||
+                  t.hasVariants
+                );
+                if (isUploadedOrEdited || (!seedIdsAndSlugs.has(t.id) && !seedIdsAndSlugs.has(t.slug))) {
                   return true;
                 }
                 return allowSeedFallback;
               });
-              const seenIds = new Set(filteredDbTemplates.map(t => t.id));
-              const seenSlugs = new Set(filteredDbTemplates.map(t => t.slug).filter(Boolean));
-              const merged = [...filteredDbTemplates];
-              for (const seed of (allowSeedFallback ? SEED_TEMPLATES : [])) {
+              const activeDbTemplates = filteredDbTemplates.length > 0
+                ? filteredDbTemplates
+                : dbTemplates.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug));
+              const seenIds = new Set(activeDbTemplates.map(t => t.id));
+              const seenSlugs = new Set(activeDbTemplates.map(t => t.slug).filter(Boolean));
+              const merged = [...activeDbTemplates];
+              const shouldIncludeSeeds = allowSeedFallback || merged.length === 0;
+              for (const seed of (shouldIncludeSeeds ? SEED_TEMPLATES : [])) {
                 if (!seenIds.has(seed.id) && !seenSlugs.has(seed.slug) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
                   const seedVars = variantsByTplId.get(seed.id) || [];
                   const seedAvail = filterPublicAvailableVariants(seedVars);
@@ -9823,6 +9830,7 @@ export default {
 
         await clearPermanentTemplateDeletion(env, id, slug);
         const v1Snapshot = await getOrSeedActiveTemplateVersion(env, id, body);
+        invalidateTemplateReconcileCache();
 
         response = jsonSuccess({
           template: { id, slug, name, category, tier, price, isPremium: tier === 'vip', isPublished: true },
@@ -9842,6 +9850,7 @@ export default {
         const targetId = templateId || body.id;
 
         const updatedSnapshot = await createNewTemplateVersion(env, targetId, body, user);
+        invalidateTemplateReconcileCache();
 
         response = jsonSuccess({
           updated: true,
@@ -9901,6 +9910,7 @@ export default {
         }
 
         const updatedSnapshot = await createNewTemplateVersion(env, templateId, body, user);
+        invalidateTemplateReconcileCache();
 
         response = jsonSuccess({
           updated: true,

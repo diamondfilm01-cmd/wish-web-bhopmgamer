@@ -283,10 +283,16 @@
   // Fetch live templates from server API
   async function fetchTemplatesCatalog() {
     try {
-      const res = await fetch('/api/templates?includeDrafts=false', { credentials: 'include' });
+      const res = await fetch('/api/templates?includeDrafts=false&_t=' + Date.now(), {
+        credentials: 'include',
+        cache: 'no-store'
+      });
       const data = await res.json();
-      if (res.ok && data && data.success && Array.isArray(data.templates)) {
-        state.templatesCatalog = data.templates;
+      const rawTemplates = (data && Array.isArray(data.templates))
+        ? data.templates
+        : (data && data.data && Array.isArray(data.data.templates) ? data.data.templates : null);
+      if (res.ok && data && data.success !== false && Array.isArray(rawTemplates)) {
+        state.templatesCatalog = rawTemplates.filter(t => t && t.isPublished !== false && t.status !== 'draft');
         if (state.templatesCatalog.length > 0 && !state.templatesCatalog.some(t => t.id === state.selectedTemplateId)) {
           state.selectedTemplateId = state.templatesCatalog[0].id;
         }
@@ -294,6 +300,16 @@
     } catch (e) {
       console.warn('[wish-wizard] Catalog fetch notice, using built-in catalog:', e);
     }
+  }
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const bc = new BroadcastChannel('wm_template_sync_v1');
+      bc.onmessage = async () => {
+        await fetchTemplatesCatalog();
+        if (typeof renderTemplateSelectionGrid === 'function') renderTemplateSelectionGrid();
+      };
+    } catch (_) {}
   }
 
   // ---------------------------------------------------------------------------

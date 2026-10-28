@@ -4403,22 +4403,8 @@ app.post('/api/templates/upload', async (req, res) => {
       resolvedZipBase64 = Buffer.from(zipUint8).toString('base64');
     }
 
-    // If a ZIP archive (or B2-packaged folder bundle) is provided
-    if (resolvedZipBase64) {
-      if (!b2Config.isConfigured) {
-        return res.status(503).json({
-          success: false,
-          error: 'B2_NOT_CONFIGURED',
-          code: 'B2_NOT_CONFIGURED',
-          message: `Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${b2Config.missingKeys.join(', ')}`,
-          details: {
-            missingKeys: b2Config.missingKeys,
-            provider: 'b2',
-            documentation: 'Configure B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME in environment variables.'
-          }
-        });
-      }
-
+    // If a ZIP archive (or B2-packaged folder bundle) is provided and B2 is configured
+    if (resolvedZipBase64 && b2Config.isConfigured) {
       const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || req.body?.idempotencyKey || null;
 
       const zipBuffer = Buffer.from(resolvedZipBase64, 'base64');
@@ -4496,7 +4482,24 @@ app.post('/api/templates/upload', async (req, res) => {
       return res.status(201).json(ingestResult);
     }
 
-    if (!name || !files || typeof files !== 'object') {
+    // Local fallback when B2 is not configured: extract from zipBase64 if files object wasn't passed
+    let resolvedLocalFiles = files;
+    if ((!resolvedLocalFiles || typeof resolvedLocalFiles !== 'object') && resolvedZipBase64) {
+      try {
+        const extracted = await extractAndValidateZip(Buffer.from(resolvedZipBase64, 'base64'));
+        if (extracted && extracted.valid && Array.isArray(extracted.files)) {
+          resolvedLocalFiles = {};
+          for (const ef of extracted.files) {
+            resolvedLocalFiles[ef.relativePath] = {
+              content: Buffer.from(ef.uint8Data).toString('base64'),
+              isBase64: true
+            };
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!name || !resolvedLocalFiles || typeof resolvedLocalFiles !== 'object') {
       return res.status(400).json({ success: false, message: 'Template name and files bundle or zipBase64 are required' });
     }
 
@@ -4507,10 +4510,11 @@ app.post('/api/templates/upload', async (req, res) => {
     let entryFile = 'index.html';
 
     // Write all uploaded files to public/templates-store/[templateId]/...
-    const normalizedEntries = Array.isArray(files)
-      ? files.map(f => [f.path || f.name || f.filename, f])
-      : Object.entries(files);
+    const normalizedEntries = Array.isArray(resolvedLocalFiles)
+      ? resolvedLocalFiles.map(f => [f.path || f.name || f.filename, f])
+      : Object.entries(resolvedLocalFiles);
     for (const [filePath, fileData] of normalizedEntries) {
+      if (!filePath) continue;
       // Normalize path to prevent directory traversal
       const safePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
       const fullPath = path.join(targetFolder, safePath);
@@ -4540,29 +4544,46 @@ app.post('/api/templates/upload', async (req, res) => {
       }
     }
 
+    const shouldPublish = req.body?.publishImmediately !== false && req.body?.isPublished !== false && req.body?.status !== 'draft';
+    const newVersionId = `ver_${templateId}_v1`;
     const newTemplate = {
       id: templateId,
+      familyId: `fam_${templateId}`,
+      slug: templateId.replace(/^tpl_/, ''),
       name: name.trim(),
       category: category || 'Birthday',
       description: description || 'Custom handcrafted web celebration.',
       thumbnail: thumbnail || '/assets/default-template.jpg',
       tier: tier === 'vip' ? 'vip' : 'free',
       price: tier === 'vip' ? (Number(price) || 49) : 0,
+      isPremium: tier === 'vip',
+      isPublished: shouldPublish,
+      status: shouldPublish ? 'published' : 'draft',
       entryFile: entryFile,
       folder: templateId,
+      currentVersionId: newVersionId,
+      previewUrl: `/templates-store/${templateId}/${entryFile}`,
       featured: Boolean(featured),
       placement: Number(placement) || 1,
       detectedFields: Array.isArray(detectedFields) ? detectedFields : [],
-      createdAt: new Date().toISOString()
+      relationships: Array.isArray(req.body?.relationships) ? req.body.relationships : [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     const templates = getTemplates();
     templates.unshift(newTemplate);
     saveTemplates(templates);
 
-    res.json({
+    res.status(201).json({
       success: true,
       message: 'Template website successfully deployed!',
+      templateId,
+      versionId: newVersionId,
+      isPublished: shouldPublish,
+      status: shouldPublish ? 'published' : 'draft',
+      previewUrl: newTemplate.previewUrl,
+      fileCount: normalizedEntries.length,
       template: newTemplate
     });
   } catch (err) {
