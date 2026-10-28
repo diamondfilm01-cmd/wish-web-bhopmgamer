@@ -7401,6 +7401,10 @@ export default {
       // --- Auth Routes ---
       else if (pathname === '/api/auth/session') {
         const user = await getAuthenticatedUser(request, env);
+        const activeSessionToken = user
+          ? (getCookie(request, 'wm_session') || (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim())
+          : '';
+        const extraHeaders = activeSessionToken ? { 'X-WishMagic-Admin-Session': activeSessionToken } : {};
         response = jsonSuccess({
           user: user ? {
             id: user.id,
@@ -7412,7 +7416,7 @@ export default {
             isPremium: user.isPremium
           } : null,
           isAuthenticated: Boolean(user)
-        }, 200, {}, requestId);
+        }, 200, extraHeaders, requestId);
       }
 
       else if (pathname === '/api/auth/signin' && method === 'POST') {
@@ -22442,6 +22446,8 @@ export default {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Active admin privileges required', 403), request, env);
         }
 
+        const activeSessionToken = getCookie(request, 'wm_session') || (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+        const extraHeaders = activeSessionToken ? { 'X-WishMagic-Admin-Session': activeSessionToken } : {};
         response = jsonSuccess({
           authenticated: true,
           admin: {
@@ -22454,7 +22460,7 @@ export default {
             permissions: adminProfile.permissions,
             status: adminProfile.status
           }
-        }, 200, {}, requestId);
+        }, 200, extraHeaders, requestId);
       }
 
       // --- Admin Auth Logout ---

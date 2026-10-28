@@ -1938,6 +1938,7 @@ app.use((req, res, next) => {
 
     if (req.user && (req.user.role === 'admin' || req.user.isAdmin)) {
       res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`);
+      res.setHeader('X-WishMagic-Admin-Session', token);
     }
   }
 
@@ -2246,6 +2247,9 @@ app.get('/api/auth/config', (req, res) => {
 
 // API: Auth Session
 app.get('/api/auth/session', (req, res) => {
+  if (req.user && req.sessionToken) {
+    res.setHeader('X-WishMagic-Admin-Session', req.sessionToken);
+  }
   res.json({
     success: true,
     user: req.user,
@@ -2399,6 +2403,7 @@ app.post('/api/auth/signin', (req, res) => {
     saveSessions(sessions);
 
     res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; SameSite=Lax`);
+    res.setHeader('X-WishMagic-Admin-Session', token);
     res.json({
       success: true,
       user: target,
@@ -2668,6 +2673,12 @@ app.get('/api/admin/auth/session', (req, res) => {
   const isMaster = user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || MASTER_ADMINS.includes(userEmail));
 
   if (isMaster) {
+    const activeToken = req.sessionToken ||
+      (req.headers.cookie && parseCookies(req.headers.cookie).wm_session) ||
+      (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (activeToken) {
+      res.setHeader('X-WishMagic-Admin-Session', activeToken);
+    }
     return res.json({
       success: true,
       data: {
@@ -2676,8 +2687,12 @@ app.get('/api/admin/auth/session', (req, res) => {
           id: user.id,
           email: user.email,
           displayName: user.displayName || 'Ankit Saini',
+          name: user.displayName || 'Ankit Saini',
           role: 'SUPER_ADMIN',
-          isAdmin: true
+          isOwner: true,
+          isAdmin: true,
+          permissions: ['*'],
+          status: 'ACTIVE'
         }
       }
     });
@@ -2757,6 +2772,7 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
       `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`,
       `wishmagic_admin_token=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`
     ]);
+    res.setHeader('X-WishMagic-Admin-Session', token);
 
     console.log(`[Admin Auth] Authorized admin session issued for ${adminUser.displayName}`);
 
@@ -14809,6 +14825,89 @@ app.get('/api/admin/metrics', (req, res) => {
     });
   } catch (err) {
     console.error('Error generating metrics:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Unified Admin Dashboard Summary & Live Overview (Parity with Cloudflare Worker)
+app.get(['/api/admin/dashboard/summary', '/api/admin/dashboard', '/api/admin/overview'], (req, res) => {
+  try {
+    cleanStaleVisitors();
+    const templates = getTemplates();
+    const wishes = getWishes();
+    const users = getUsers();
+    const media = getMedia();
+    const festivals = typeof getFestivals === 'function' ? getFestivals() : [];
+
+    let totalRevenue = 0;
+    let vipWishes = 0;
+    let publishedWishes = 0;
+    let draftWishes = 0;
+    let upcomingWishes = 0;
+    let expiredWishes = 0;
+
+    wishes.forEach(w => {
+      const t = templates.find(tpl => tpl.id === w.templateId);
+      const isVip = w.tier === 'vip' || (t && t.tier === 'vip') || (w.price && w.price > 0) || (w.payment && w.payment.status === 'Completed');
+      const price = isVip ? (w.price || (t && t.price) || 49) : 0;
+      if (isVip) {
+        vipWishes++;
+        totalRevenue += price;
+      }
+      const status = computeWishStatus(w);
+      if (w.status === 'draft' || w.isDraft) draftWishes++;
+      else if (status === 'expired') expiredWishes++;
+      else if (status === 'upcoming' || status === 'future') upcomingWishes++;
+      else publishedWishes++;
+    });
+
+    const activeFestivals = Array.isArray(festivals)
+      ? festivals.filter(f => f && (f.isActive !== false && f.status !== 'archived')).length
+      : 0;
+
+    const summaryData = {
+      totalUsers: users.length,
+      totalWishes: wishes.length,
+      publishedWishes,
+      draftWishes,
+      upcomingWishes,
+      expiredWishes,
+      totalTemplates: templates.length,
+      templateFamiliesCount: templates.length,
+      activeFestivals,
+      paidOrders: vipWishes,
+      totalOrders: vipWishes,
+      totalRevenue,
+      liveVisitorsCount: activeVisitors.size,
+      mediaCount: media.length,
+      templateOverview: {
+        totalFamilies: templates.length,
+        activeTemplates: templates.filter(t => t.isActive !== false).length,
+        vipTemplates: templates.filter(t => t.tier === 'vip').length,
+        freeTemplates: templates.filter(t => t.tier !== 'vip').length
+      },
+      metrics: {
+        totalUsers: users.length,
+        totalWishes: wishes.length,
+        publishedWishes,
+        draftWishes,
+        upcomingWishes,
+        expiredWishes,
+        totalTemplates: templates.length,
+        activeFestivals,
+        paidOrders: vipWishes,
+        totalOrders: vipWishes,
+        totalRevenue
+      },
+      syncedAt: new Date().toISOString()
+    };
+
+    res.json({
+      success: true,
+      data: summaryData,
+      ...summaryData
+    });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });

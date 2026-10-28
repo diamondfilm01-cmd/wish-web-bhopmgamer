@@ -137,6 +137,9 @@
     try {
       localStorage.removeItem(STORAGE_KEY_USER);
       localStorage.removeItem('wishmagic_user');
+      localStorage.removeItem('wm_admin_session_token');
+      localStorage.removeItem('wishmagic_admin_token');
+      localStorage.removeItem('clay_admin_token');
     } catch (_) {}
   }
 
@@ -193,14 +196,30 @@
 
     inFlightSessionPromise = (async () => {
       try {
+        const headers = {
+          'Accept': 'application/json'
+        };
+        try {
+          const savedToken = localStorage.getItem('wm_admin_session_token') || localStorage.getItem('wishmagic_admin_token');
+          if (savedToken) {
+            headers['Authorization'] = `Bearer ${savedToken}`;
+          }
+        } catch (_) {}
+
         const response = await fetch('/api/auth/session', {
           method: 'GET',
           credentials: 'include',
           cache: 'no-store',
-          headers: {
-            'Accept': 'application/json'
-          }
+          headers
         });
+
+        try {
+          const hdrToken = response.headers && response.headers.get ? response.headers.get('X-WishMagic-Admin-Session') : null;
+          if (hdrToken) {
+            localStorage.setItem('wm_admin_session_token', hdrToken);
+            localStorage.setItem('clay_admin_token', hdrToken);
+          }
+        } catch (_) {}
 
         const data = await response.json().catch(() => ({}));
         const user = data?.data?.user || data?.user || null;
@@ -270,6 +289,13 @@
         });
 
         const data = await response.json().catch(() => ({}));
+        try {
+          const hdrToken = (response.headers && response.headers.get ? response.headers.get('X-WishMagic-Admin-Session') : null) || data?.token || data?.data?.token;
+          if (hdrToken) {
+            localStorage.setItem('wm_admin_session_token', hdrToken);
+            localStorage.setItem('clay_admin_token', hdrToken);
+          }
+        } catch (_) {}
         const user = data?.user || data?.data?.user;
         const timerCancelled = Boolean(data?.deletionTimerCancelled || data?.data?.deletionTimerCancelled || data?.accountRestored || data?.data?.accountRestored);
         if (response.ok && data?.success === true && user) {

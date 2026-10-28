@@ -192,19 +192,43 @@
     }
   };
 
+  const TOKEN_KEYS = ['wm_admin_session_token', 'wishmagic_admin_token', 'clay_admin_token'];
+
+  function getSharedAdminToken() {
+    try {
+      for (const k of TOKEN_KEYS) {
+        const v = localStorage.getItem(k);
+        if (v && typeof v === 'string' && v.trim().length > 6) return v.trim();
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function saveSharedAdminToken(tok) {
+    if (!tok || typeof tok !== 'string' || tok.trim().length < 6) return;
+    const clean = tok.trim();
+    state.bearerToken = clean;
+    try {
+      TOKEN_KEYS.forEach(k => localStorage.setItem(k, clean));
+    } catch (_) {}
+  }
+
   // State management
   const state = {
     activeSection: 'overview',
     viewMode: 'native', // 'native' | 'dock'
     apiBase: localStorage.getItem('clay_admin_api_base') || '',
-    bearerToken: localStorage.getItem('clay_admin_token') || '',
+    bearerToken: getSharedAdminToken(),
     stats: {
       templates: 0,
       festivals: 0,
       wishes: 0,
       users: 0,
-      orders: 0
+      orders: 0,
+      revenue: 0,
+      publishedWishes: 0
     },
+    lastSyncedAt: null,
     deferredPrompt: null
   };
 
@@ -383,43 +407,47 @@
     let contentHtml = '';
 
     if (sectionKey === 'overview') {
+      const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
+      const syncLabel = state.lastSyncedAt
+        ? `Synced ${new Date(state.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+        : 'Live Server Sync';
       contentHtml = `
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="clay-card !p-5 flex items-center justify-between">
+          <div class="clay-card !p-5 flex items-center justify-between cursor-pointer" data-action="launch-dock" data-target="templates">
             <div>
               <p class="text-xs font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider m-0">Active Templates</p>
-              <h3 class="text-3xl font-black mt-1 mb-0">${state.stats.templates || '28'}</h3>
+              <h3 class="text-3xl font-black mt-1 mb-0">${fmt(state.stats.templates)}</h3>
               <p class="text-[11px] font-bold opacity-70 mt-1 m-0">UTP v1.4.0 Certified</p>
             </div>
             <div class="clay-kpi-orb" style="background: var(--clay-primary-grad);">
               <i class="fa-solid fa-layer-group"></i>
             </div>
           </div>
-          <div class="clay-card !p-5 flex items-center justify-between">
+          <div class="clay-card !p-5 flex items-center justify-between cursor-pointer" data-action="launch-dock" data-target="festivals">
             <div>
               <p class="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider m-0">Active Festivals</p>
-              <h3 class="text-3xl font-black mt-1 mb-0">${state.stats.festivals || '6'}</h3>
+              <h3 class="text-3xl font-black mt-1 mb-0">${fmt(state.stats.festivals)}</h3>
               <p class="text-[11px] font-bold opacity-70 mt-1 m-0">Auto-Scheduler Active</p>
             </div>
             <div class="clay-kpi-orb" style="background: var(--clay-emerald-grad);">
               <i class="fa-solid fa-calendar-check"></i>
             </div>
           </div>
-          <div class="clay-card !p-5 flex items-center justify-between">
+          <div class="clay-card !p-5 flex items-center justify-between cursor-pointer" data-action="launch-dock" data-target="wishes">
             <div>
               <p class="text-xs font-black uppercase text-pink-600 dark:text-pink-400 tracking-wider m-0">Total Wishes</p>
-              <h3 class="text-3xl font-black mt-1 mb-0">${state.stats.wishes || '1,420'}</h3>
-              <p class="text-[11px] font-bold opacity-70 mt-1 m-0">Cloudflare D1 Synced</p>
+              <h3 class="text-3xl font-black mt-1 mb-0">${fmt(state.stats.wishes)}</h3>
+              <p class="text-[11px] font-bold opacity-70 mt-1 m-0">${escapeHtml(syncLabel)}</p>
             </div>
             <div class="clay-kpi-orb" style="background: var(--clay-pink-grad);">
               <i class="fa-solid fa-heart"></i>
             </div>
           </div>
-          <div class="clay-card !p-5 flex items-center justify-between">
+          <div class="clay-card !p-5 flex items-center justify-between cursor-pointer" data-action="launch-dock" data-target="orders">
             <div>
               <p class="text-xs font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider m-0">Store Orders</p>
-              <h3 class="text-3xl font-black mt-1 mb-0">${state.stats.orders || '342'}</h3>
-              <p class="text-[11px] font-bold opacity-70 mt-1 m-0">Razorpay Verified</p>
+              <h3 class="text-3xl font-black mt-1 mb-0">${fmt(state.stats.orders)}</h3>
+              <p class="text-[11px] font-bold opacity-70 mt-1 m-0">₹${fmt(state.stats.revenue)} Revenue</p>
             </div>
             <div class="clay-kpi-orb" style="background: var(--clay-amber-grad);">
               <i class="fa-solid fa-receipt"></i>
@@ -538,19 +566,76 @@
     });
   }
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function pickFirstNumber(...candidates) {
+    for (const c of candidates) {
+      if (c !== undefined && c !== null && c !== '' && !Number.isNaN(Number(c))) {
+        return Number(c);
+      }
+    }
+    return 0;
+  }
+
   function applyOverviewStatsPayload(payload) {
     if (!payload) return;
-    state.stats.templates = payload.totalTemplates || payload.templateCount || 28;
-    state.stats.festivals = payload.activeFestivals || payload.festivalCount || 6;
-    state.stats.wishes = payload.totalWishes || payload.wishCount || 1420;
-    state.stats.users = payload.totalUsers || payload.userCount || 890;
-    state.stats.orders = payload.totalOrders || payload.orderCount || 342;
+    const m = payload.metrics || payload.data?.metrics || {};
+    const tOverview = payload.templateOverview || payload.data?.templateOverview || {};
 
-    if (dom.badgeTemplates) dom.badgeTemplates.textContent = state.stats.templates;
-    if (dom.badgeFestivals) dom.badgeFestivals.textContent = state.stats.festivals;
-    if (dom.badgeWishes) dom.badgeWishes.textContent = state.stats.wishes;
-    if (dom.badgeUsers) dom.badgeUsers.textContent = state.stats.users;
-    if (dom.badgeOrders) dom.badgeOrders.textContent = state.stats.orders;
+    state.stats.templates = pickFirstNumber(
+      payload.totalTemplates,
+      payload.templateCount,
+      payload.templateFamiliesCount,
+      tOverview.totalFamilies,
+      tOverview.activeTemplates,
+      m.totalTemplates,
+      state.stats.templates
+    );
+    state.stats.festivals = pickFirstNumber(
+      payload.activeFestivals,
+      payload.festivalCount,
+      m.activeFestivals,
+      state.stats.festivals
+    );
+    state.stats.wishes = pickFirstNumber(
+      payload.totalWishes,
+      payload.wishCount,
+      m.totalWishes,
+      state.stats.wishes
+    );
+    state.stats.users = pickFirstNumber(
+      payload.totalUsers,
+      payload.userCount,
+      m.totalUsers,
+      state.stats.users
+    );
+    state.stats.orders = pickFirstNumber(
+      payload.totalOrders,
+      payload.paidOrders,
+      payload.orderCount,
+      m.totalOrders,
+      m.paidOrders,
+      m.vipWishes,
+      state.stats.orders
+    );
+    state.stats.revenue = pickFirstNumber(
+      payload.totalRevenue,
+      m.totalRevenue,
+      state.stats.revenue
+    );
+    state.lastSyncedAt = Date.now();
+
+    if (dom.badgeTemplates) dom.badgeTemplates.textContent = String(state.stats.templates);
+    if (dom.badgeFestivals) dom.badgeFestivals.textContent = String(state.stats.festivals);
+    if (dom.badgeWishes) dom.badgeWishes.textContent = String(state.stats.wishes);
+    if (dom.badgeUsers) dom.badgeUsers.textContent = String(state.stats.users);
+    if (dom.badgeOrders) dom.badgeOrders.textContent = String(state.stats.orders);
 
     if (state.viewMode === 'native' && state.activeSection === 'overview') {
       renderNativeWorkspace('overview');
@@ -558,46 +643,125 @@
   }
 
   // Data sync with backend
-  async function syncLiveData(forceNetwork = false) {
+  async function syncLiveData(forceOpt = false, silent = false) {
+    const isClickEvent = Boolean(forceOpt && typeof forceOpt === 'object' && ('target' in forceOpt || 'preventDefault' in forceOpt));
+    const forceNetwork = Boolean(forceOpt === true || isClickEvent);
     const OVERVIEW_CACHE_KEY = 'clay_admin_overview_cache_v1';
-    if (!forceNetwork && !(forceNetwork && typeof forceNetwork === 'object')) {
+
+    if (!forceNetwork) {
       try {
         const cachedRaw = sessionStorage.getItem(OVERVIEW_CACHE_KEY);
         if (cachedRaw) {
           const parsed = JSON.parse(cachedRaw);
-          if (parsed && parsed.payload && parsed.ts && (Date.now() - parsed.ts < 30000)) {
+          if (parsed && parsed.payload && parsed.ts && (Date.now() - parsed.ts < 8000)) {
             applyOverviewStatsPayload(parsed.payload);
-            return;
           }
         }
       } catch (_) {}
+    } else {
+      try { sessionStorage.removeItem(OVERVIEW_CACHE_KEY); } catch (_) {}
     }
 
     if (dom.syncIcon) dom.syncIcon.classList.add('fa-spin');
 
+    // If embedded dock iframe is active, also trigger its live sync
+    try {
+      if (state.viewMode === 'dock' && dom.studioIframe && dom.studioIframe.contentWindow) {
+        if (typeof dom.studioIframe.contentWindow.triggerAdminLiveSync === 'function') {
+          dom.studioIframe.contentWindow.triggerAdminLiveSync(true, { showToastFeedback: !silent });
+        } else if (forceNetwork) {
+          dom.studioIframe.contentWindow.location.reload();
+        }
+      }
+    } catch (_) {}
+
     try {
       const base = state.apiBase ? state.apiBase.replace(/\/+$/, '') : '';
+      const activeToken = getSharedAdminToken() || state.bearerToken;
       const headers = { 'Accept': 'application/json' };
-      if (state.bearerToken) {
-        headers['Authorization'] = `Bearer ${state.bearerToken}`;
+      if (activeToken) {
+        headers['Authorization'] = `Bearer ${activeToken}`;
       }
 
-      const res = await fetch(`${base}/api/admin/overview`, { headers, credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        const payload = data.data || data;
+      const fetchOpts = { headers, credentials: 'include', cache: 'no-store' };
+      const [summaryRes, templatesRes, festivalsRes] = await Promise.all([
+        fetch(`${base}/api/admin/dashboard/summary`, fetchOpts).catch(() => null),
+        fetch(`${base}/api/templates`, fetchOpts).catch(() => null),
+        fetch(`${base}/api/admin/festivals`, fetchOpts).catch(() => null)
+      ]);
 
+      let mergedPayload = {};
+      let anyOk = false;
+
+      if (summaryRes) {
+        const hdrTok = summaryRes.headers && summaryRes.headers.get ? summaryRes.headers.get('X-WishMagic-Admin-Session') : null;
+        if (hdrTok) saveSharedAdminToken(hdrTok);
+        if (summaryRes.ok) {
+          anyOk = true;
+          const sJson = await summaryRes.json().catch(() => ({}));
+          mergedPayload = Object.assign({}, sJson, sJson.data || {});
+        }
+      }
+
+      if (!anyOk) {
+        const fallbackRes = await fetch(`${base}/api/admin/overview`, fetchOpts).catch(() => null);
+        if (fallbackRes && fallbackRes.ok) {
+          anyOk = true;
+          const fJson = await fallbackRes.json().catch(() => ({}));
+          mergedPayload = Object.assign({}, fJson, fJson.data || {});
+        } else {
+          const metricsRes = await fetch(`${base}/api/admin/metrics`, fetchOpts).catch(() => null);
+          if (metricsRes && metricsRes.ok) {
+            anyOk = true;
+            const mJson = await metricsRes.json().catch(() => ({}));
+            mergedPayload = Object.assign({}, mJson, mJson.metrics || {});
+          }
+        }
+      }
+
+      if (templatesRes && templatesRes.ok) {
+        const tJson = await templatesRes.json().catch(() => ({}));
+        const tList = Array.isArray(tJson) ? tJson : (tJson.templates || tJson.data?.templates || tJson.data || []);
+        if (Array.isArray(tList)) {
+          mergedPayload.totalTemplates = tList.length;
+          anyOk = true;
+        }
+      }
+
+      if (festivalsRes && festivalsRes.ok) {
+        const fJson = await festivalsRes.json().catch(() => ({}));
+        const fList = fJson.festivals || fJson.data?.festivals || fJson.schedules || fJson.data || [];
+        if (Array.isArray(fList)) {
+          mergedPayload.activeFestivals = fList.filter(f => f && f.isActive !== false && f.status !== 'archived').length;
+          anyOk = true;
+        }
+      }
+
+      if (anyOk) {
         try {
-          sessionStorage.setItem(OVERVIEW_CACHE_KEY, JSON.stringify({ ts: Date.now(), payload }));
+          sessionStorage.setItem(OVERVIEW_CACHE_KEY, JSON.stringify({ ts: Date.now(), payload: mergedPayload }));
         } catch (_) {}
 
-        applyOverviewStatsPayload(payload);
-        showToast('✅ Live Synced!', 'Pulled latest statistics and configuration from Cloudflare D1.');
+        applyOverviewStatsPayload(mergedPayload);
+        if (dom.authStatusBadge) {
+          dom.authStatusBadge.textContent = '🟢 Live Synced';
+          dom.authStatusBadge.className = 'clay-pill text-emerald-600 dark:text-emerald-300';
+        }
+        if (!silent) {
+          showToast('✅ Live Synced!', 'Pulled latest real-time counts from server & D1.');
+        }
       } else {
-        showToast('Connected (Cached)', 'Server reached. Local views updated.');
+        if (dom.authStatusBadge) {
+          dom.authStatusBadge.textContent = '🔑 Sign-In Required';
+        }
+        if (!silent) {
+          showToast('Authentication Required', 'Please sign in via Connection Settings or Studio Dock to sync admin data.');
+        }
       }
     } catch (err) {
-      showToast('Offline Mode Active', 'Operating locally. You can configure server URL in connection modal.');
+      if (!silent) {
+        showToast('Offline Mode Active', 'Operating locally. Check connection settings.');
+      }
     } finally {
       if (dom.syncIcon) dom.syncIcon.classList.remove('fa-spin');
     }
@@ -671,14 +835,14 @@
 
     // Sync button
     if (dom.syncNowBtn) {
-      dom.syncNowBtn.addEventListener('click', syncLiveData);
+      dom.syncNowBtn.addEventListener('click', () => syncLiveData(true, false));
     }
 
     // Connection modal
     if (dom.backendConnBtn && dom.connModal) {
       dom.backendConnBtn.addEventListener('click', () => {
         if (dom.apiBaseInput) dom.apiBaseInput.value = state.apiBase;
-        if (dom.tokenInput) dom.tokenInput.value = state.bearerToken;
+        if (dom.tokenInput) dom.tokenInput.value = getSharedAdminToken() || state.bearerToken;
         dom.connModal.classList.add('open');
       });
     }
@@ -701,11 +865,58 @@
           localStorage.setItem('clay_admin_api_base', state.apiBase);
         }
         if (dom.tokenInput) {
-          state.bearerToken = dom.tokenInput.value.trim();
-          localStorage.setItem('clay_admin_token', state.bearerToken);
+          const val = dom.tokenInput.value.trim();
+          if (val) saveSharedAdminToken(val);
         }
         if (dom.connModal) dom.connModal.classList.remove('open');
-        syncLiveData();
+        syncLiveData(true, false);
+      });
+    }
+
+    // Direct Admin Sign-In inside Connection Modal
+    if (dom.loginSubmitBtn) {
+      dom.loginSubmitBtn.addEventListener('click', async () => {
+        const identifier = dom.loginEmail ? dom.loginEmail.value.trim() : '';
+        const password = dom.loginPassword ? dom.loginPassword.value : '';
+        if (!identifier || !password) {
+          showToast('Credentials Required', 'Enter your admin username/email and password.');
+          return;
+        }
+        const base = (dom.apiBaseInput && dom.apiBaseInput.value.trim()) ? dom.apiBaseInput.value.trim().replace(/\/+$/, '') : (state.apiBase ? state.apiBase.replace(/\/+$/, '') : '');
+        dom.loginSubmitBtn.disabled = true;
+        const origHtml = dom.loginSubmitBtn.innerHTML;
+        dom.loginSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Signing In...</span>';
+        try {
+          const res = await fetch(`${base}/api/admin/auth/verify-credentials`, {
+            method: 'POST',
+            credentials: 'include',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ username: identifier, email: identifier, identifier, password })
+          });
+          const data = await res.json().catch(() => ({}));
+          const tok = (res.headers && res.headers.get ? res.headers.get('X-WishMagic-Admin-Session') : null) || data?.data?.token || data?.token;
+          if (res.ok && data?.success) {
+            if (tok) {
+              saveSharedAdminToken(tok);
+              if (dom.tokenInput) dom.tokenInput.value = tok;
+            }
+            if (dom.authStatusBadge) {
+              dom.authStatusBadge.textContent = '🟢 Authenticated';
+              dom.authStatusBadge.className = 'clay-pill text-emerald-600 dark:text-emerald-300';
+            }
+            if (dom.connModal) dom.connModal.classList.remove('open');
+            showToast('✅ Admin Connected', 'Session token saved & live data syncing.');
+            await syncLiveData(true, false);
+          } else {
+            showToast('Sign-In Failed', data?.error?.message || data?.message || 'Invalid admin credentials.');
+          }
+        } catch (err) {
+          showToast('Connection Error', 'Could not reach server for authentication.');
+        } finally {
+          dom.loginSubmitBtn.disabled = false;
+          dom.loginSubmitBtn.innerHTML = origHtml;
+        }
       });
     }
 
@@ -714,7 +925,7 @@
       dom.testPingBtn.addEventListener('click', async () => {
         const url = (dom.apiBaseInput ? dom.apiBaseInput.value.trim() : '') || '';
         try {
-          const res = await fetch(`${url}/api/health`);
+          const res = await fetch(`${url}/api/health`, { cache: 'no-store' });
           if (res.ok) {
             if (dom.authStatusBadge) {
               dom.authStatusBadge.textContent = '🟢 Server Online';
@@ -778,6 +989,29 @@
         }
       });
     }
+
+    // Cross-tab & Visibility Live Sync
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('wm_admin_live_sync_v1');
+        bc.addEventListener('message', (ev) => {
+          if (ev && ev.data && (ev.data.type === 'WM_ADMIN_MUTATION' || ev.data.type === 'WM_ADMIN_FORCE_SYNC')) {
+            syncLiveData(true, true);
+          } else if (ev && ev.data && ev.data.type === 'WM_ADMIN_TOKEN_SYNC' && ev.data.token) {
+            saveSharedAdminToken(ev.data.token);
+            syncLiveData(true, true);
+          }
+        });
+      }
+    } catch (_) {}
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        syncLiveData(true, true);
+      }
+    });
+    window.addEventListener('focus', () => syncLiveData(true, true));
+    window.addEventListener('online', () => syncLiveData(true, false));
   }
 
   // Application initialization
@@ -786,7 +1020,12 @@
     initTheme();
     initEvents();
     renderNativeWorkspace('overview');
-    syncLiveData();
+    syncLiveData(true, true);
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        syncLiveData(true, true);
+      }
+    }, 20000);
     if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
       navigator.serviceWorker.register('/wm-admin-sw.js', { scope: '/' }).catch(() => {});
     }

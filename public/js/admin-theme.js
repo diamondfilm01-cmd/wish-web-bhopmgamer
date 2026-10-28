@@ -1,12 +1,85 @@
-// Universal Admin Fetch Credentials, In-Flight Deduplication & Fast Section Sync Cache Interceptor
+// Universal Admin Fetch Credentials, Bearer Session Token Sync, Cross-Tab Broadcast & Fast Deduplication Interceptor
 (function patchAdminFetchCredentials() {
   if (typeof window === 'undefined' || !window.fetch || window.__wmFetchPatched) return;
   const originalFetch = window.fetch.bind(window);
   const inFlightGets = new Map();
   const CACHE_PREFIX = 'wm_api_fastcache_v1:';
-  const CACHE_TTL_MS = 45000;
+  const CACHE_TTL_MS = 4000;
+  const TOKEN_KEYS = ['wm_admin_session_token', 'wishmagic_admin_token', 'clay_admin_token'];
+
+  function getAdminStoredSessionToken() {
+    try {
+      for (const k of TOKEN_KEYS) {
+        const val = localStorage.getItem(k);
+        if (val && typeof val === 'string' && val.trim().length > 6) {
+          return val.trim();
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function saveAdminStoredSessionToken(token) {
+    if (!token || typeof token !== 'string' || token.trim().length < 6) return;
+    const clean = token.trim();
+    try {
+      TOKEN_KEYS.forEach(k => localStorage.setItem(k, clean));
+    } catch (_) {}
+  }
+
+  function clearAdminStoredSessionToken() {
+    try {
+      TOKEN_KEYS.forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
+  }
+
+  window.getAdminStoredSessionToken = getAdminStoredSessionToken;
+  window.saveAdminStoredSessionToken = saveAdminStoredSessionToken;
+  window.clearAdminStoredSessionToken = clearAdminStoredSessionToken;
+
+  let syncChannel = null;
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      syncChannel = new BroadcastChannel('wm_admin_live_sync_v1');
+      syncChannel.addEventListener('message', (ev) => {
+        if (!ev || !ev.data) return;
+        if (ev.data.type === 'WM_ADMIN_MUTATION' || ev.data.type === 'WM_ADMIN_FORCE_SYNC') {
+          clearAdminApiCache();
+          if (typeof window.triggerAdminLiveSync === 'function') {
+            window.triggerAdminLiveSync(true, { silent: true, fromBroadcast: true });
+          }
+        } else if (ev.data.type === 'WM_ADMIN_TOKEN_SYNC' && ev.data.token) {
+          saveAdminStoredSessionToken(ev.data.token);
+        }
+      });
+    }
+  } catch (_) {}
+
+  window.addEventListener('storage', (ev) => {
+    if (!ev) return;
+    if (ev.key === 'wm_admin_last_mutation_ts') {
+      clearAdminApiCache();
+      if (typeof window.triggerAdminLiveSync === 'function') {
+        window.triggerAdminLiveSync(true, { silent: true, fromBroadcast: true });
+      }
+    }
+  });
+
+  function notifyAdminMutation(urlStr) {
+    clearAdminApiCache();
+    try {
+      localStorage.setItem('wm_admin_last_mutation_ts', String(Date.now()));
+    } catch (_) {}
+    try {
+      if (syncChannel) {
+        syncChannel.postMessage({ type: 'WM_ADMIN_MUTATION', url: urlStr, ts: Date.now() });
+      }
+    } catch (_) {}
+  }
+  window.notifyAdminMutation = notifyAdminMutation;
 
   function clearAdminApiCache() {
+    inFlightGets.clear();
     try {
       const keysToRemove = [];
       for (let i = 0; i < sessionStorage.length; i++) {
@@ -28,6 +101,7 @@
 
   function isCacheableGetUrl(urlStr, init) {
     if (!urlStr) return false;
+    if (window.__wmBypassFastCache) return false;
     if (init && (init.cache === 'no-store' || init.cache === 'reload')) return false;
     if (urlStr.includes('reconcile=true') || urlStr.includes('/api/auth/') || urlStr.includes('/api/admin/auth/')) return false;
     return (
@@ -44,26 +118,61 @@
     );
   }
 
+  function captureSessionHeaderFromResponse(res) {
+    try {
+      if (res && res.headers && typeof res.headers.get === 'function') {
+        const hdrToken = res.headers.get('X-WishMagic-Admin-Session');
+        if (hdrToken && hdrToken.trim().length > 6) {
+          saveAdminStoredSessionToken(hdrToken);
+          try {
+            if (syncChannel) syncChannel.postMessage({ type: 'WM_ADMIN_TOKEN_SYNC', token: hdrToken.trim() });
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
   window.fetch = function(input, init) {
     let urlStr = '';
     let method = 'GET';
+    const callerExplicitNoStore = Boolean(init && (init.cache === 'no-store' || init.cache === 'reload'));
     try {
       urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
       method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
       if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
         init = Object.assign({ credentials: 'include' }, init || {});
         if (!init.credentials) init.credentials = 'include';
+        if (!init.cache) init.cache = 'no-store';
+
+        const storedToken = getAdminStoredSessionToken();
+        if (storedToken) {
+          if (init.headers instanceof Headers) {
+            if (!init.headers.has('Authorization')) {
+              init.headers.set('Authorization', `Bearer ${storedToken}`);
+            }
+          } else {
+            const hdrs = Object.assign({}, init.headers || {});
+            const hasAuth = Object.keys(hdrs).some(k => k.toLowerCase() === 'authorization');
+            if (!hasAuth) {
+              hdrs['Authorization'] = `Bearer ${storedToken}`;
+            }
+            init.headers = hdrs;
+          }
+        }
       }
     } catch (_) {}
 
     if (method !== 'GET' && method !== 'HEAD') {
-      if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
-        clearAdminApiCache();
-      }
-      return originalFetch(input, init);
+      return originalFetch(input, init).then((res) => {
+        captureSessionHeaderFromResponse(res);
+        if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
+          notifyAdminMutation(urlStr);
+        }
+        return res;
+      });
     }
 
-    if (typeof input === 'string' && isCacheableGetUrl(urlStr, init)) {
+    if (typeof input === 'string' && !callerExplicitNoStore && isCacheableGetUrl(urlStr, init)) {
       const cacheKey = CACHE_PREFIX + urlStr;
       try {
         const rawCached = sessionStorage.getItem(cacheKey);
@@ -83,6 +192,7 @@
       }
 
       const reqPromise = originalFetch(input, init).then(async (res) => {
+        captureSessionHeaderFromResponse(res);
         try {
           if (res && res.ok) {
             const cType = res.headers.get('content-type') || '';
@@ -109,7 +219,10 @@
       return reqPromise.then(r => r.clone());
     }
 
-    return originalFetch(input, init);
+    return originalFetch(input, init).then((res) => {
+      captureSessionHeaderFromResponse(res);
+      return res;
+    });
   };
   window.__wmFetchPatched = true;
 })();
@@ -193,6 +306,115 @@ const AdminAuthController = (() => {
     } catch (_) {}
   }
 
+  async function ensureFirebaseAuthBridgeLoaded() {
+    if (window.WishFirebaseAuth) {
+      if (typeof window.WishFirebaseAuth.ready === 'function') {
+        try { await window.WishFirebaseAuth.ready(); } catch (_) {}
+      }
+      return window.WishFirebaseAuth;
+    }
+    const loadScript = (src) => new Promise((res) => {
+      if (document.querySelector(`script[src*="${src}"]`)) return res();
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => res();
+      s.onerror = () => res();
+      document.head.appendChild(s);
+    });
+    if (!window.firebase) {
+      await loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js');
+    }
+    await loadScript('/js/firebase-auth.js');
+    if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.ready === 'function') {
+      try { await window.WishFirebaseAuth.ready(); } catch (_) {}
+    }
+    return window.WishFirebaseAuth;
+  }
+
+  async function trySilentFirebaseAdminRestore() {
+    try {
+      const fbBridge = await ensureFirebaseAuthBridgeLoaded();
+      if (!fbBridge) return null;
+
+      let fbUser = typeof fbBridge.getCurrentUser === 'function' ? fbBridge.getCurrentUser() : null;
+      if (!fbUser && typeof fbBridge.onAuthStateChanged === 'function') {
+        fbUser = await new Promise((resolve) => {
+          let settled = false;
+          const timer = setTimeout(() => {
+            if (!settled) { settled = true; resolve(null); }
+          }, 1800);
+          fbBridge.onAuthStateChanged((u) => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              resolve(u || null);
+            }
+          });
+        });
+      }
+
+      if (!fbUser || !isAuthorizedEmail(fbUser.email)) return null;
+
+      let idToken = null;
+      if (typeof fbUser.getIdToken === 'function') {
+        try { idToken = await fbUser.getIdToken(); } catch (_) {}
+      }
+
+      const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
+      const signinRes = await fetch('/api/auth/signin', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers,
+        body: JSON.stringify({
+          email: cleanEmail(fbUser.email),
+          displayName: fbUser.displayName || 'Ankit Saini',
+          avatarUrl: fbUser.photoURL || null,
+          provider: 'google',
+          firebaseUid: fbUser.uid,
+          idToken: idToken || undefined
+        })
+      });
+
+      const signinData = await signinRes.json().catch(() => ({}));
+      const hdrToken = (signinRes.headers && signinRes.headers.get ? signinRes.headers.get('X-WishMagic-Admin-Session') : null) || signinData?.token || signinData?.data?.token;
+      if (hdrToken && typeof window.saveAdminStoredSessionToken === 'function') {
+        window.saveAdminStoredSessionToken(hdrToken);
+      }
+
+      if (signinRes.ok && signinData?.success === true) {
+        const u = signinData?.user || signinData?.data?.user || {
+          id: fbUser.uid,
+          email: cleanEmail(fbUser.email),
+          displayName: fbUser.displayName || 'Ankit Saini'
+        };
+        const enrichedOwner = Object.assign({}, u, {
+          isOwner: true,
+          isAdmin: true,
+          role: 'OWNER',
+          permissions: ['*']
+        });
+        window.__WishMagicVerifiedAdminUser = enrichedOwner;
+        window.WishMagicAdminSession = {
+          authenticated: true,
+          user: enrichedOwner,
+          isOwner: true,
+          role: 'OWNER',
+          permissions: ['*']
+        };
+        saveVerifiedSessionCache(window.WishMagicAdminSession);
+        currentState = STATE.READY;
+        return enrichedOwner;
+      }
+    } catch (e) {
+      console.warn('[AdminAuthController] Silent Firebase restore note:', e);
+    }
+    return null;
+  }
+
   // Deduplicated authoritative server session check (/api/auth/session + /api/admin/auth/session)
   async function checkSession(options = {}) {
     if (!options.force) {
@@ -267,13 +489,13 @@ const AdminAuthController = (() => {
             const verifiedAdmin = Object.assign({}, user || {}, {
               id: adminRecord.id || user?.id,
               email: adminRecord.email || user?.email || '',
-              displayName: adminRecord.name || user?.displayName || 'Admin Staff',
-              name: adminRecord.name || user?.displayName || 'Admin Staff',
+              displayName: adminRecord.name || adminRecord.displayName || user?.displayName || 'Admin Staff',
+              name: adminRecord.name || adminRecord.displayName || user?.displayName || 'Admin Staff',
               mobile: adminRecord.mobile || null,
               role: adminRecord.role || 'ADMIN',
               isOwner: Boolean(adminRecord.isOwner || isAuthorizedEmail(adminRecord.email)),
               isAdmin: true,
-              permissions: Array.isArray(adminRecord.permissions) ? adminRecord.permissions : []
+              permissions: Array.isArray(adminRecord.permissions) ? adminRecord.permissions : ['*']
             });
             window.__WishMagicVerifiedAdminUser = verifiedAdmin;
             window.WishMagicAdminSession = {
@@ -286,6 +508,14 @@ const AdminAuthController = (() => {
             saveVerifiedSessionCache(window.WishMagicAdminSession);
             currentState = STATE.READY;
             return verifiedAdmin;
+          }
+        }
+
+        // Attempt silent restoration from Firebase IndexedDB if owner is signed into Google on this device
+        if (!options.skipFirebaseRestore) {
+          const restoredUser = await trySilentFirebaseAdminRestore();
+          if (restoredUser) {
+            return restoredUser;
           }
         }
 
@@ -305,7 +535,7 @@ const AdminAuthController = (() => {
   }
 
   // Authoritative Firebase Google sign-in and server session verification
-  async function signIn() {
+  async function signIn(options = {}) {
     if (signInPromise) return signInPromise;
     if (navigationStarted) return;
 
@@ -313,36 +543,19 @@ const AdminAuthController = (() => {
 
     signInPromise = (async () => {
       try {
-        if (!window.WishFirebaseAuth) {
-          const loadScript = (src) => new Promise((res) => {
-            if (document.querySelector(`script[src*="${src}"]`)) return res();
-            const s = document.createElement('script');
-            s.src = src;
-            s.onload = () => res();
-            s.onerror = () => res();
-            document.head.appendChild(s);
-          });
-          if (!window.firebase) {
-            await loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
-            await loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js');
-          }
-          await loadScript('/js/firebase-auth.js');
-          if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.ready === 'function') {
-            try { await window.WishFirebaseAuth.ready(); } catch (_) {}
-          }
-        }
-        if (!window.WishFirebaseAuth) {
-          throw new Error('Firebase Google Authentication is initializing. Please sign in from the Main Website.');
+        const fbBridge = await ensureFirebaseAuthBridgeLoaded();
+        if (!fbBridge) {
+          throw new Error('Firebase Google Authentication is initializing. Please try again or use Admin Credentials below.');
         }
 
-        const firebaseUser = await window.WishFirebaseAuth.signInWithGoogle();
+        const firebaseUser = await fbBridge.signInWithGoogle();
         if (!firebaseUser) {
           throw new Error('Google sign-in was not completed.');
         }
 
         const email = cleanEmail(firebaseUser.email);
         if (!isAuthorizedEmail(email)) {
-          try { await window.WishFirebaseAuth.signOut(); } catch (_) {}
+          try { await fbBridge.signOut(); } catch (_) {}
           const err = new Error('Access Denied: Only the authorized owner account can sign in via Google OAuth.');
           err.code = 'UNAUTHORIZED_EMAIL';
           throw err;
@@ -381,13 +594,25 @@ const AdminAuthController = (() => {
         });
 
         const signinData = await signinRes.json().catch(() => ({}));
+        const hdrToken = (signinRes.headers && signinRes.headers.get ? signinRes.headers.get('X-WishMagic-Admin-Session') : null) || signinData?.token || signinData?.data?.token;
+        if (hdrToken && typeof window.saveAdminStoredSessionToken === 'function') {
+          window.saveAdminStoredSessionToken(hdrToken);
+        }
+
         if (!signinRes.ok || signinData?.success !== true) {
           throw new Error(signinData?.error?.message || signinData?.message || 'Admin authentication failed.');
         }
 
-        const verifiedUser = await checkSession();
+        const verifiedUser = await checkSession({ force: true, skipFirebaseRestore: true });
         if (!verifiedUser) {
           throw new Error('Unable to verify server session.');
+        }
+
+        if (options.stayOnCurrentPage) {
+          if (typeof window.triggerAdminLiveSync === 'function') {
+            window.triggerAdminLiveSync(true);
+          }
+          return verifiedUser;
         }
 
         if (!navigationStarted) {
@@ -402,6 +627,57 @@ const AdminAuthController = (() => {
     })();
 
     return signInPromise;
+  }
+
+  async function signInWithCredentials(identifier, password, options = {}) {
+    const cleanId = String(identifier || '').trim();
+    const cleanPass = String(password || '');
+    if (!cleanId || !cleanPass) {
+      throw new Error('Admin username and password are required.');
+    }
+
+    const res = await fetch('/api/admin/auth/verify-credentials', {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        username: cleanId,
+        identifier: cleanId,
+        password: cleanPass
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    const hdrToken = (res.headers && res.headers.get ? res.headers.get('X-WishMagic-Admin-Session') : null) || data?.data?.token || data?.token;
+    if (hdrToken && typeof window.saveAdminStoredSessionToken === 'function') {
+      window.saveAdminStoredSessionToken(hdrToken);
+    }
+
+    if (!res.ok || data?.success !== true) {
+      throw new Error(data?.error?.message || data?.message || 'Invalid admin credentials.');
+    }
+
+    const verifiedUser = await checkSession({ force: true, skipFirebaseRestore: true });
+    if (!verifiedUser) {
+      throw new Error('Session verified but unable to load admin profile.');
+    }
+
+    if (options.stayOnCurrentPage) {
+      if (typeof window.triggerAdminLiveSync === 'function') {
+        window.triggerAdminLiveSync(true);
+      }
+      return verifiedUser;
+    }
+
+    if (!navigationStarted) {
+      navigationStarted = true;
+      window.location.replace(ADMIN_TARGET);
+    }
+    return verifiedUser;
   }
 
   async function init() {
@@ -434,6 +710,7 @@ const AdminAuthController = (() => {
     }
     try {
       clearVerifiedSessionCache();
+      if (typeof window.clearAdminStoredSessionToken === 'function') window.clearAdminStoredSessionToken();
       if (typeof window.clearAdminApiCache === 'function') window.clearAdminApiCache();
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'WM_ADMIN_LOGOUT' });
@@ -462,6 +739,7 @@ const AdminAuthController = (() => {
     hasPermission,
     checkSession,
     signIn,
+    signInWithCredentials,
     init,
     logout
   };
@@ -481,59 +759,87 @@ window.AdminAuthController = AdminAuthController;
     return;
   }
 
-  let adminRedirectStarted = false;
+  function applyVerifiedAdminUiState(user) {
+    const screen = document.getElementById('admin-access-restricted-screen');
+    if (screen) screen.remove();
+    const pwaScreen = document.getElementById('admin-pwa-signin-screen');
+    if (pwaScreen) pwaScreen.remove();
+    if (document.body) document.body.style.display = '';
+    const emailEl = document.getElementById('wm-admin-header-email');
+    if (emailEl) {
+      emailEl.textContent = user.email || user.mobile || user.displayName || 'ankit.babusaini@gmail.com';
+    }
+    const dropdownEmailEls = document.querySelectorAll('#wm-admin-profile-dropdown .truncate');
+    if (dropdownEmailEls.length > 0 && (user.email || user.mobile)) {
+      dropdownEmailEls[dropdownEmailEls.length - 1].textContent = user.email || user.mobile;
+    }
+    // Trigger a live data sync once auth session is verified so any initial page fetch that ran before token restoration immediately populates
+    setTimeout(() => {
+      if (typeof window.triggerAdminLiveSync === 'function') {
+        window.triggerAdminLiveSync(true, { silent: true });
+      }
+    }, 80);
+  }
 
   try {
     const user = await window.AdminAuthController.checkSession();
     if (user && window.AdminAuthController.isValidAdminUser(user)) {
-      const screen = document.getElementById('admin-access-restricted-screen');
-      if (screen) screen.remove();
-      if (document.body) document.body.style.display = '';
-      const emailEl = document.getElementById('wm-admin-header-email');
-      if (emailEl) {
-        emailEl.textContent = user.email || user.mobile || user.displayName || 'ankit.babusaini@gmail.com';
-      }
-      const dropdownEmailEls = document.querySelectorAll('#wm-admin-profile-dropdown .truncate');
-      if (dropdownEmailEls.length > 0 && (user.email || user.mobile)) {
-        dropdownEmailEls[dropdownEmailEls.length - 1].textContent = user.email || user.mobile;
-      }
+      applyVerifiedAdminUiState(user);
       return;
     }
 
-    const isStandalonePwa = Boolean(
-      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-      (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) ||
-      window.navigator.standalone === true
-    );
-    if (isStandalonePwa && document.body) {
+    // Show interactive Admin Sign-In overlay (supports both Google OAuth and Built-In Admin Credentials so installed PWA & browser sessions sync without losing context)
+    const mountSignInOverlay = () => {
+      if (!document.body) return;
+      document.body.style.display = '';
       let authOverlay = document.getElementById('admin-pwa-signin-screen');
       if (!authOverlay) {
         authOverlay = document.createElement('div');
         authOverlay.id = 'admin-pwa-signin-screen';
-        authOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#111714;color:#eff5f1;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Plus Jakarta Sans",sans-serif;';
+        authOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#111714;color:#eff5f1;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Plus Jakarta Sans",sans-serif;overflow-y:auto;';
         authOverlay.innerHTML = `
-          <div style="width:100%;max-width:400px;background:#1a231e;border:1px solid #26342c;border-radius:24px;padding:28px 24px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.5);">
-            <div style="width:56px;height:56px;border-radius:999px;background:#38c976;color:#0b1911;display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;margin-bottom:14px;">W</div>
-            <h2 style="font-size:20px;font-weight:800;margin:0 0 8px 0;color:#eff5f1;">WishMagic Admin Studio</h2>
-            <p style="font-size:13px;line-height:1.5;color:#96aba0;margin:0 0 22px 0;">Sign in with your authorized Owner Google account to access the standalone Admin App.</p>
-            <button type="button" id="wm-pwa-google-signin-btn" style="width:100%;min-height:46px;border-radius:999px;background:#38c976;color:#0b1911;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:12px;">Sign In with Google</button>
+          <div style="width:100%;max-width:410px;background:#1a231e;border:1px solid #26342c;border-radius:24px;padding:28px 24px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.55);">
+            <div style="width:54px;height:54px;border-radius:999px;background:#38c976;color:#0b1911;display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin-bottom:12px;">W</div>
+            <h2 style="font-size:20px;font-weight:800;margin:0 0 6px 0;color:#eff5f1;">WishMagic Admin Studio</h2>
+            <p style="font-size:12.5px;line-height:1.5;color:#96aba0;margin:0 0 18px 0;">Sign in to sync live Cloudflare D1 data, wishes, templates, and media in real time.</p>
+            <button type="button" id="wm-pwa-google-signin-btn" style="width:100%;min-height:46px;border-radius:999px;background:#38c976;color:#0b1911;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+              <span>Sign In with Owner Google Account</span>
+            </button>
+            <div style="display:flex;align-items:center;gap:10px;margin:12px 0;">
+              <div style="flex:1;height:1px;background:#26342c;"></div>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6c8276;">Or Admin Credentials</span>
+              <div style="flex:1;height:1px;background:#26342c;"></div>
+            </div>
+            <form id="wm-pwa-cred-form" style="display:flex;flex-direction:column;gap:10px;text-align:left;margin-bottom:14px;">
+              <input type="text" id="wm-pwa-cred-user" placeholder="Admin Username (anktech.ankit.babusaini)" autocomplete="username" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #2b3b32;background:#111714;color:#eff5f1;font-size:13px;outline:none;" />
+              <input type="password" id="wm-pwa-cred-pass" placeholder="Admin Password" autocomplete="current-password" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #2b3b32;background:#111714;color:#eff5f1;font-size:13px;outline:none;" />
+              <button type="submit" id="wm-pwa-cred-submit" style="width:100%;min-height:42px;border-radius:12px;background:#24332b;color:#eff5f1;border:1px solid #33483d;font-size:13px;font-weight:800;cursor:pointer;">Connect &amp; Sync Live Studio</button>
+            </form>
             <a href="/" style="display:inline-block;font-size:12px;font-weight:700;color:#96aba0;text-decoration:none;">← Open Public Storefront</a>
             <div id="wm-pwa-signin-error" style="margin-top:12px;font-size:12px;color:#fb7185;display:none;"></div>
           </div>
         `;
         document.body.appendChild(authOverlay);
         const btn = document.getElementById('wm-pwa-google-signin-btn');
+        const credForm = document.getElementById('wm-pwa-cred-form');
+        const credUser = document.getElementById('wm-pwa-cred-user');
+        const credPass = document.getElementById('wm-pwa-cred-pass');
+        const credSubmit = document.getElementById('wm-pwa-cred-submit');
         const errBox = document.getElementById('wm-pwa-signin-error');
+
         if (btn) {
           btn.onclick = async () => {
             btn.disabled = true;
-            btn.textContent = 'Signing in...';
+            btn.textContent = 'Signing in with Google...';
             if (errBox) errBox.style.display = 'none';
             try {
-              await window.AdminAuthController.signIn();
+              const signedInUser = await window.AdminAuthController.signIn({ stayOnCurrentPage: true });
+              if (signedInUser) {
+                applyVerifiedAdminUiState(signedInUser);
+              }
             } catch (signInErr) {
               btn.disabled = false;
-              btn.textContent = 'Sign In with Google';
+              btn.textContent = 'Sign In with Owner Google Account';
               if (errBox) {
                 errBox.textContent = signInErr?.message || 'Sign-in failed. Please try again.';
                 errBox.style.display = 'block';
@@ -541,20 +847,46 @@ window.AdminAuthController = AdminAuthController;
             }
           };
         }
-      }
-      return;
-    }
 
-    if (!adminRedirectStarted) {
-      adminRedirectStarted = true;
-      window.location.replace('/');
+        if (credForm) {
+          credForm.onsubmit = async (ev) => {
+            ev.preventDefault();
+            if (errBox) errBox.style.display = 'none';
+            if (credSubmit) {
+              credSubmit.disabled = true;
+              credSubmit.textContent = 'Connecting & Syncing...';
+            }
+            try {
+              const signedInUser = await window.AdminAuthController.signInWithCredentials(
+                credUser ? credUser.value : '',
+                credPass ? credPass.value : '',
+                { stayOnCurrentPage: true }
+              );
+              if (signedInUser) {
+                applyVerifiedAdminUiState(signedInUser);
+              }
+            } catch (credErr) {
+              if (credSubmit) {
+                credSubmit.disabled = false;
+                credSubmit.textContent = 'Connect & Sync Live Studio';
+              }
+              if (errBox) {
+                errBox.textContent = credErr?.message || 'Invalid credentials. Please try again.';
+                errBox.style.display = 'block';
+              }
+            }
+          };
+        }
+      }
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', mountSignInOverlay, { once: true });
+    } else {
+      mountSignInOverlay();
     }
   } catch (err) {
     console.warn('[AdminGate] Gatekeeper verification error:', err);
-    if (!adminRedirectStarted) {
-      adminRedirectStarted = true;
-      window.location.replace('/');
-    }
   }
 })();
 
@@ -1256,8 +1588,129 @@ function initAdminNavigationAndNotifications() {
     }, 300);
   }
 
+  // Universal Live Sync Dispatcher across all 23 Admin Studio sections
+  window.triggerAdminLiveSync = async function triggerAdminLiveSync(force = true, options = {}) {
+    if (window.__wmLiveSyncRunning) return;
+    window.__wmLiveSyncRunning = true;
+    const syncIcon = document.getElementById('wm-header-live-sync-icon');
+    if (syncIcon) {
+      syncIcon.style.transition = 'transform 0.6s linear';
+      syncIcon.style.transform = 'rotate(360deg)';
+    }
+
+    try {
+      if (force && typeof window.clearAdminApiCache === 'function') {
+        window.clearAdminApiCache();
+      }
+      window.__wmBypassFastCache = true;
+
+      loadLiveAdminHeaderNotifications(true);
+
+      const tasks = [];
+      const callIfFn = (fnName, ...args) => {
+        if (typeof window[fnName] === 'function') {
+          try {
+            const res = window[fnName](...args);
+            if (res && typeof res.then === 'function') tasks.push(res.catch(() => {}));
+          } catch (_) {}
+        }
+      };
+
+      const p = window.location.pathname.toLowerCase();
+      if (p.includes('overview') || p.endsWith('/admin') || p.endsWith('/admin/') || p.endsWith('admin.html') || p.endsWith('admin-overview.html')) {
+        callIfFn('loadDashboard');
+      }
+      if (p.includes('templates') && !p.includes('add-template')) {
+        callIfFn('loadDynamicTemplates');
+      }
+      if (p.includes('festivals') || p.includes('festival-scheduler')) {
+        callIfFn('loadFestivalSchedulerData');
+      }
+      if (p.includes('occasions')) {
+        callIfFn('loadOccasionsData');
+      }
+      if (p.includes('media') || p.includes('music')) {
+        callIfFn('loadAllMedia');
+      }
+      if (p.includes('wishes') || p.includes('expiring')) {
+        callIfFn('loadWishes');
+      }
+      if (p.includes('user-creations') || p.includes('creations')) {
+        callIfFn('loadUserCreations');
+      }
+      if (p.includes('analytics')) {
+        callIfFn('loadAllAnalytics');
+      }
+      if (p.includes('users')) {
+        callIfFn('loadUsers');
+      }
+      if (p.includes('pricing')) {
+        callIfFn('loadPricingMetrics');
+        callIfFn('loadServerCoupons');
+        callIfFn('loadWishLinkSettings');
+      }
+      if (p.includes('orders')) {
+        callIfFn('loadOrdersData');
+      }
+      if (p.includes('settings') || p.includes('backups')) {
+        callIfFn('loadSiteSettings');
+        callIfFn('loadWishLinkSettings');
+      }
+      if (p.includes('storage-health')) {
+        callIfFn('loadStorageHealth');
+        callIfFn('loadOrphans');
+      }
+      if (p.includes('audit') || p.includes('activity-logs')) {
+        if (typeof window.loadAuditLogs === 'function') callIfFn('loadAuditLogs');
+        else callIfFn('loadLogs');
+      }
+      if (p.includes('search')) {
+        callIfFn('loadSearchDiagnostics');
+      }
+      if (p.includes('referrals')) {
+        callIfFn('loadAdminReferralData');
+      }
+      if (p.includes('moderation')) {
+        if (typeof window.loadModerationData === 'function') callIfFn('loadModerationData');
+        else callIfFn('loadModerationQueue');
+      }
+      if (p.includes('support')) {
+        callIfFn('loadTickets');
+      }
+      if (p.includes('staff')) {
+        callIfFn('loadStaffList');
+      }
+      if (p.includes('compliance') || p.includes('legal')) {
+        callIfFn('loadLegalAdminData');
+      }
+      if (p.includes('announcements')) {
+        callIfFn('loadAnnouncements');
+      }
+      if (p.includes('notifications')) {
+        callIfFn('loadQueueData');
+      }
+
+      if (tasks.length > 0) {
+        await Promise.allSettled(tasks);
+      }
+
+      if (options.showToastFeedback && typeof window.showToast === 'function') {
+        window.showToast('✅ Live data synced with server!', 'success');
+      }
+    } finally {
+      window.__wmBypassFastCache = false;
+      window.__wmLiveSyncRunning = false;
+      if (syncIcon) {
+        setTimeout(() => {
+          syncIcon.style.transition = 'none';
+          syncIcon.style.transform = 'rotate(0deg)';
+        }, 620);
+      }
+    }
+  };
+
   if (!window.__wmAdminNotifTimer) {
-    window.__wmAdminNotifTimer = setInterval(loadLiveAdminHeaderNotifications, 60000);
+    window.__wmAdminNotifTimer = setInterval(() => loadLiveAdminHeaderNotifications(true), 30000);
   }
 
   if (!window.__wmAdminAutoRefreshTimer) {
@@ -1273,29 +1726,20 @@ function initAdminNavigationAndNotifications() {
       const activeSearchInput = document.querySelector('#search-input, #user-search, #wish-search, #admin-template-search');
       if (activeSearchInput && String(activeSearchInput.value || '').trim().length > 0) return;
 
-      const p = window.location.pathname.toLowerCase();
-      try {
-        if (p.includes('wishes') || p.includes('expiring')) {
-          if (typeof window.loadWishes === 'function') window.loadWishes();
-        } else if (p.includes('user-creations') || p.includes('creations')) {
-          if (typeof window.loadUserCreations === 'function') window.loadUserCreations();
-        } else if (p.includes('users')) {
-          if (typeof window.loadUsers === 'function') window.loadUsers();
-        } else if (p.includes('audit') || p.includes('activity-logs')) {
-          if (typeof window.loadAuditLogs === 'function') window.loadAuditLogs();
-          else if (typeof window.loadLogs === 'function') window.loadLogs();
-        } else if (p.includes('moderation')) {
-          if (typeof window.loadModerationData === 'function') window.loadModerationData();
-          else if (typeof window.loadModerationQueue === 'function') window.loadModerationQueue();
-        } else if (p.includes('notifications')) {
-          if (typeof window.loadQueueData === 'function') window.loadQueueData();
-        } else if (p.includes('announcements')) {
-          if (typeof window.loadAnnouncements === 'function') window.loadAnnouncements();
-        } else if (p.includes('referrals')) {
-          if (typeof window.loadAdminReferralData === 'function') window.loadAdminReferralData();
-        }
-      } catch (_) {}
-    }, 45000);
+      window.triggerAdminLiveSync(true, { silent: true });
+    }, 20000);
+  }
+
+  if (!window.__wmAdminVisibilitySyncBound) {
+    window.__wmAdminVisibilitySyncBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        window.triggerAdminLiveSync(true, { silent: true });
+      }
+    });
+    window.addEventListener('focus', () => {
+      window.triggerAdminLiveSync(true, { silent: true });
+    });
   }
 
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
@@ -1493,6 +1937,17 @@ function mountVessaAdminShell() {
       notifWrap.appendChild(notifDropdown);
     }
     rightDiv.appendChild(notifWrap);
+
+    // Live Sync Now Button (1-Tap Real-Time Server Refresh for Installed PWA & Browser)
+    const liveSyncBtn = document.createElement('button');
+    liveSyncBtn.type = 'button';
+    liveSyncBtn.id = 'wm-header-live-sync-btn';
+    liveSyncBtn.className = 'vessa-icon-circle-btn';
+    liveSyncBtn.title = 'Sync Live Data Now';
+    liveSyncBtn.setAttribute('aria-label', 'Sync Live Data Now');
+    liveSyncBtn.setAttribute('onclick', 'window.triggerAdminLiveSync && window.triggerAdminLiveSync(true, { showToastFeedback: true })');
+    liveSyncBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]" id="wm-header-live-sync-icon">sync</span>`;
+    rightDiv.appendChild(liveSyncBtn);
 
     // Install Admin PWA Button (Auto-hidden when running in standalone mode)
     const pwaInstallBtn = document.createElement('button');
@@ -2268,7 +2723,11 @@ window.AdminStudio = AdminStudio;
         }, 3200);
       }
       if (typeof window.clearAdminApiCache === 'function') window.clearAdminApiCache();
-      loadLiveAdminHeaderNotifications(true);
+      if (typeof window.triggerAdminLiveSync === 'function') {
+        window.triggerAdminLiveSync(true, { showToastFeedback: true });
+      } else {
+        loadLiveAdminHeaderNotifications(true);
+      }
     });
   }
 
