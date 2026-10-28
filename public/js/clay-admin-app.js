@@ -664,13 +664,14 @@
 
     if (dom.syncIcon) dom.syncIcon.classList.add('fa-spin');
 
-    // If embedded dock iframe is active, also trigger its live sync
+    // If embedded dock iframe is active, also trigger its live sync safely
     try {
       if (state.viewMode === 'dock' && dom.studioIframe && dom.studioIframe.contentWindow) {
-        if (typeof dom.studioIframe.contentWindow.triggerAdminLiveSync === 'function') {
-          dom.studioIframe.contentWindow.triggerAdminLiveSync(true, { showToastFeedback: !silent });
-        } else if (forceNetwork) {
-          dom.studioIframe.contentWindow.location.reload();
+        const cw = dom.studioIframe.contentWindow;
+        if (typeof cw.triggerAdminLiveSync === 'function') {
+          cw.triggerAdminLiveSync(true, { silent: Boolean(silent), showToastFeedback: !silent, manual: !silent });
+        } else if (forceNetwork && !silent) {
+          cw.location.reload();
         }
       }
     } catch (_) {}
@@ -1005,12 +1006,16 @@
       }
     } catch (_) {}
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        syncLiveData(true, true);
-      }
-    });
-    window.addEventListener('focus', () => syncLiveData(true, true));
+    let lastFocusSyncTs = 0;
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastFocusSyncTs < 5000) return;
+      lastFocusSyncTs = now;
+      syncLiveData(true, true);
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
     window.addEventListener('online', () => syncLiveData(true, false));
   }
 

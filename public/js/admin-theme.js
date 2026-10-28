@@ -37,6 +37,65 @@
   window.saveAdminStoredSessionToken = saveAdminStoredSessionToken;
   window.clearAdminStoredSessionToken = clearAdminStoredSessionToken;
 
+  let mutationNotifyTimer = null;
+  window.__wmActiveMutations = 0;
+  window.__wmLastMutationTs = 0;
+  window.__wmLastUserEditTs = 0;
+  window.__wmLastFocusSyncTs = 0;
+
+  if (typeof document !== 'undefined') {
+    const trackAdminUserEdit = (ev) => {
+      const t = ev && ev.target;
+      if (!t || !t.tagName) return;
+      const tag = t.tagName.toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) {
+        if (t.classList && (t.classList.contains('wm-header-search-input') || t.id === 'global-admin-search-input')) {
+          return;
+        }
+        window.__wmLastUserEditTs = Date.now();
+      }
+    };
+    document.addEventListener('input', trackAdminUserEdit, true);
+    document.addEventListener('change', trackAdminUserEdit, true);
+  }
+
+  function canRunBackgroundAdminSync(options = {}) {
+    if (options && options.manual) return true;
+    if (window.__wmAdminMutationInFlight || (window.__wmActiveMutations && window.__wmActiveMutations > 0)) {
+      return false;
+    }
+    const sinceLastMutation = Date.now() - (window.__wmLastMutationTs || 0);
+    if (options && options.fromBroadcast) {
+      if (sinceLastMutation < 1800) return false;
+    } else {
+      if (sinceLastMutation < 4000) return false;
+      if (Date.now() - (window.__wmLastUserEditTs || 0) < 15000) return false;
+    }
+
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) {
+      return false;
+    }
+
+    const openModal = document.querySelector('[id*="modal"]:not(.hidden):not([data-inline-page="true"])');
+    if (openModal && (openModal.classList.contains('fixed') || openModal.getAttribute('role') === 'dialog')) {
+      return false;
+    }
+
+    const unsavedPricingBanner = document.getElementById('pricing-unsaved-banner');
+    if (unsavedPricingBanner && !unsavedPricingBanner.classList.contains('hidden')) {
+      return false;
+    }
+
+    const activeSearchInput = document.querySelector('#search-input, #user-search, #wish-search, #admin-template-search');
+    if (activeSearchInput && String(activeSearchInput.value || '').trim().length > 0) {
+      return false;
+    }
+
+    return true;
+  }
+  window.canRunBackgroundAdminSync = canRunBackgroundAdminSync;
+
   let syncChannel = null;
   try {
     if (typeof BroadcastChannel !== 'undefined') {
@@ -45,7 +104,7 @@
         if (!ev || !ev.data) return;
         if (ev.data.type === 'WM_ADMIN_MUTATION' || ev.data.type === 'WM_ADMIN_FORCE_SYNC') {
           clearAdminApiCache();
-          if (typeof window.triggerAdminLiveSync === 'function') {
+          if (typeof window.triggerAdminLiveSync === 'function' && canRunBackgroundAdminSync({ fromBroadcast: true })) {
             window.triggerAdminLiveSync(true, { silent: true, fromBroadcast: true });
           }
         } else if (ev.data.type === 'WM_ADMIN_TOKEN_SYNC' && ev.data.token) {
@@ -59,27 +118,55 @@
     if (!ev) return;
     if (ev.key === 'wm_admin_last_mutation_ts') {
       clearAdminApiCache();
-      if (typeof window.triggerAdminLiveSync === 'function') {
+      if (typeof window.triggerAdminLiveSync === 'function' && canRunBackgroundAdminSync({ fromBroadcast: true })) {
         window.triggerAdminLiveSync(true, { silent: true, fromBroadcast: true });
       }
     }
   });
 
+  function isNonMutationBackgroundEndpoint(urlStr) {
+    if (!urlStr) return true;
+    return (
+      urlStr.includes('/api/events') ||
+      urlStr.includes('/api/analytics/event') ||
+      urlStr.includes('/api/auth/session') ||
+      urlStr.includes('/api/admin/auth/session')
+    );
+  }
+
   function notifyAdminMutation(urlStr) {
     clearAdminApiCache();
-    try {
-      localStorage.setItem('wm_admin_last_mutation_ts', String(Date.now()));
-    } catch (_) {}
-    try {
-      if (syncChannel) {
-        syncChannel.postMessage({ type: 'WM_ADMIN_MUTATION', url: urlStr, ts: Date.now() });
-      }
-    } catch (_) {}
+    window.__wmLastMutationTs = Date.now();
+    window.__wmLastUserEditTs = 0;
+    if (mutationNotifyTimer) clearTimeout(mutationNotifyTimer);
+    mutationNotifyTimer = setTimeout(() => {
+      if (window.__wmActiveMutations > 0) return;
+      try {
+        localStorage.setItem('wm_admin_last_mutation_ts', String(Date.now()));
+      } catch (_) {}
+      try {
+        if (syncChannel) {
+          syncChannel.postMessage({ type: 'WM_ADMIN_MUTATION', url: urlStr, ts: Date.now() });
+        }
+      } catch (_) {}
+      try {
+        const publicTplChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('wishmagic_templates_sync') : null;
+        if (publicTplChannel) {
+          publicTplChannel.postMessage({ type: 'TEMPLATES_UPDATED', ts: Date.now(), url: urlStr });
+          setTimeout(() => { try { publicTplChannel.close(); } catch (_) {} }, 250);
+        }
+      } catch (_) {}
+    }, 180);
   }
   window.notifyAdminMutation = notifyAdminMutation;
 
   function clearAdminApiCache() {
     inFlightGets.clear();
+    try {
+      if (window.WishApiClient && typeof window.WishApiClient.invalidateCache === 'function') {
+        window.WishApiClient.invalidateCache();
+      }
+    } catch (_) {}
     try {
       const keysToRemove = [];
       for (let i = 0; i < sessionStorage.length; i++) {
@@ -99,10 +186,12 @@
   }
   window.clearAdminApiCache = clearAdminApiCache;
 
-  function isCacheableGetUrl(urlStr, init) {
+  function isCacheableGetUrl(urlStr) {
     if (!urlStr) return false;
     if (window.__wmBypassFastCache) return false;
-    if (init && (init.cache === 'no-store' || init.cache === 'reload')) return false;
+    if ((window.__wmActiveMutations && window.__wmActiveMutations > 0) || (Date.now() - (window.__wmLastMutationTs || 0) < 2500)) {
+      return false;
+    }
     if (urlStr.includes('reconcile=true') || urlStr.includes('/api/auth/') || urlStr.includes('/api/admin/auth/')) return false;
     return (
       urlStr.includes('/api/templates') ||
@@ -147,15 +236,10 @@
         const storedToken = getAdminStoredSessionToken();
         if (storedToken) {
           if (init.headers instanceof Headers) {
-            if (!init.headers.has('Authorization')) {
-              init.headers.set('Authorization', `Bearer ${storedToken}`);
-            }
+            init.headers.set('Authorization', `Bearer ${storedToken}`);
           } else {
             const hdrs = Object.assign({}, init.headers || {});
-            const hasAuth = Object.keys(hdrs).some(k => k.toLowerCase() === 'authorization');
-            if (!hasAuth) {
-              hdrs['Authorization'] = `Bearer ${storedToken}`;
-            }
+            hdrs['Authorization'] = `Bearer ${storedToken}`;
             init.headers = hdrs;
           }
         }
@@ -163,16 +247,35 @@
     } catch (_) {}
 
     if (method !== 'GET' && method !== 'HEAD') {
+      const isApiCall = urlStr.startsWith('/api/') || urlStr.includes('/api/');
+      const isMutation = isApiCall && !isNonMutationBackgroundEndpoint(urlStr);
+      if (isMutation) {
+        window.__wmActiveMutations = (window.__wmActiveMutations || 0) + 1;
+        window.__wmAdminMutationInFlight = true;
+        window.__wmLastMutationTs = Date.now();
+        clearAdminApiCache();
+      }
       return originalFetch(input, init).then((res) => {
         captureSessionHeaderFromResponse(res);
-        if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
-          notifyAdminMutation(urlStr);
+        if (isMutation) {
+          window.__wmLastMutationTs = Date.now();
+          if (res && res.ok) {
+            notifyAdminMutation(urlStr);
+          } else {
+            clearAdminApiCache();
+          }
         }
         return res;
+      }).finally(() => {
+        if (isMutation) {
+          window.__wmActiveMutations = Math.max(0, (window.__wmActiveMutations || 1) - 1);
+          window.__wmAdminMutationInFlight = window.__wmActiveMutations > 0;
+          window.__wmLastMutationTs = Date.now();
+        }
       });
     }
 
-    if (typeof input === 'string' && !callerExplicitNoStore && isCacheableGetUrl(urlStr, init)) {
+    if (typeof input === 'string' && !callerExplicitNoStore && isCacheableGetUrl(urlStr)) {
       const cacheKey = CACHE_PREFIX + urlStr;
       try {
         const rawCached = sessionStorage.getItem(cacheKey);
@@ -194,7 +297,7 @@
       const reqPromise = originalFetch(input, init).then(async (res) => {
         captureSessionHeaderFromResponse(res);
         try {
-          if (res && res.ok) {
+          if (res && res.ok && !window.__wmAdminMutationInFlight) {
             const cType = res.headers.get('content-type') || '';
             if (cType.includes('application/json')) {
               const cloned = res.clone();
@@ -1591,6 +1694,10 @@ function initAdminNavigationAndNotifications() {
   // Universal Live Sync Dispatcher across all 23 Admin Studio sections
   window.triggerAdminLiveSync = async function triggerAdminLiveSync(force = true, options = {}) {
     if (window.__wmLiveSyncRunning) return;
+    const isManualClick = Boolean(options && options.showToastFeedback);
+    if (!isManualClick && typeof window.canRunBackgroundAdminSync === 'function' && !window.canRunBackgroundAdminSync(options)) {
+      return;
+    }
     window.__wmLiveSyncRunning = true;
     const syncIcon = document.getElementById('wm-header-live-sync-icon');
     if (syncIcon) {
@@ -1710,36 +1817,33 @@ function initAdminNavigationAndNotifications() {
   };
 
   if (!window.__wmAdminNotifTimer) {
-    window.__wmAdminNotifTimer = setInterval(() => loadLiveAdminHeaderNotifications(true), 30000);
+    window.__wmAdminNotifTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && (!window.canRunBackgroundAdminSync || window.canRunBackgroundAdminSync())) {
+        loadLiveAdminHeaderNotifications(true);
+      }
+    }, 30000);
   }
 
   if (!window.__wmAdminAutoRefreshTimer) {
     window.__wmAdminAutoRefreshTimer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      if (window.__wmAdminMutationInFlight) return;
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) return;
-      const openModal = document.querySelector('[id*="modal"]:not(.hidden):not([data-inline-page="true"])');
-      if (openModal && openModal.classList.contains('fixed')) return;
-
-      // Do not overwrite user-filtered views when a page search input has text
-      const activeSearchInput = document.querySelector('#search-input, #user-search, #wish-search, #admin-template-search');
-      if (activeSearchInput && String(activeSearchInput.value || '').trim().length > 0) return;
-
+      if (typeof window.canRunBackgroundAdminSync === 'function' && !window.canRunBackgroundAdminSync()) return;
       window.triggerAdminLiveSync(true, { silent: true });
-    }, 20000);
+    }, 25000);
   }
 
   if (!window.__wmAdminVisibilitySyncBound) {
     window.__wmAdminVisibilitySyncBound = true;
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        window.triggerAdminLiveSync(true, { silent: true });
-      }
-    });
-    window.addEventListener('focus', () => {
+    const handleVisibilityOrFocusSync = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - (window.__wmLastFocusSyncTs || 0) < 5000) return;
+      if (typeof window.canRunBackgroundAdminSync === 'function' && !window.canRunBackgroundAdminSync()) return;
+      window.__wmLastFocusSyncTs = now;
       window.triggerAdminLiveSync(true, { silent: true });
-    });
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocusSync);
+    window.addEventListener('focus', handleVisibilityOrFocusSync);
   }
 
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');

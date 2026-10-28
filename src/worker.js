@@ -3632,15 +3632,51 @@ async function cancelPendingAccountDeletionOnLogin(userRecord, db) {
 }
 
 async function getAuthenticatedUser(request, env) {
-  let sessionToken = getCookie(request, 'wm_session');
+  const authHeader = request.headers.get('Authorization') || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+  const adminCookieToken = getCookie(request, 'wishmagic_admin_token') || getCookie(request, 'admin_token') || '';
+  const wmSessionCookie = getCookie(request, 'wm_session') || '';
 
-  if (!sessionToken) {
-    const authHeader = request.headers.get('Authorization') || '';
-    if (authHeader.startsWith('Bearer ')) {
-      sessionToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+  let isAdminPath = false;
+  try {
+    const reqUrl = new URL(request.url);
+    isAdminPath = (
+      reqUrl.pathname.startsWith('/api/admin') ||
+      reqUrl.pathname.startsWith('/admin') ||
+      reqUrl.pathname.startsWith('/api/templates') ||
+      reqUrl.pathname.startsWith('/api/categories') ||
+      reqUrl.pathname.startsWith('/api/media') ||
+      reqUrl.pathname.startsWith('/api/settings') ||
+      reqUrl.pathname.startsWith('/api/pricing')
+    );
+  } catch (_) {}
+
+  const orderedCandidates = isAdminPath
+    ? [bearerToken, adminCookieToken, wmSessionCookie]
+    : [wmSessionCookie, bearerToken, adminCookieToken];
+
+  const uniqueTokens = Array.from(new Set(orderedCandidates.map(t => (t && typeof t === 'string' ? t.trim() : '')).filter(Boolean)));
+  if (uniqueTokens.length === 0) return null;
+
+  let firstValidUser = null;
+  for (const candidateToken of uniqueTokens) {
+    const resolved = await resolveSingleAuthenticatedUserToken(candidateToken, env);
+    if (resolved) {
+      if (!firstValidUser) firstValidUser = resolved;
+      const roleStr = String(resolved.role || '').toLowerCase();
+      const emailStr = String(resolved.email || '').toLowerCase();
+      if (roleStr === 'admin' || roleStr === 'owner' || roleStr === 'super_admin' || resolved.isAdmin || MASTER_ADMIN_EMAILS.has(emailStr)) {
+        return resolved;
+      }
+      if (!isAdminPath) {
+        return resolved;
+      }
     }
   }
+  return firstValidUser;
+}
 
+async function resolveSingleAuthenticatedUserToken(sessionToken, env) {
   if (!sessionToken) return null;
 
   // Reject development bypass tokens in production

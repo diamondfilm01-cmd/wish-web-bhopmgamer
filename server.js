@@ -1897,24 +1897,41 @@ function parseCookies(cookieStr) {
 app.use((req, res, next) => {
   const cookies = parseCookies(req.headers.cookie);
   const queryAuth = req.query && (req.query.auth || req.query.token);
-  const token = queryAuth || cookies.wm_session || cookies.wishmagic_admin_token || cookies.admin_token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const bearerToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  const isAdminRoute = Boolean(
+    req.path && (
+      req.path.startsWith('/api/admin') ||
+      req.path.startsWith('/admin') ||
+      req.path.startsWith('/api/templates') ||
+      req.path.startsWith('/api/categories') ||
+      req.path.startsWith('/api/media') ||
+      req.path.startsWith('/api/settings') ||
+      req.path.startsWith('/api/pricing')
+    )
+  );
+
+  const rawCandidates = isAdminRoute
+    ? [bearerToken, cookies.wishmagic_admin_token, cookies.admin_token, queryAuth, cookies.wm_session]
+    : [queryAuth, bearerToken, cookies.wm_session, cookies.wishmagic_admin_token, cookies.admin_token];
+
+  const candidateTokens = Array.from(new Set(rawCandidates.map(t => (t && typeof t === 'string' ? t.trim() : '')).filter(Boolean)));
   req.user = null;
-  req.sessionToken = token;
+  req.sessionToken = candidateTokens[0] || '';
 
-  if (token) {
+  if (candidateTokens.length > 0) {
     const sessions = getSessions();
-    const now = Date.now();
-    const session = sessions.find(s => s.token === token && s.expiresAt > now);
     const users = getUsers();
+    const now = Date.now();
 
-    if (session) {
-      req.user = users.find(u => u.id === session.userId) || null;
-    }
-
-    // Fallback for development accounts and verified admin tokens
-    if (!req.user) {
-      if (token.includes('admin') || token.startsWith('adm_') || token === 'dev_token_usr_admin_999') {
-        req.user = users.find(u => (u.email && u.email.toLowerCase() === 'ankit.babusaini@gmail.com') || u.role === 'admin' || u.isAdmin) || {
+    const resolveUserForToken = (tok) => {
+      if (!tok) return null;
+      const session = sessions.find(s => s.token === tok && s.expiresAt > now);
+      if (session) {
+        const found = users.find(u => u.id === session.userId);
+        if (found) return found;
+      }
+      if (tok.includes('admin') || tok.startsWith('adm_') || tok === 'dev_token_usr_admin_999') {
+        return users.find(u => (u.email && u.email.toLowerCase() === 'ankit.babusaini@gmail.com') || u.role === 'admin' || u.isAdmin) || {
           id: 'usr_master_ankit_babu',
           email: 'ankit.babusaini@gmail.com',
           displayName: 'Ankit Babu Saini',
@@ -1923,8 +1940,9 @@ app.use((req, res, next) => {
           plan: 'VIP',
           isPremium: true
         };
-      } else if (token.includes('priya') || token === 'dev_token_usr_priya_202') {
-        req.user = users.find(u => u.id === 'usr_priya_202') || {
+      }
+      if (tok.includes('priya') || tok === 'dev_token_usr_priya_202') {
+        return users.find(u => u.id === 'usr_priya_202') || {
           id: 'usr_priya_202',
           email: 'priya@example.com',
           displayName: 'Priya Sharma',
@@ -1934,11 +1952,34 @@ app.use((req, res, next) => {
           isPremium: false
         };
       }
+      return null;
+    };
+
+    let matchedUser = null;
+    let matchedToken = '';
+    for (const tok of candidateTokens) {
+      const u = resolveUserForToken(tok);
+      if (u) {
+        if (!matchedUser) {
+          matchedUser = u;
+          matchedToken = tok;
+        }
+        if (u.role === 'admin' || u.isAdmin || (u.email && u.email.toLowerCase() === 'ankit.babusaini@gmail.com')) {
+          matchedUser = u;
+          matchedToken = tok;
+          break;
+        }
+      }
+    }
+
+    if (matchedUser) {
+      req.user = matchedUser;
+      req.sessionToken = matchedToken;
     }
 
     if (req.user && (req.user.role === 'admin' || req.user.isAdmin)) {
-      res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`);
-      res.setHeader('X-WishMagic-Admin-Session', token);
+      res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(req.sessionToken)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`);
+      res.setHeader('X-WishMagic-Admin-Session', req.sessionToken);
     }
   }
 

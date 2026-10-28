@@ -147,6 +147,14 @@
       return `${base}/w/${cleanSlug}`;
     },
 
+    invalidateCache() {
+      try {
+        if (this.cache && typeof this.cache.clear === 'function') {
+          this.cache.clear();
+        }
+      } catch (_) {}
+    },
+
     /**
      * Build standard headers including authorization token and content type
      */
@@ -158,21 +166,52 @@
       }
       headers.set('Accept', 'application/json');
 
-      // Add auth token from session if available
+      // Add auth token from session if available (prioritize Admin Studio token on /admin routes)
       try {
-        if (typeof window !== 'undefined' && window.WishAuth) {
+        const isAdminContext = typeof window !== 'undefined' && window.location && window.location.pathname && window.location.pathname.startsWith('/admin');
+        let resolvedToken = '';
+
+        if (isAdminContext) {
+          if (typeof window.getAdminStoredSessionToken === 'function') {
+            resolvedToken = window.getAdminStoredSessionToken() || '';
+          }
+          if (!resolvedToken && typeof localStorage !== 'undefined') {
+            resolvedToken = (
+              localStorage.getItem('wm_admin_session_token') ||
+              localStorage.getItem('wishmagic_admin_token') ||
+              localStorage.getItem('clay_admin_token') ||
+              ''
+            ).trim();
+          }
+        }
+
+        if (!resolvedToken && typeof window !== 'undefined' && window.WishAuth) {
           const session = window.WishAuth.getSession();
           if (session && session.token) {
-            headers.set('Authorization', `Bearer ${session.token}`);
+            resolvedToken = session.token;
           }
-        } else if (typeof localStorage !== 'undefined') {
+        }
+
+        if (!resolvedToken && typeof localStorage !== 'undefined') {
           const rawSession = localStorage.getItem('wishmagic_auth_session');
           if (rawSession) {
             const parsed = JSON.parse(rawSession);
             if (parsed && parsed.token) {
-              headers.set('Authorization', `Bearer ${parsed.token}`);
+              resolvedToken = parsed.token;
             }
           }
+          if (!resolvedToken) {
+            resolvedToken = (
+              localStorage.getItem('wm_admin_session_token') ||
+              localStorage.getItem('wishmagic_admin_token') ||
+              localStorage.getItem('clay_admin_token') ||
+              ''
+            ).trim();
+          }
+        }
+
+        if (resolvedToken) {
+          headers.set('Authorization', `Bearer ${resolvedToken}`);
         }
       } catch (e) {}
 
