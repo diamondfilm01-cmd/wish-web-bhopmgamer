@@ -496,10 +496,16 @@
     }
 
     function resolveTemplatePreviewUrlClient(tpl) {
-      if (!tpl) return '/templates-store/tpl_glitter_birthday/index.html';
+      if (!tpl) return '';
       const entryFile = tpl.entryFile || tpl.entry_file || 'index.html';
-      if (tpl.previewUrl && String(tpl.previewUrl).includes('/versions/ver_')) {
+      if (tpl.previewUrl && String(tpl.previewUrl).startsWith('/api/templates/')) {
         return tpl.previewUrl;
+      }
+      if (tpl.entryUrl && String(tpl.entryUrl).startsWith('/api/templates/')) {
+        return tpl.entryUrl;
+      }
+      if (tpl.currentVersionId && tpl.id) {
+        return `/api/templates/${encodeURIComponent(tpl.id)}/versions/${encodeURIComponent(tpl.currentVersionId)}/preview/${entryFile}`;
       }
       const cleanFolder = resolveCanonicalTemplateFolderClient(tpl);
       return `/templates-store/${cleanFolder}/${entryFile}`;
@@ -534,157 +540,56 @@
       };
     }
 
-  const FALLBACK_SEED_TEMPLATES = [
-    {
-      id: "tpl_glitter_birthday",
-      slug: "glitter-birthday-bash-3d",
-      folder: "tpl_glitter_birthday",
-      entryFile: "index.html",
-      name: "Glitter Birthday Bash",
-      category: "Birthday",
-      relationships: ["Birthday", "Best Friend", "Brother", "Sister", "Friendship", "Family"],
-      tier: "free",
-      price: 0,
-      isPremium: false,
-      thumbnail: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
-      description: "Interactive 3D celebration with real candle blowing, sparkling confetti bursts, and polaroid memory frames."
-    },
-    {
-      id: "tpl_romantic_starlight",
-      slug: "romantic-starlight-serenade",
-      folder: "tpl_romantic_scrapbook",
-      entryFile: "index.html",
-      name: "Endless Love Serenade",
-      category: "Love",
-      relationships: ["Girlfriend", "Boyfriend", "Crush", "Love", "Best Friend"],
-      tier: "vip",
-      price: 49,
-      isPremium: true,
-      thumbnail: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80",
-      description: "Dreamy starlit romantic message with floating glowing hearts, wax seal envelope, and custom music keepsake."
-    },
-    {
-      id: "tpl_golden_elegance",
-      slug: "golden-elegance-anniversary",
-      folder: "tpl_golden_anniversary",
-      entryFile: "index.html",
-      name: "Golden Anniversary Wishes",
-      category: "Anniversary",
-      relationships: ["Anniversary", "Wife", "Husband", "Parents", "Grandparents", "Family"],
-      tier: "vip",
-      price: 49,
-      isPremium: true,
-      thumbnail: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&auto=format&fit=crop&q=80",
-      description: "Luxurious gold foil anniversary experience with interactive love timeline, romantic music, and photo gallery."
-    },
-    {
-      id: "tpl_neon_party",
-      slug: "neon-night-celebration",
-      folder: "tpl_cosmic_aurora",
-      entryFile: "index.html",
-      name: "Purr-fect Birthday Party",
-      category: "Birthday",
-      relationships: ["Birthday", "Friendship", "Best Friend", "Funny", "Colleague"],
-      tier: "free",
-      price: 0,
-      isPremium: false,
-      thumbnail: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80",
-      description: "Playful party wish with celebratory confetti, music beats, and fun birthday energy."
-    },
-    {
-      id: "tpl_parents_tribute",
-      slug: "dearest-parents-tribute",
-      folder: "tpl_parents_tribute",
-      entryFile: "index.html",
-      name: "Heartfelt Thank You Keepsake",
-      category: "Thank You",
-      relationships: ["Thank You", "Mother", "Father", "Parents", "Family", "Teacher"],
-      tier: "free",
-      price: 0,
-      isPremium: false,
-      thumbnail: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=600&auto=format&fit=crop&q=80",
-      description: "Warm floral gratitude keepsake designed to thank parents, mentors, and loved ones."
-    },
-    {
-      id: "tpl_midnight_countdown",
-      slug: "midnight-celebration-countdown",
-      folder: "tpl_midnight_countdown",
-      entryFile: "index.html",
-      name: "Grand Congratulations Finale",
-      category: "Congratulations",
-      relationships: ["Birthday", "Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
-      tier: "vip",
-      price: 59,
-      isPremium: true,
-      thumbnail: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
-      description: "Synchronized celebration countdown unlocking midnight fireworks and custom music."
-    },
-    {
-      id: "tpl_friendship_chronicles",
-      slug: "forever-friends-funhouse",
-      folder: "tpl_friendship_chronicles",
-      entryFile: "index.html",
-      name: "Forever Friends Polaroid Deck",
-      category: "Friendship",
-      relationships: ["Friendship", "Best Friend", "Funny", "Brother", "Sister"],
-      tier: "free",
-      price: 0,
-      isPremium: false,
-      thumbnail: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80",
-      description: "Interactive polaroid memory stack with party confetti pop and upbeat friendship tunes."
-    },
-    {
-      id: "tpl_festive_lights",
-      slug: "royal-festival-celebration",
-      folder: "tpl_golden_anniversary",
-      entryFile: "index.html",
-      name: "Royal Festival of Lights",
-      category: "Festivals",
-      relationships: ["Festivals", "Family", "Parents", "Friendship"],
-      tier: "vip",
-      price: 149,
-      isPremium: true,
-      thumbnail: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80",
-      description: "Sparkling festive celebration with golden lanterns, fireworks, and warm family wishes."
-    }
-  ];
+  const FALLBACK_SEED_TEMPLATES = [];
+  const DEMO_SEED_IDS_MP = new Set([
+    "tpl_glitter_birthday","tpl_romantic_starlight","tpl_golden_elegance","tpl_neon_party",
+    "tpl_parents_tribute","tpl_midnight_countdown","tpl_friendship_chronicles","tpl_festive_lights"
+  ]);
 
   async function loadMarketplaceTemplates() {
     try {
-      // 1. Instant first-paint from sessionStorage cache or seed templates (0ms delay)
+      // 1. Instant first-paint from localStorage cache if real uploaded templates exist
       try {
-        const rawCache = localStorage.getItem("wm_public_templates_cache_v2") || sessionStorage.getItem("wm_public_templates_cache_v1");
+        const rawCache = localStorage.getItem("wm_public_templates_cache_v2");
         const cached = rawCache ? JSON.parse(rawCache) : null;
-        const initialList = (Array.isArray(cached) && cached.length > 0) ? cached : FALLBACK_SEED_TEMPLATES;
+        const initialList = Array.isArray(cached)
+          ? cached.filter(t => t && (!DEMO_SEED_IDS_MP.has(String(t.id || "")) || String(t.currentVersionId || "").startsWith("ver_")))
+          : [];
         allLoadedTemplates = initialList;
         window.allMarketplaceTemplates = initialList;
-        window._wmLoadedTemplatesMap = window._wmLoadedTemplatesMap || {};
+        window._wmLoadedTemplatesMap = {};
         initialList.forEach(t => {
           if (t && t.id) window._wmLoadedTemplatesMap[t.id] = t;
           if (t && t.slug) window._wmLoadedTemplatesMap[t.slug] = t;
         });
-        renderMarketplaceCards(initialList);
+        if (initialList.length > 0) {
+          renderMarketplaceCards(initialList);
+        }
       } catch (_) {}
 
-      // 2. Fetch fresh templates from D1 API
+      // 2. Fetch fresh templates from D1 API (authoritative source of truth, even when empty)
       let templates = [];
       let fetchedFromApi = false;
       try {
-        const res = await fetch("/api/templates");
+        const res = await fetch("/api/templates?_t=" + Date.now(), { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          if (data && data.success && Array.isArray(data.templates) && data.templates.length > 0) {
-            templates = data.templates;
+          const rawArr = Array.isArray(data) ? data : (Array.isArray(data.templates) ? data.templates : (data && data.data && Array.isArray(data.data.templates) ? data.data.templates : null));
+          if (data && data.success !== false && Array.isArray(rawArr)) {
+            templates = rawArr.filter(t => t && (!DEMO_SEED_IDS_MP.has(String(t.id || "")) || String(t.currentVersionId || "").startsWith("ver_")));
             fetchedFromApi = true;
-            try { localStorage.setItem("wm_public_templates_cache_v2", JSON.stringify(templates)); sessionStorage.setItem("wm_public_templates_cache_v1", JSON.stringify(templates)); } catch (_) {}
+            try {
+              localStorage.setItem("wm_public_templates_cache_v2", JSON.stringify(templates));
+              sessionStorage.setItem("wm_public_templates_cache_v1", JSON.stringify(templates));
+            } catch (_) {}
           }
         }
       } catch (netErr) {
-        console.warn("Could not fetch /api/templates, using fallback seed templates:", netErr);
+        console.warn("Could not fetch /api/templates:", netErr);
       }
 
       if (!fetchedFromApi) {
-        templates = allLoadedTemplates && allLoadedTemplates.length > 0 ? allLoadedTemplates : FALLBACK_SEED_TEMPLATES;
+        templates = allLoadedTemplates && allLoadedTemplates.length > 0 ? allLoadedTemplates : [];
       }
 
       const container = document.getElementById("templates-grid-container");
@@ -1009,20 +914,24 @@
       } else if (avail.length === 1) {
         selectedVariant = avail[0];
       } else if (avail.length > 1) {
-        window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, preview, {});
+        window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, 'preview', {});
         return;
       }
     }
 
     const campSuffix = (tpl.festivalCampaign && tpl.festivalCampaign.campaignId)
       ? `&campaign=${encodeURIComponent(tpl.festivalCampaign.campaignId)}`
-      : ;
+      : '';
     const fullPreviewHref = selectedVariant
       ? `/template-preview.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}${campSuffix}`
       : `/template-preview.html?template=${encodeURIComponent(tpl.id)}${campSuffix}`;
 
+    if (window.innerWidth <= 768) {
+      window.location.href = fullPreviewHref;
+      return;
+    }
     try {
-      const win = window.open(fullPreviewHref, _blank, noopener);
+      const win = window.open(fullPreviewHref, '_blank', 'noopener');
       if (win) return;
     } catch (_) {}
     window.location.href = fullPreviewHref;

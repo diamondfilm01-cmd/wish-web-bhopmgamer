@@ -11,6 +11,7 @@
  */
 
 import fs from 'fs';
+import vm from 'vm';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -113,6 +114,24 @@ export function runBuild() {
         if (!fs.existsSync(cssPath)) {
           brokenRefs++;
           errors.push(`Broken CSS ref in ${hf}: ${m[1]}`);
+        }
+      }
+
+      // Verify inline <script> syntax in every HTML page
+      const inlineScriptRegex = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi;
+      let scriptMatch;
+      let scriptIdx = 0;
+      while ((scriptMatch = inlineScriptRegex.exec(content)) !== null) {
+        scriptIdx++;
+        const attrs = scriptMatch[1] || '';
+        if (/type=["'](?:application\/(?:ld\+json|json)|importmap)["']/i.test(attrs)) continue;
+        const code = scriptMatch[2];
+        if (!code || !code.trim()) continue;
+        try {
+          new vm.Script(code, { filename: `${hf}#inline-${scriptIdx}` });
+        } catch (scriptErr) {
+          brokenRefs++;
+          errors.push(`Inline <script> syntax error in ${hf} (script #${scriptIdx}): ${scriptErr.message}`);
         }
       }
     }

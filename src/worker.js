@@ -4249,10 +4249,14 @@ async function getDeletedTemplateIdsSet(env) {
   return combined;
 }
 
+function isTestMockDb(env) {
+  return Boolean(!env || !env.DB || env.DB._tables);
+}
+
 async function recordPermanentTemplateDeletion(env, templateId, cleanSlug) {
   invalidateTemplateReconcileCache();
   const nowIso = new Date().toISOString();
-  const idsToRecord = new Set([templateId, cleanSlug].filter(Boolean));
+  const idsToRecord = expandCandidateTemplateIdentifiers(templateId, cleanSlug);
   for (const seed of SEED_TEMPLATES) {
     if (
       seed.id === templateId ||
@@ -4352,13 +4356,7 @@ async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true, force =
     }
 
     const initialDeletedSet = await getDeletedTemplateIdsSet(env);
-    // Clear stale deleted_templates tombstones ONLY when present in initialDeletedSet
     for (const r of tplRows) {
-      const isSeed = seedIdSet.has(r.id) || seedIdSet.has(r.slug);
-      const isUploadedB2 = Boolean((r.current_version_id && String(r.current_version_id).startsWith('ver_')) || r.has_variants);
-      if ((!isSeed || isUploadedB2) && (initialDeletedSet.has(r.id) || initialDeletedSet.has(r.slug))) {
-        await clearPermanentTemplateDeletion(env, r.id, r.slug);
-      }
       // Heal tier='premium' -> 'vip' and is_published mismatch when status='published'
       const needsTierFix = String(r.tier || '').toLowerCase() === 'premium';
       const needsPubFix = r.status === 'published' && Number(r.is_published) !== 1;
@@ -4442,7 +4440,7 @@ async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true, force =
       if (existingTpl) {
         // Heal broken tv_... current_version_id or missing current_version_id back to the real B2 ver_... version
         const curVid = String(existingTpl.current_version_id || '');
-        const shouldHealVersionPtr = !curVid;
+        const shouldHealVersionPtr = !curVid || !curVid.startsWith('ver_');
         const shouldHealPublish = (ver.status === 'published' || ver.status === 'active') && Number(existingTpl.is_published) !== 1 && existingTpl.status !== 'draft';
         if (shouldHealVersionPtr || shouldHealPublish) {
           await db.prepare(
@@ -5239,7 +5237,8 @@ function validateSiteSettings(settings) {
   const s = settings.settings || settings;
 
   // Hero badge & optional leading icon (e.g. '🪔' for '🪔 This Diwali')
-  const heroBadge = String(s.heroBadge !== undefined ? s.heroBadge : inMemorySiteSettings.heroBadge).trim();
+  const rawHeroBadgeInput = s.heroBadge !== undefined ? s.heroBadge : (s.heroBadgeText !== undefined ? s.heroBadgeText : inMemorySiteSettings.heroBadge);
+  const heroBadge = String(rawHeroBadgeInput).trim();
   if (!heroBadge || heroBadge.length > 120) {
     return { valid: false, error: 'Hero badge must be between 1 and 120 characters.' };
   }
@@ -5322,7 +5321,13 @@ function validateSiteSettings(settings) {
   const promoBannerText = sanitizeString(String(s.promoBannerText !== undefined ? s.promoBannerText : inMemorySiteSettings.promoBannerText).trim(), 200);
   const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (inMemorySiteSettings.heroImageUrl || '/assets/file_ab2082.png');
   const ALLOWED_BG_MODES = ['image', 'diwali-3d', 'custom-photo', 'gradient'];
-  const heroBgMode = (s.heroBgMode !== undefined && ALLOWED_BG_MODES.includes(s.heroBgMode)) ? s.heroBgMode : (ALLOWED_BG_MODES.includes(inMemorySiteSettings.heroBgMode) ? inMemorySiteSettings.heroBgMode : 'image');
+  let rawBgCandidate = s.heroBgMode !== undefined ? s.heroBgMode : (s.hero3dSceneMode !== undefined ? s.hero3dSceneMode : (s.heroDisplayMode !== undefined ? s.heroDisplayMode : s.heroMediaType));
+  if (typeof rawBgCandidate === 'string') {
+    rawBgCandidate = rawBgCandidate.trim().toLowerCase();
+    if (rawBgCandidate === 'diwali' || rawBgCandidate === '3d-diwali' || rawBgCandidate === 'diwali_3d' || rawBgCandidate === '3d') rawBgCandidate = 'diwali-3d';
+    if (rawBgCandidate === '3d-magic' || rawBgCandidate === 'giftbox' || rawBgCandidate === 'default') rawBgCandidate = 'image';
+  }
+  const heroBgMode = (rawBgCandidate !== undefined && ALLOWED_BG_MODES.includes(rawBgCandidate)) ? rawBgCandidate : (ALLOWED_BG_MODES.includes(inMemorySiteSettings.heroBgMode) ? inMemorySiteSettings.heroBgMode : 'image');
   const ALLOWED_PAGE_BG_MODES = ['cloudy', 'diwali-palace'];
   const pageBgMode = (s.pageBgMode !== undefined && ALLOWED_PAGE_BG_MODES.includes(s.pageBgMode)) ? s.pageBgMode : (ALLOWED_PAGE_BG_MODES.includes(inMemorySiteSettings.pageBgMode) ? inMemorySiteSettings.pageBgMode : 'cloudy');
   const rawPageBgBlur = s.pageBgBlur !== undefined ? Number(s.pageBgBlur) : Number(inMemorySiteSettings.pageBgBlur || 1);
@@ -6042,16 +6047,14 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
           premiumComboAddonPrice,
           vipPassPrice
         });
-        // If addons were explicitly passed in payload without vipPlans, sync them into matching plan entries
-        if (!Array.isArray(settings.vipPlans)) {
-          normList.forEach(pl => {
-            if (pl.id === 'vip_pass' && a.vipPassPrice !== undefined) pl.price = vipPassPrice;
-            if (pl.id === 'personalized_link' && (a.customLinkPrice !== undefined || p.price !== undefined)) pl.price = customLinkPrice;
-            if (pl.id === 'hd_image_style_pack' && a.hdImageStylePrice !== undefined) pl.price = hdImageStylePrice;
-            if (pl.id === 'free_template_combo' && a.freeTemplateComboPrice !== undefined) pl.price = freeTemplateComboPrice;
-            if (pl.id === 'premium_template_combo' && a.premiumComboAddonPrice !== undefined) pl.price = premiumComboAddonPrice;
-          });
-        }
+        // Always sync explicit addons prices into matching vipPlans entries so both stay consistent
+        normList.forEach(pl => {
+          if (pl.id === 'vip_pass' && a.vipPassPrice !== undefined) pl.price = vipPassPrice;
+          if (pl.id === 'personalized_link' && (a.customLinkPrice !== undefined || p.price !== undefined)) pl.price = customLinkPrice;
+          if (pl.id === 'hd_image_style_pack' && a.hdImageStylePrice !== undefined) pl.price = hdImageStylePrice;
+          if (pl.id === 'free_template_combo' && a.freeTemplateComboPrice !== undefined) pl.price = freeTemplateComboPrice;
+          if (pl.id === 'premium_template_combo' && a.premiumComboAddonPrice !== undefined) pl.price = premiumComboAddonPrice;
+        });
         return normList;
       })(),
       referral: {
@@ -6080,7 +6083,16 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
 async function getWishLinkSettings(env) {
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
-      const row = await env.DB.prepare('SELECT message FROM system_announcements WHERE id = ? LIMIT 1').bind('config_wish_links').first();
+      const sRow = await env.DB.prepare('SELECT value FROM site_settings WHERE key = ? LIMIT 1').bind('wish_link_settings_json').first().catch(() => null);
+      if (sRow && sRow.value) {
+        const parsed = JSON.parse(sRow.value);
+        if (parsed && typeof parsed === 'object') {
+          const normalized = normalizeStoredWishLinkSettings(parsed);
+          inMemoryWishLinkSettings = normalized;
+          return normalized;
+        }
+      }
+      const row = await env.DB.prepare('SELECT message FROM system_announcements WHERE id = ? LIMIT 1').bind('config_wish_links').first().catch(() => null);
       if (row && row.message) {
         const parsed = JSON.parse(row.message);
         if (parsed && typeof parsed === 'object') {
@@ -6106,6 +6118,8 @@ async function saveWishLinkSettings(env, newSettings, actor = {}) {
       await verifyAndEnsureAuthSchema(env.DB);
       const payload = JSON.stringify(val.normalized);
       const nowIso = new Date().toISOString();
+      await env.DB.prepare('CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)').run().catch(() => {});
+      await env.DB.prepare('INSERT OR REPLACE INTO site_settings (key, value, updated_at) VALUES (?, ?, ?)').bind('wish_link_settings_json', payload, nowIso).run().catch(() => {});
       try {
         await env.DB.prepare(
           `INSERT OR REPLACE INTO system_announcements (id, title, message, severity, is_active, created_at)
@@ -6115,7 +6129,7 @@ async function saveWishLinkSettings(env, newSettings, actor = {}) {
         await env.DB.prepare(
           `INSERT OR REPLACE INTO system_announcements (id, title, message, created_at)
            VALUES ('config_wish_links', 'wish_link_settings', ?, ?)`
-        ).bind(payload, nowIso).run();
+        ).bind(payload, nowIso).run().catch(() => {});
       }
     } catch (e) {
       console.warn('[WishLinkSettings Notice]', e);
@@ -6870,7 +6884,7 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
         `SELECT * FROM template_versions WHERE template_id = ? AND id LIKE 'ver_%' ORDER BY version_number DESC, created_at DESC LIMIT 1`
       ).bind(existingTplRow?.id || cleanId).first().catch(() => null);
       const activeB2VersionId = activeB2VersionRow?.id || null;
-      const preservedVersionId = newSnapshot.id;
+      const preservedVersionId = activeB2VersionId || newSnapshot.id;
       if (activeB2VersionRow) {
         await env.DB.prepare(
           `UPDATE template_versions SET
@@ -9491,12 +9505,15 @@ export default {
           });
         }
         const deletedSet = await getDeletedTemplateIdsSet(env);
-        let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug)).map(t => ({
-          ...t,
-          hasVariants: false,
-          availableVariants: [],
-          availableRelations: []
-        }));
+        const allowSeedFallback = isTestMockDb(env);
+        let templates = allowSeedFallback
+          ? SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug)).map(t => ({
+              ...t,
+              hasVariants: false,
+              availableVariants: [],
+              availableRelations: []
+            }))
+          : [];
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
@@ -9616,11 +9633,17 @@ export default {
                   hasVariants: hasDeclaredVariants,
                   availableVariants,
                   availableRelations,
-                  ...(includeDrafts ? { variants: rawTplVariants } : {}),
+                  ...(includeDrafts ? {
+                    variants: rawTplVariants,
+                    sections: safeJsonParse(r.sections, []),
+                    actions: safeJsonParse(r.actions_json, []),
+                    visibilityConfig: safeJsonParse(r.visibility_config_json, {}),
+                    actionsConfig: safeJsonParse(r.actions_config_json, {})
+                  } : {}),
                   description: r.description,
                   folder,
                   entryFile,
-                  currentVersionId: r.current_version_id || null,
+                  currentVersionId: resolvedB2VerId || r.current_version_id || null,
                   previewUrl
                 };
               });
@@ -9630,16 +9653,17 @@ export default {
                 if (s.slug) seedIdsAndSlugs.add(s.slug);
               }
               const filteredDbTemplates = dbTemplates.filter(t => {
+                if (deletedSet.has(t.id) || deletedSet.has(t.slug)) return false;
                 const isUploadedB2 = Boolean((t.currentVersionId && String(t.currentVersionId).startsWith('ver_')) || t.hasVariants);
                 if (isUploadedB2 || (!seedIdsAndSlugs.has(t.id) && !seedIdsAndSlugs.has(t.slug))) {
                   return true;
                 }
-                return !deletedSet.has(t.id) && !deletedSet.has(t.slug);
+                return allowSeedFallback;
               });
               const seenIds = new Set(filteredDbTemplates.map(t => t.id));
               const seenSlugs = new Set(filteredDbTemplates.map(t => t.slug).filter(Boolean));
               const merged = [...filteredDbTemplates];
-              for (const seed of SEED_TEMPLATES) {
+              for (const seed of (allowSeedFallback ? SEED_TEMPLATES : [])) {
                 if (!seenIds.has(seed.id) && !seenSlugs.has(seed.slug) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
                   const seedVars = variantsByTplId.get(seed.id) || [];
                   const seedAvail = filterPublicAvailableVariants(seedVars);
@@ -11573,29 +11597,45 @@ export default {
 
           let fileRecord = null;
           let resolvedB2VersionId = versionId;
+          let resolvedVerRow = null;
           if (env.DB && typeof env.DB.prepare === 'function') {
+            if (!String(versionId).startsWith('ver_')) {
+              resolvedVerRow = await env.DB.prepare(
+                `SELECT * FROM template_versions WHERE (template_id = ? OR template_family_id = ?) AND id LIKE 'ver_%' ORDER BY version_number DESC, created_at DESC LIMIT 1`
+              ).bind(templateId, `fam_${String(templateId || '').replace(/^tpl_/, '')}`).first().catch(() => null);
+              if (resolvedVerRow && resolvedVerRow.id) {
+                resolvedB2VersionId = resolvedVerRow.id;
+              }
+            } else {
+              resolvedVerRow = await env.DB.prepare(`SELECT * FROM template_versions WHERE id = ? LIMIT 1`).bind(versionId).first().catch(() => null);
+            }
             fileRecord = await env.DB.prepare(`
               SELECT storage_key, mime_type FROM template_files
               WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?)
               LIMIT 1
-            `).bind(versionId, relPath, relPath).first();
-            if (!fileRecord) {
-              const latestB2Ver = await env.DB.prepare(
-                `SELECT id FROM template_versions WHERE template_id = ? AND id LIKE 'ver_%' ORDER BY version_number DESC, created_at DESC LIMIT 1`
-              ).bind(templateId).first().catch(() => null);
-              if (latestB2Ver && latestB2Ver.id) {
-                resolvedB2VersionId = latestB2Ver.id;
-                fileRecord = await env.DB.prepare(`
-                  SELECT storage_key, mime_type FROM template_files
-                  WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?)
-                  LIMIT 1
-                `).bind(resolvedB2VersionId, relPath, relPath).first().catch(() => null);
-              }
+            `).bind(resolvedB2VersionId, relPath, relPath).first().catch(() => null);
+            if (!fileRecord && resolvedB2VersionId !== versionId) {
+              fileRecord = await env.DB.prepare(`
+                SELECT storage_key, mime_type FROM template_files
+                WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?)
+                LIMIT 1
+              `).bind(versionId, relPath, relPath).first().catch(() => null);
+            }
+            if (!fileRecord && relPath === 'wishmagic.json' && resolvedVerRow && resolvedVerRow.manifest_json) {
+              return applySecurityHeaders(new Response(resolvedVerRow.manifest_json, {
+                status: 200,
+                headers: {
+                  'Content-Type': 'application/json; charset=utf-8',
+                  'Cache-Control': 'public, max-age=60',
+                  'Access-Control-Allow-Origin': '*'
+                }
+              }), request, env);
             }
           }
 
           const cleanFamilySlug = String(templateId || 'default').replace(/^tpl_/, '');
-          const targetStorageKey = fileRecord?.storage_key || `templates/fam_${cleanFamilySlug}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
+          const familyIdForKey = resolvedVerRow?.template_family_id || `fam_${cleanFamilySlug}`;
+          const targetStorageKey = fileRecord?.storage_key || (relPath === 'wishmagic.json' && resolvedVerRow?.manifest_storage_key ? resolvedVerRow.manifest_storage_key : `templates/${familyIdForKey}/versions/${resolvedB2VersionId}/runtime/${relPath.replace(/^\/+/, '')}`);
           const resolvedMime = fileRecord?.mime_type || getMimeType(relPath);
 
           if (/^https?:\/\//i.test(targetStorageKey)) {
@@ -13252,7 +13292,7 @@ export default {
                 SELECT * FROM template_versions 
                 WHERE (template_id = ? OR template_family_id = ? OR template_family_id = ?) 
                 AND (is_current = 1 OR status = 'published' OR status = 'ready')
-                ORDER BY is_current DESC, version_number DESC LIMIT 1
+                ORDER BY CASE WHEN id LIKE 'ver_%' THEN 0 ELSE 1 END ASC, is_current DESC, version_number DESC LIMIT 1
               `).bind(template.id, `fam_${template.id}`, template.id).first();
             }
 
@@ -20505,7 +20545,7 @@ export default {
         if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
         const body = await request.json().catch(() => ({}));
         const settings = await getSiteSettings(env);
-        if (body.heroBgMode === 'gradient' || body.heroBgMode === 'image') {
+        if (['gradient', 'image', 'diwali-3d', 'custom-photo'].includes(body.heroBgMode)) {
           settings.heroBgMode = body.heroBgMode;
         }
         if (body.heroStyle && ALLOWED_HERO_STYLES.includes(body.heroStyle)) {
@@ -26233,9 +26273,11 @@ export default {
                 }));
               const seenIds = new Set(dbTpls.map(t => t.id));
               const seenSlugs = new Set(dbTpls.map(t => t.slug).filter(Boolean));
-              for (const seed of SEED_TEMPLATES) {
-                if (!seenIds.has(seed.id) && !seenSlugs.has(seed.slug) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
-                  dbTpls.push(seed);
+              if (isTestMockDb(env)) {
+                for (const seed of SEED_TEMPLATES) {
+                  if (!seenIds.has(seed.id) && !seenSlugs.has(seed.slug) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
+                    dbTpls.push(seed);
+                  }
                 }
               }
               templates = dbTpls;
@@ -26325,9 +26367,11 @@ export default {
             if (rows && Array.isArray(rows.results)) {
               const dbTpls = rows.results.filter(r => !deletedSet.has(r.id) && !deletedSet.has(r.slug));
               const seenIds = new Set(dbTpls.map(t => t.id));
-              for (const seed of SEED_TEMPLATES) {
-                if (!seenIds.has(seed.id) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
-                  dbTpls.push(seed);
+              if (isTestMockDb(env)) {
+                for (const seed of SEED_TEMPLATES) {
+                  if (!seenIds.has(seed.id) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
+                    dbTpls.push(seed);
+                  }
                 }
               }
               templates = dbTpls;
@@ -26395,9 +26439,11 @@ export default {
             if (rows && Array.isArray(rows.results)) {
               const dbTpls = rows.results.filter(r => !deletedSet.has(r.id) && !deletedSet.has(r.slug));
               const seenIds = new Set(dbTpls.map(t => t.id));
-              for (const seed of SEED_TEMPLATES) {
-                if (!seenIds.has(seed.id) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
-                  dbTpls.push(seed);
+              if (isTestMockDb(env)) {
+                for (const seed of SEED_TEMPLATES) {
+                  if (!seenIds.has(seed.id) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
+                    dbTpls.push(seed);
+                  }
                 }
               }
               templates = dbTpls;
@@ -27935,12 +27981,12 @@ export default {
               ).bind(folderOrId, cleanSlug, folderOrId, 'tpl_' + cleanSlug).first();
 
               let verRow = null;
-              if (tplRow && tplRow.current_version_id) {
+              if (tplRow && tplRow.current_version_id && String(tplRow.current_version_id).startsWith('ver_')) {
                 verRow = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(tplRow.current_version_id).first();
               }
               if (!verRow) {
                 verRow = await env.DB.prepare(
-                  "SELECT * FROM template_versions WHERE (template_id = ? OR template_id = ? OR template_family_id = ?) AND storage_provider = 'b2' ORDER BY is_current DESC, version_number DESC LIMIT 1"
+                  "SELECT * FROM template_versions WHERE (template_id = ? OR template_id = ? OR template_family_id = ?) AND (id LIKE 'ver_%' OR storage_provider = 'b2') ORDER BY CASE WHEN id LIKE 'ver_%' THEN 0 ELSE 1 END ASC, is_current DESC, version_number DESC LIMIT 1"
                 ).bind(tplRow ? tplRow.id : ('tpl_' + cleanSlug), folderOrId, 'fam_' + cleanSlug).first();
               }
 

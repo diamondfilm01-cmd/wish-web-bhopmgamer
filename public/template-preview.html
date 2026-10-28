@@ -237,11 +237,14 @@
     function resolveTemplatePreviewUrlClient(tpl) {
       if (!tpl) return '/templates-store/tpl_glitter_birthday/index.html';
       const entryFile = tpl.entryFile || tpl.entry_file || 'index.html';
-      if (tpl.previewUrl && String(tpl.previewUrl).includes('/versions/ver_')) {
+      if (tpl.previewUrl && String(tpl.previewUrl).startsWith('/api/templates/')) {
         return tpl.previewUrl;
       }
-      if (tpl.entryUrl && String(tpl.entryUrl).includes('/versions/ver_')) {
+      if (tpl.entryUrl && String(tpl.entryUrl).startsWith('/api/templates/')) {
         return tpl.entryUrl;
+      }
+      if (tpl.currentVersionId && tpl.id) {
+        return `/api/templates/${encodeURIComponent(tpl.id)}/versions/${encodeURIComponent(tpl.currentVersionId)}/preview/${entryFile}`;
       }
       const cleanFolder = resolveCanonicalTemplateFolderClient(tpl);
       return `/templates-store/${cleanFolder}/${entryFile}`;
@@ -449,9 +452,13 @@
 
       iframe.removeAttribute('srcdoc');
       iframe.removeAttribute('data-fallback-applied');
+      const safetyTimer = setTimeout(() => {
+        if (loadingEl) loadingEl.classList.add('hidden');
+      }, 3500);
       iframe.src = url;
 
       iframe.onload = () => {
+        clearTimeout(safetyTimer);
         if (loadingEl) loadingEl.classList.add('hidden');
 
         const varMsgs = (selectedVariant && selectedVariant.messages) || {};

@@ -11,11 +11,17 @@
       const keysToRemove = [];
       for (let i = 0; i < sessionStorage.length; i++) {
         const k = sessionStorage.key(i);
-        if (k && (k.startsWith(CACHE_PREFIX) || k === 'wm_admin_header_notif_v1' || k === 'clay_admin_overview_cache_v1')) {
+        if (k && (k.startsWith(CACHE_PREFIX) || k.startsWith('wm_public_templates_cache') || k === 'wm_admin_header_notif_v1' || k === 'clay_admin_overview_cache_v1')) {
           keysToRemove.push(k);
         }
       }
       keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch (_) {}
+    try {
+      localStorage.removeItem('wm_public_templates_cache_v2');
+      localStorage.removeItem('wishmagic_templates_v1');
+      localStorage.removeItem('wishmagic_site_settings_v1');
+      localStorage.removeItem('wishmagic_pricing_rules_v4');
     } catch (_) {}
   }
   window.clearAdminApiCache = clearAdminApiCache;
