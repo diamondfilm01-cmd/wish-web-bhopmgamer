@@ -1979,7 +1979,7 @@ export function extractAuthoritativeEnabledRelationshipSet(template = null, temp
 }
 
 export function filterPublicAvailableVariants(rawVariants = [], templateContext = null) {
-  if (!Array.isArray(rawVariants) || rawVariants.length === 0) return [];
+  const inputVariants = Array.isArray(rawVariants) ? [...rawVariants] : [];
 
   const tplObj = templateContext && typeof templateContext === 'object'
     ? (templateContext.template || templateContext)
@@ -1991,6 +1991,57 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
     ? templateContext.templateRelationships
     : null;
 
+  // If inputVariants is empty, check if tplObj declares variants_json or relationships
+  if (inputVariants.length === 0 && tplObj) {
+    const parsedJsonVars = tplObj.variants_json
+      ? (typeof tplObj.variants_json === 'string' ? safeJsonParse(tplObj.variants_json, []) : tplObj.variants_json)
+      : (Array.isArray(tplObj.variants) ? tplObj.variants : []);
+    if (Array.isArray(parsedJsonVars) && parsedJsonVars.length > 0) {
+      inputVariants.push(...parsedJsonVars);
+    }
+  }
+
+  // Also synthesize fallback variants from template relationships if not already covered
+  if (tplObj) {
+    const rawTplRels = Array.isArray(tplObj.relationships)
+      ? tplObj.relationships
+      : (typeof tplObj.relationships === 'string' ? safeJsonParse(tplObj.relationships, []) : []);
+    const activeRelRows = Array.isArray(relRows)
+      ? relRows.filter(r => Number(r.enabled ?? 1) !== 0)
+      : [];
+    const candidateRels = activeRelRows.length > 0 ? activeRelRows : rawTplRels;
+
+    if (Array.isArray(candidateRels) && candidateRels.length > 0 && inputVariants.length === 0) {
+      candidateRels.forEach((rItem, idx) => {
+        const rawSlugOrName = typeof rItem === 'object'
+          ? (rItem.relationship_slug || rItem.slug || rItem.name || rItem.label || rItem.id || '')
+          : String(rItem || '');
+        const rawLbl = typeof rItem === 'object' ? (rItem.name || rItem.label || null) : String(rItem || '');
+        const relMeta = normalizeRelationshipIdentifier(rawSlugOrName, rawLbl);
+        if (!relMeta || !relMeta.slug) return;
+        const defaultCfg = getDefaultRelationshipVariantConfig(tplObj.id || 'tpl', relMeta);
+        inputVariants.push({
+          id: `trv_${tplObj.id || 'tpl'}_${relMeta.slug}`,
+          variant_slug: relMeta.slug,
+          slug: relMeta.slug,
+          relationship_id: relMeta.id,
+          relationship_slug: relMeta.slug,
+          relationship_label: relMeta.label,
+          relationship_icon: relMeta.icon || '✨',
+          name: defaultCfg.displayName || `${relMeta.label} Edition`,
+          status: 'published',
+          enabled: 1,
+          is_latest: 1,
+          is_default: idx === 0 ? 1 : 0,
+          sort_order: relMeta.sortOrder ?? (idx + 1),
+          configuration: defaultCfg
+        });
+      });
+    }
+  }
+
+  if (inputVariants.length === 0) return [];
+
   const authRelSet = (tplObj || verObj || relRows)
     ? extractAuthoritativeEnabledRelationshipSet(tplObj, verObj, relRows)
     : { hasExplicitAllowlist: false, allowedSlugs: new Set(), explicitlyDisabledSlugs: new Set() };
@@ -2000,14 +2051,14 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
     ? (typeof tplObj.variants_json === 'string' ? safeJsonParse(tplObj.variants_json, []) : tplObj.variants_json)
     : [];
   const allTemplateVariantsDisabledBug = Boolean(
-    (rawVariants.length > 1 && rawVariants.every(v => v && (v.enabled === 0 || v.enabled === false || String(v.status || '').toLowerCase() === 'disabled'))) ||
+    (inputVariants.length > 1 && inputVariants.every(v => v && (v.enabled === 0 || v.enabled === false || String(v.status || '').toLowerCase() === 'disabled'))) ||
     (Array.isArray(tplJsonVarsForCheck) && tplJsonVarsForCheck.length > 0 && tplJsonVarsForCheck.every(jv => jv && (jv.enabled === 0 || jv.enabled === false || String(jv.status || '').toLowerCase() === 'disabled')) && (!Array.isArray(relRows) || relRows.every(r => Number(r.enabled) === 0)))
   );
 
   const seenRels = new Set();
   const publicList = [];
 
-  for (const v of rawVariants) {
+  for (const v of inputVariants) {
     if (!v || typeof v !== 'object') continue;
     const rawStatus = String(v.status || 'published').toLowerCase().trim();
     const status = (allTemplateVariantsDisabledBug && rawStatus === 'disabled') ? 'published' : rawStatus;
@@ -2062,6 +2113,36 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
     if (seenRels.has(relMeta.slug)) continue;
     seenRels.add(relMeta.slug);
 
+    const defaultRelCfg = getDefaultRelationshipVariantConfig(tplObj?.id || v.template_id || 'tpl', relMeta);
+    const mergedMessages = {
+      ...(defaultRelCfg.messages || {}),
+      ...(v.messages && typeof v.messages === 'object' ? v.messages : {}),
+      ...(cfg.messages && typeof cfg.messages === 'object' ? cfg.messages : {})
+    };
+    if (mergedMessages.main_message && !mergedMessages.custom_message) {
+      mergedMessages.custom_message = mergedMessages.main_message;
+    }
+    if (mergedMessages.subtitle && !mergedMessages.hero_subtitle) {
+      mergedMessages.hero_subtitle = mergedMessages.subtitle;
+    }
+
+    const rawTheme = (cfg.theme && typeof cfg.theme === 'object')
+      ? cfg.theme
+      : ((v.theme && typeof v.theme === 'object') ? v.theme : {});
+    const rawPalette = (cfg.palette && typeof cfg.palette === 'object')
+      ? cfg.palette
+      : ((v.palette && typeof v.palette === 'object') ? v.palette : {});
+    const defTheme = defaultRelCfg.theme || {};
+    const mergedTheme = {
+      accentColor: rawTheme.accentColor || rawTheme.primary || rawPalette.primary || defTheme.accentColor || '#ec4899',
+      primary: rawTheme.primary || rawTheme.accentColor || rawPalette.primary || defTheme.accentColor || '#ec4899',
+      secondary: rawTheme.secondary || rawPalette.secondary || defTheme.secondary || '#8b5cf6',
+      accent: rawTheme.accent || rawPalette.accent || defTheme.accent || '#fbbf24',
+      mood: rawTheme.mood || defTheme.mood || defaultRelCfg.atmosphere || '',
+      backgroundStyle: rawTheme.backgroundStyle || defTheme.backgroundStyle || '',
+      cardStyle: rawTheme.cardStyle || defTheme.cardStyle || ''
+    };
+
     const rawFields = Array.isArray(cfg.fields)
       ? cfg.fields
       : (typeof v.fields_json === 'string' ? safeJsonParse(v.fields_json, []) : (Array.isArray(v.fields) ? v.fields : []));
@@ -2074,7 +2155,11 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
       const eff = resolveEffectiveTemplateConfiguration({
         template: templateContext.template || templateContext,
         templateVersion: templateContext.templateVersion || {},
-        variant: v,
+        variant: {
+          ...v,
+          messages: mergedMessages,
+          theme: mergedTheme
+        },
         relationshipSlug: relMeta.slug,
         useDraft: false,
         isAdminView: false
@@ -2085,30 +2170,29 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
     }
 
     publicList.push({
-      id: v.id || `trv_${relMeta.slug}`,
+      id: v.id || `trv_${tplObj?.id || 'tpl'}_${relMeta.slug}`,
       slug: v.variant_slug || v.slug || cfg.slug || relMeta.slug,
       relationshipId: v.relationship_id || relMeta.id,
       relationshipSlug: relMeta.slug,
       relationship: relMeta.slug,
       label: rawLabel || relMeta.label,
       relationshipLabel: rawLabel || relMeta.label,
-      name: v.name || cfg.displayName || `${relMeta.label} Edition`,
-      displayName: cfg.displayName || v.name || `${relMeta.label} Edition`,
-      description: v.description || cfg.description || '',
+      name: v.name || cfg.displayName || defaultRelCfg.displayName || `${relMeta.label} Edition`,
+      displayName: cfg.displayName || v.name || defaultRelCfg.displayName || `${relMeta.label} Edition`,
+      description: v.description || cfg.description || defaultRelCfg.atmosphere || '',
       icon: v.relationship_icon || cfg.icon || relMeta.icon || '✨',
       thumbnail: v.thumbnail || cfg.thumbnail || '',
-      entryFile: v.entry_file || cfg.entry || 'index.html',
+      entryFile: v.entry_file || cfg.entry || cfg.entryFile || 'index.html',
       sortOrder: Number(v.sort_order ?? cfg.sortOrder ?? relMeta.sortOrder ?? 99),
       isDefault: Boolean(v.is_default || cfg.default),
-      theme: cfg.theme ? {
-        accentColor: cfg.theme.accentColor || cfg.theme.primary || '#ec4899',
-        primary: cfg.theme.primary || cfg.theme.accentColor || '#ec4899',
-        secondary: cfg.theme.secondary || '#8b5cf6',
-        accent: cfg.theme.accent || '#fbbf24',
-        mood: cfg.theme.mood || ''
-      } : null,
-      messages: cfg.messages || null,
-      assets: cfg.assets || cfg.images || null,
+      theme: mergedTheme,
+      palette: {
+        primary: mergedTheme.primary,
+        secondary: mergedTheme.secondary,
+        accent: mergedTheme.accent
+      },
+      messages: mergedMessages,
+      assets: cfg.assets || cfg.images || v.assets || null,
       fields: publicFields,
       ...(publicSections ? { sections: publicSections } : {}),
       ...(publicActions ? { actions: publicActions } : {})

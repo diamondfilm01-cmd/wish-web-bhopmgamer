@@ -235,11 +235,33 @@ window.WishMagicCore = {
    */
   function getAvailablePublishedVariants(family) {
     if (!family || typeof family !== 'object') return [];
-    const rawList = (Array.isArray(family.availableVariants) && family.availableVariants.length > 0)
+    let rawList = (Array.isArray(family.availableVariants) && family.availableVariants.length > 0)
       ? family.availableVariants
       : (Array.isArray(family.variants) && family.variants.length > 0
           ? family.variants
-          : (Array.isArray(family.availableRelations) ? family.availableRelations : []));
+          : (Array.isArray(family.availableRelations) && family.availableRelations.length > 0
+              ? family.availableRelations
+              : []));
+
+    if (rawList.length === 0 && Array.isArray(family.relationships) && family.relationships.length > 0) {
+      rawList = family.relationships.map((r, idx) => {
+        const lbl = typeof r === 'object' ? (r.label || r.name || r.slug || '') : String(r || '');
+        const meta = getRelationMeta(lbl, lbl);
+        return {
+          id: `trv_${family.id || 'tpl'}_${meta.slug}`,
+          slug: meta.slug,
+          relationshipSlug: meta.slug,
+          relationshipLabel: meta.label,
+          relationshipId: meta.id,
+          icon: meta.icon,
+          status: 'published',
+          enabled: true,
+          isDefault: idx === 0,
+          sort_order: idx + 1
+        };
+      });
+    }
+
     const allDisabledBug = rawList.length > 0 && rawList.every(v => v && (v.enabled === false || v.enabled === 0 || String(v.status || '').toLowerCase() === 'disabled'));
 
     // Build authoritative enabled relationship set if family specifies enabledVariants or relationships
@@ -267,13 +289,13 @@ window.WishMagicCore = {
         if (v.enabled === false || v.enabled === 0) continue;
       }
 
-      const relRaw = v.relationshipSlug || v.relationship || v.relationship_slug || v.relationship_id || v.relationshipId || '';
-      const relMeta = getRelationMeta(relRaw, v.relationshipLabel || v.relationship_label || v.label);
+      const relRaw = v.relationshipSlug || v.relationship || v.relationship_slug || v.slug || v.relationship_id || v.relationshipId || '';
+      const relMeta = getRelationMeta(relRaw, v.relationshipLabel || v.relationship_label || v.label || v.name);
       if (!relMeta.slug) continue;
       if (allowedRelSlugs && !allowedRelSlugs.has(relMeta.slug)) continue;
 
-      const varId = String(v.id || v.variant_id || v.slug || v.variant_slug || `var_${family.id || 'tpl'}_${relMeta.slug}`).trim();
-      const varSlug = String(v.slug || v.variant_slug || varId).trim();
+      const varId = String(v.id || v.variantId || v.variant_id || v.slug || v.variantSlug || v.variant_slug || `trv_${family.id || 'tpl'}_${relMeta.slug}`).trim();
+      const varSlug = String(v.slug || v.variantSlug || v.variant_slug || relMeta.slug).trim();
       if (seenIds.has(varId) || seenRels.has(relMeta.slug)) continue;
       seenIds.add(varId);
       seenRels.add(relMeta.slug);
@@ -282,21 +304,24 @@ window.WishMagicCore = {
         id: varId,
         slug: varSlug,
         templateId: family.id || v.templateId || v.template_id,
-        name: String(v.name || v.variant_name || `${family.name || 'Template'} — ${relMeta.label}`).trim(),
+        name: String(v.name || v.displayName || v.variant_name || `${family.name || 'Template'} — ${relMeta.label}`).trim(),
+        label: relMeta.label,
         relationshipId: relMeta.id,
         relationshipSlug: relMeta.slug,
         relationshipLabel: relMeta.label,
-        icon: relMeta.icon,
+        icon: v.icon || relMeta.icon,
         description: String(v.description || '').trim(),
         thumbnail: String(v.thumbnail || v.previewUrl || family.previewUrl || family.thumbnail || '').trim(),
         entryFile: String(v.entryFile || v.entry_file || family.entryFile || 'index.html').trim(),
         theme: v.theme || v.palette || null,
+        palette: v.palette || v.theme || null,
         messages: v.messages || {},
         fields: Array.isArray(v.fields) ? v.fields : null,
         sections: Array.isArray(v.sections) ? v.sections : null,
+        actions: Array.isArray(v.actions) ? v.actions : null,
         assets: v.assets || {},
         isDefault: Boolean(v.isDefault || v.is_default),
-        order: Number.isFinite(Number(v.order ?? v.sort_order)) ? Number(v.order ?? v.sort_order) : (i + 1)
+        order: Number.isFinite(Number(v.order ?? v.sortOrder ?? v.sort_order)) ? Number(v.order ?? v.sortOrder ?? v.sort_order) : (i + 1)
       });
     }
 
@@ -311,17 +336,28 @@ window.WishMagicCore = {
     if (!family || !relOrVariantInput) return null;
     const rawTarget = String(relOrVariantInput).trim().toLowerCase();
     if (!rawTarget || rawTarget === 'all') return null;
-    const targetSlug = normalizeRelationSlug(rawTarget);
+    const strippedTarget = rawTarget.replace(/^(var|trv|utpvar)_[^_]+_/, '');
+    const targetSlug = normalizeRelationSlug(strippedTarget) || normalizeRelationSlug(rawTarget);
     const variants = getAvailablePublishedVariants(family);
 
-    return variants.find(v =>
-      v.id.toLowerCase() === rawTarget ||
-      v.slug.toLowerCase() === rawTarget ||
-      v.relationshipSlug.toLowerCase() === targetSlug ||
-      v.relationshipId.toLowerCase() === rawTarget ||
-      v.relationshipId.toLowerCase() === 'rel_' + targetSlug ||
-      v.relationshipLabel.toLowerCase() === rawTarget
-    ) || null;
+    return variants.find(v => {
+      const vId = String(v.id || '').toLowerCase();
+      const vSlug = String(v.slug || '').toLowerCase();
+      const vSlugNorm = normalizeRelationSlug(vSlug);
+      const vRelSlug = String(v.relationshipSlug || '').toLowerCase();
+      const vRelId = String(v.relationshipId || '').toLowerCase();
+      const vLabel = String(v.relationshipLabel || v.label || '').toLowerCase();
+      return (
+        vId === rawTarget ||
+        vSlug === rawTarget ||
+        vSlugNorm === targetSlug ||
+        vRelSlug === targetSlug ||
+        vRelId === rawTarget ||
+        vRelId === 'rel_' + targetSlug ||
+        vLabel === rawTarget ||
+        vLabel === strippedTarget.replace(/_/g, ' ')
+      );
+    }) || null;
   }
 
   /**

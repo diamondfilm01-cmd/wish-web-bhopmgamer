@@ -143,6 +143,30 @@
         });
       }
 
+      // Special handling for relationship / variant attributes & hooks
+      const doc = getDocument();
+      const relSlug = mergedData.relationship_slug || mergedData.relationship || '';
+      const varSlug = mergedData.variant_slug || mergedData.variant || '';
+      if (doc && (relSlug || varSlug)) {
+        const normRel = String(relSlug || varSlug).toLowerCase().trim().replace(/[\s-]+/g, '_');
+        if (doc.documentElement) {
+          if (normRel) doc.documentElement.setAttribute('data-wm-relationship', normRel);
+          if (varSlug) doc.documentElement.setAttribute('data-wm-variant', String(varSlug));
+        }
+        if (doc.body) {
+          if (normRel) doc.body.setAttribute('data-wm-relationship', normRel);
+          if (varSlug) doc.body.setAttribute('data-wm-variant', String(varSlug));
+        }
+        if (global.WishMagicTemplateHooks) {
+          if (typeof global.WishMagicTemplateHooks.onRelationshipChange === 'function') {
+            try { global.WishMagicTemplateHooks.onRelationshipChange(normRel, mergedData); } catch (e) {}
+          }
+          if (typeof global.WishMagicTemplateHooks.onVariantChange === 'function') {
+            try { global.WishMagicTemplateHooks.onVariantChange(varSlug || normRel, mergedData); } catch (e) {}
+          }
+        }
+      }
+
       // Special handling for theme & colors
       if (mergedData.theme) {
         this.updateTheme(mergedData.theme, mergedData.colors);
@@ -682,36 +706,43 @@
 
     updateTheme(themeName, colors) {
       const doc = getDocument();
-      if (!doc || !themeName) return false;
+      if (!doc) return false;
 
-      const targetTheme = String(themeName).trim().toLowerCase();
+      if (colors && typeof colors === 'object') {
+        this.updateColors(colors);
+      }
+
+      if (!themeName) return Boolean(colors);
+
+      const targetTheme = typeof themeName === 'object'
+        ? String(themeName.mood || themeName.name || themeName.id || '').trim().toLowerCase()
+        : String(themeName).trim().toLowerCase();
+
+      if (!targetTheme) return Boolean(colors);
 
       // Validate against declared template themes if present (Spec 7)
       const rawThemes = (
         doc.body?.getAttribute?.('data-wm-themes') ||
         doc.documentElement?.getAttribute?.('data-wm-themes') ||
-        doc.body?.getAttribute?.('data-wm-theme') ||
-        doc.documentElement?.getAttribute?.('data-wm-theme') ||
         ''
       );
+      let isDeclaredTheme = true;
       if (rawThemes) {
         const declared = rawThemes.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
         if (declared.length > 0 && !declared.includes(targetTheme)) {
-          console.warn(`[WishMagicRuntime] Theme "${themeName}" rejected. Not in template declared themes: [${declared.join(', ')}]`);
-          return false;
+          isDeclaredTheme = false;
+          doc.documentElement.setAttribute('data-wm-variant-mood', targetTheme);
+          if (doc.body) doc.body.setAttribute('data-wm-variant-mood', targetTheme);
         }
       }
 
-      // Safe DOM application (Spec 45)
-      doc.documentElement.dataset.wmTheme = targetTheme;
-      doc.documentElement.setAttribute('data-wm-theme', targetTheme);
+      if (isDeclaredTheme) {
+        doc.documentElement.dataset.wmTheme = targetTheme;
+        doc.documentElement.setAttribute('data-wm-theme', targetTheme);
+      }
 
       if (!runtimeState.visual) runtimeState.visual = {};
       runtimeState.visual.theme = targetTheme;
-
-      if (colors && typeof colors === 'object') {
-        this.updateColors(colors);
-      }
 
       // Template Hook (Spec 8, 46)
       if (global.WishMagicTemplateHooks) {
@@ -767,6 +798,7 @@
         if (rawVal === null || rawVal === '') {
           // Reset specific color override (Spec 31)
           doc.documentElement.style.removeProperty(`--wm-${cleanKey}`);
+          doc.documentElement.style.removeProperty(`--${cleanKey}`);
           delete runtimeState.visual.colors[cleanKey];
           if (global.WishMagicTemplateHooks && typeof global.WishMagicTemplateHooks.onColorChange === 'function') {
             try { global.WishMagicTemplateHooks.onColorChange(cleanKey, null); } catch (e) {}
@@ -777,6 +809,13 @@
         const safeVal = this.sanitizeColor(rawVal);
         if (safeVal) {
           doc.documentElement.style.setProperty(`--wm-${cleanKey}`, safeVal);
+          doc.documentElement.style.setProperty(`--${cleanKey}`, safeVal);
+          if (cleanKey === 'primary') {
+            doc.documentElement.style.setProperty('--accent-color', safeVal);
+            doc.documentElement.style.setProperty('--theme-primary', safeVal);
+          } else if (cleanKey === 'accent') {
+            doc.documentElement.style.setProperty('--theme-accent', safeVal);
+          }
           runtimeState.visual.colors[cleanKey] = safeVal;
           if (global.WishMagicTemplateHooks && typeof global.WishMagicTemplateHooks.onColorChange === 'function') {
             try { global.WishMagicTemplateHooks.onColorChange(cleanKey, safeVal); } catch (e) {}

@@ -4118,8 +4118,8 @@ app.get('/api/templates', (req, res) => {
     const storedVars = variantsByTplId.get(t.id) || [];
     const inlineVars = Array.isArray(t.variants) ? t.variants : [];
     const rawVars = storedVars.length > 0 ? storedVars : inlineVars;
-    const hasVariants = Boolean(t.hasVariants || t.has_variants || rawVars.length > 0);
-    const availableVariants = filterPublicAvailableVariants(rawVars);
+    const availableVariants = filterPublicAvailableVariants(rawVars, { template: t });
+    const hasVariants = Boolean(t.hasVariants || t.has_variants || availableVariants.length > 0);
     const availableRelations = availableVariants.map(av => ({
       id: av.relationshipId,
       slug: av.relationshipSlug,
@@ -4137,7 +4137,7 @@ app.get('/api/templates', (req, res) => {
       hasVariants,
       availableVariants,
       availableRelations,
-      relationships: hasVariants ? availableRelations.map(ar => ar.label) : (Array.isArray(t.relationships) ? t.relationships : []),
+      relationships: availableRelations.length > 0 ? availableRelations.map(ar => ar.label) : (Array.isArray(t.relationships) ? t.relationships : []),
       ...(isAdminDraftView ? { variants: rawVars } : {})
     };
   });
@@ -4305,8 +4305,8 @@ app.get('/api/templates/:id', (req, res) => {
   let fields = template.fields || template.detectedFields || [];
   const storedVars = getTemplateRelationshipVariants().filter(v => v.template_id === template.id && v.is_latest !== 0);
   const rawVariants = storedVars.length > 0 ? storedVars : (template.variants || []);
-  const hasVariants = Boolean(template.hasVariants || template.has_variants || rawVariants.length > 0);
-  const availableVariants = filterPublicAvailableVariants(rawVariants);
+  const availableVariants = filterPublicAvailableVariants(rawVariants, { template });
+  const hasVariants = Boolean(template.hasVariants || template.has_variants || availableVariants.length > 0);
   const availableRelations = availableVariants.map(av => ({
     id: av.relationshipId,
     slug: av.relationshipSlug,
@@ -4327,28 +4327,64 @@ app.get('/api/templates/:id', (req, res) => {
   let selectedVariantError = null;
 
   if (reqVariantParam || reqRelParam) {
-    const normReqRel = reqRelParam ? normalizeRelationshipIdentifier(reqRelParam) : null;
-    const targetRelSlug = normReqRel ? normReqRel.slug : reqRelParam.toLowerCase();
-    const pool = isDraftView ? rawVariants : availableVariants;
-    selectedVariant = pool.find(v => {
-      if (reqVariantParam) {
-        const vIdMatch = String(v.id || '').toLowerCase() === reqVariantParam.toLowerCase() ||
-          String(v.slug || v.variant_slug || '').toLowerCase() === reqVariantParam.toLowerCase();
-        if (!vIdMatch) return false;
-        if (targetRelSlug) {
-          const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase();
-          return vRel === targetRelSlug;
+    const normReqRel = (reqRelParam || reqVariantParam) ? normalizeRelationshipIdentifier(reqRelParam || reqVariantParam) : null;
+    const targetRelSlug = normReqRel ? normReqRel.slug : (reqRelParam || reqVariantParam).toLowerCase().replace(/[\s-]+/g, '_');
+    const pool = isDraftView ? (rawVariants.length > 0 ? rawVariants : availableVariants) : availableVariants;
+
+    // 1. Try matching by explicit variant ID or slug first
+    if (reqVariantParam) {
+      const reqVarLower = reqVariantParam.toLowerCase();
+      const reqVarNorm = reqVarLower.replace(/^(var|trv|utpvar)_[^_]+_/, '').replace(/[\s-]+/g, '_');
+      selectedVariant = pool.find(v => {
+        const vId = String(v.id || '').toLowerCase();
+        const vSlug = String(v.slug || v.variant_slug || '').toLowerCase();
+        const vSlugNorm = vSlug.replace(/[\s-]+/g, '_');
+        const idOrSlugMatch = vId === reqVarLower || vSlug === reqVarLower || vSlugNorm === reqVarNorm;
+        if (!idOrSlugMatch) return false;
+        if (reqRelParam && targetRelSlug) {
+          const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase().replace(/[\s-]+/g, '_');
+          return !vRel || vRel === targetRelSlug;
         }
         return true;
+      }) || null;
+    }
+
+    // 2. Fallback to matching by relationship slug, label, or relationshipId
+    if (!selectedVariant && (reqRelParam || reqVariantParam)) {
+      const relSearchRaw = (reqRelParam || reqVariantParam).toLowerCase().trim();
+      selectedVariant = pool.find(v => {
+        const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase().replace(/[\s-]+/g, '_');
+        const vLabel = String(v.label || v.relationship_label || '').toLowerCase().trim();
+        const vRelId = String(v.relationshipId || v.relationship_id || '').toLowerCase().trim();
+        return vRel === targetRelSlug || vRel === relSearchRaw.replace(/[\s-]+/g, '_') || vLabel === relSearchRaw || vRelId === relSearchRaw;
+      }) || null;
+    }
+
+    // 3. If still not found in pool, synthesize a rich variant for the requested relationship
+    if (!selectedVariant && normReqRel && normReqRel.slug) {
+      const synthList = filterPublicAvailableVariants([{
+        id: `trv_${template.id}_${normReqRel.slug}`,
+        variant_slug: normReqRel.slug,
+        slug: normReqRel.slug,
+        relationship_id: normReqRel.id,
+        relationship_slug: normReqRel.slug,
+        relationship_label: normReqRel.label,
+        relationship_icon: normReqRel.icon || '✨',
+        status: 'published',
+        enabled: 1,
+        is_latest: 1,
+        configuration: getDefaultRelationshipVariantConfig(template.id, normReqRel)
+      }], { template });
+      if (synthList.length > 0) {
+        selectedVariant = synthList[0];
       }
-      const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase();
-      const vLabel = String(v.label || v.relationship_label || '').toLowerCase();
-      return vRel === targetRelSlug || vLabel === reqRelParam.toLowerCase() || String(v.relationshipId || v.relationship_id || '').toLowerCase() === reqRelParam.toLowerCase();
-    }) || null;
+    }
 
     if (!selectedVariant && hasVariants) {
-      selectedVariantError = 'VARIANT_UNAVAILABLE';
-    } else if (selectedVariant) {
+      selectedVariant = pool.find(v => v.isDefault || v.is_default) || pool[0] || null;
+    }
+
+    if (selectedVariant) {
       fields = mergeTemplateAndVariantFields(fields, selectedVariant.fields, selectedVariant.messages, selectedVariant.assets);
       if (selectedVariant.entryFile && selectedVariant.entryFile !== entryFileName) {
         entryFileName = selectedVariant.entryFile;

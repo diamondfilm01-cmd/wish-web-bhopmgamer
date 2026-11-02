@@ -252,20 +252,34 @@
       return candidates[0] || 'tpl_glitter_birthday';
     }
 
-    function resolveTemplatePreviewUrlClient(tpl) {
+    function resolveTemplatePreviewUrlClient(tpl, selectedVariant) {
       if (!tpl) return '/templates-store/tpl_glitter_birthday/index.html';
-      const entryFile = tpl.entryFile || tpl.entry_file || 'index.html';
+      const entryFile = (selectedVariant && selectedVariant.entryFile) || tpl.entryFile || tpl.entry_file || 'index.html';
+      let baseUrl = '';
       if (tpl.previewUrl && String(tpl.previewUrl).startsWith('/api/templates/')) {
-        return tpl.previewUrl;
+        baseUrl = String(tpl.previewUrl);
+        if (selectedVariant && selectedVariant.entryFile) {
+          baseUrl = baseUrl.replace(/\/[^/?#]+(\?.*)?$/, '/' + selectedVariant.entryFile);
+        }
+      } else if (tpl.entryUrl && String(tpl.entryUrl).startsWith('/api/templates/')) {
+        baseUrl = String(tpl.entryUrl);
+        if (selectedVariant && selectedVariant.entryFile) {
+          baseUrl = baseUrl.replace(/\/[^/?#]+(\?.*)?$/, '/' + selectedVariant.entryFile);
+        }
+      } else if (tpl.currentVersionId && tpl.id) {
+        baseUrl = `/api/templates/${encodeURIComponent(tpl.id)}/versions/${encodeURIComponent(tpl.currentVersionId)}/preview/${entryFile}`;
+      } else {
+        const cleanFolder = resolveCanonicalTemplateFolderClient(tpl);
+        baseUrl = `/templates-store/${cleanFolder}/${entryFile}`;
       }
-      if (tpl.entryUrl && String(tpl.entryUrl).startsWith('/api/templates/')) {
-        return tpl.entryUrl;
+
+      if (selectedVariant) {
+        const sep = baseUrl.includes('?') ? '&' : '?';
+        const varSlug = selectedVariant.slug || selectedVariant.id || '';
+        const relSlug = selectedVariant.relationshipSlug || selectedVariant.relationship || '';
+        baseUrl = `${baseUrl}${sep}variant=${encodeURIComponent(varSlug)}&rel=${encodeURIComponent(relSlug)}`;
       }
-      if (tpl.currentVersionId && tpl.id) {
-        return `/api/templates/${encodeURIComponent(tpl.id)}/versions/${encodeURIComponent(tpl.currentVersionId)}/preview/${entryFile}`;
-      }
-      const cleanFolder = resolveCanonicalTemplateFolderClient(tpl);
-      return `/templates-store/${cleanFolder}/${entryFile}`;
+      return baseUrl;
     }
 
     function resolveTemplateId() {
@@ -374,6 +388,105 @@
       };
     }
 
+    const PREVIEW_RELATIONSHIP_FALLBACK_PRESETS = {
+      sister: {
+        hero_title: 'To The Best Sister In The Universe 💖',
+        subtitle: 'My built-in best friend and forever confidante',
+        main_message: 'Having you as my sister is the greatest gift life has ever given me. Thank you for filling every childhood memory and every new chapter with laughter, warmth, and sparkle!',
+        recipient_placeholder: 'My Dear Sister',
+        sender_placeholder: 'Your Loving Sibling',
+        theme: { primary: '#ec4899', secondary: '#a855f7', accent: '#fbbf24', mood: 'Radiant Sisterhood' }
+      },
+      brother: {
+        hero_title: 'Cheers To An Incredible Brother 🌟',
+        subtitle: 'My protector, partner-in-crime, and lifelong friend',
+        main_message: 'From our crazy childhood adventures to chasing our biggest dreams, having you in my corner means everything. Wishing you unstoppable success and happiness!',
+        recipient_placeholder: 'My Awesome Brother',
+        sender_placeholder: 'Your Sibling',
+        theme: { primary: '#3b82f6', secondary: '#6366f1', accent: '#38bdf8', mood: 'Bold Brotherhood' }
+      },
+      best_friend: {
+        hero_title: 'To My Ride-Or-Die Bestie 🎉',
+        subtitle: 'Cheers to endless laughs, chaos, and unforgettable memories',
+        main_message: 'Life would be so boring without your chaotic energy and golden heart! Thank you for being my unpaid therapist, adventure buddy, and forever best friend.',
+        recipient_placeholder: 'My Bestie',
+        sender_placeholder: 'Your Best Friend Forever',
+        theme: { primary: '#a855f7', secondary: '#ec4899', accent: '#fde047', mood: 'Electric Friendship' }
+      },
+      friend: {
+        hero_title: 'Celebrating An Amazing Friend ✨',
+        subtitle: 'Grateful for every laugh and moment we share',
+        main_message: 'True friends like you make the good times brighter and the hard times easier. Wishing you a celebration filled with pure happiness and wonderful surprises!',
+        recipient_placeholder: 'My Dear Friend',
+        sender_placeholder: 'Your Friend',
+        theme: { primary: '#8b5cf6', secondary: '#ec4899', accent: '#fbbf24', mood: 'Warm Celebration' }
+      },
+      girlfriend: {
+        hero_title: 'To The Girl Who Stole My Heart 💖',
+        subtitle: 'Every moment with you feels like a fairytale',
+        main_message: 'You are my favorite notification, my sweetest daydream, and the best part of every single day. Here is to celebrating you and the beautiful love we share!',
+        recipient_placeholder: 'My Beautiful Girlfriend',
+        sender_placeholder: 'Yours Forever',
+        theme: { primary: '#ec4899', secondary: '#f43f5e', accent: '#fda4af', mood: 'Romantic Bliss' }
+      },
+      boyfriend: {
+        hero_title: 'To My Favorite Person In The World 💙',
+        subtitle: 'Thank you for being my safe place and greatest adventure',
+        main_message: 'Every day with you is filled with laughter, warmth, and magic. Thank you for loving me the way you do and making life an unforgettable journey!',
+        recipient_placeholder: 'My Handsome Boyfriend',
+        sender_placeholder: 'With All My Love',
+        theme: { primary: '#6366f1', secondary: '#3b82f6', accent: '#60a5fa', mood: 'Deep Devotion' }
+      },
+      wife: {
+        hero_title: 'To My Soulmate & Beloved Wife 👑',
+        subtitle: 'My heart, my home, and my forever blessing',
+        main_message: 'Walking through life hand-in-hand with you is the greatest privilege I will ever know. Thank you for your endless grace, love, and magic.',
+        recipient_placeholder: 'My Beloved Wife',
+        sender_placeholder: 'Your Loving Husband',
+        theme: { primary: '#e11d48', secondary: '#9333ea', accent: '#fbbf24', mood: 'Royal Romance' }
+      },
+      husband: {
+        hero_title: 'To My Amazing Husband & Best Friend 🥂',
+        subtitle: 'My rock, my love, and my greatest blessing',
+        main_message: 'Thank you for building such a beautiful life with me and filling our home with strength, laughter, and unconditional love. I love you more every day!',
+        recipient_placeholder: 'My Dear Husband',
+        sender_placeholder: 'Your Loving Wife',
+        theme: { primary: '#f59e0b', secondary: '#4f46e5', accent: '#fcd34d', mood: 'Golden Elegance' }
+      },
+      crush: {
+        hero_title: 'To Someone Who Makes Every Day Brighter ✨',
+        subtitle: 'A magical surprise from someone who admires you',
+        main_message: 'There is something truly magical about your smile that brightens up everything around you. Wishing you a day as extraordinary as you are!',
+        recipient_placeholder: 'Someone Special',
+        sender_placeholder: 'Your Secret Admirer',
+        theme: { primary: '#f43f5e', secondary: '#ec4899', accent: '#fda4af', mood: 'Sweet Admiration' }
+      },
+      mother: {
+        hero_title: 'To The Greatest Mom In The World 🌸',
+        subtitle: 'Thank you for your unconditional love and endless warmth',
+        main_message: 'Your hugs are my forever safe haven and your wisdom guides me every day. Wishing you all the happiness, peace, and celebration you truly deserve!',
+        recipient_placeholder: 'Dearest Mom',
+        sender_placeholder: 'Your Loving Child',
+        theme: { primary: '#f472b6', secondary: '#c084fc', accent: '#fde047', mood: 'Tender Gratitude' }
+      },
+      father: {
+        hero_title: 'To My Hero & Guiding Light 🌟',
+        subtitle: 'With deepest gratitude for your strength and wisdom',
+        main_message: 'Thank you for always believing in me, protecting our family, and showing me what true integrity looks like. Wishing you a wonderful celebration!',
+        recipient_placeholder: 'Dearest Dad',
+        sender_placeholder: 'With Love & Respect',
+        theme: { primary: '#0ea5e9', secondary: '#3b82f6', accent: '#f59e0b', mood: 'Noble Tribute' }
+      },
+      parents: {
+        hero_title: 'To The World’s Most Wonderful Parents 💛',
+        subtitle: 'Celebrating the love and foundation you gave us',
+        main_message: 'Everything we are today is because of your sacrifices, warmth, and endless love. Wishing you both boundless joy, health, and togetherness!',
+        recipient_placeholder: 'Dearest Mom & Dad',
+        sender_placeholder: 'Your Grateful Family',
+        theme: { primary: '#eab308', secondary: '#f97316', accent: '#fde047', mood: 'Golden Tribute' }
+      }
+    };
+
     function installIframeBrokenImageGuard(doc, tplId, verId) {
       if (!doc || doc._wmIframeImgGuardInstalled) return;
       doc._wmIframeImgGuardInstalled = true;
@@ -409,7 +522,6 @@
     }
 
     function ensureAndHydrateBrandingFooterInDoc(doc, customizeUrl, bfCfg) {
-      // Also ensure no stray #wm-platform-footer exists on the outer host document
       try {
         document.querySelectorAll('#wm-platform-footer, [data-wm-platform-footer]').forEach(el => el.remove());
       } catch (_) {}
@@ -460,9 +572,10 @@
       const t = activeTemplate;
       if (!t) return;
 
-      const displayTitle = activeSelectedVariant
-        ? `${t.name} — ${activeSelectedVariant.relationshipLabel}`
-        : t.name;
+      const relLabel = activeSelectedVariant
+        ? (activeSelectedVariant.relationshipLabel || activeSelectedVariant.label || '')
+        : '';
+      const displayTitle = relLabel ? `${t.name} — ${relLabel}` : t.name;
       document.title = `${displayTitle} | WishMagic Live Preview`;
 
       try {
@@ -478,15 +591,96 @@
       loadInteractivePreview(t, activeSelectedVariant);
     }
 
+    function hydrateVariantIntoIframeDocument(doc, win, sampleData, selectedVariant) {
+      if (!doc) return;
+      const relSlug = String((selectedVariant && (selectedVariant.relationshipSlug || selectedVariant.relationship)) || sampleData.relationship || '').toLowerCase().replace(/[\s-]+/g, '_');
+      const varSlug = String((selectedVariant && (selectedVariant.slug || selectedVariant.id)) || sampleData.variant || '');
+
+      if (doc.documentElement) {
+        if (relSlug) doc.documentElement.setAttribute('data-wm-relationship', relSlug);
+        if (varSlug) doc.documentElement.setAttribute('data-wm-variant', varSlug);
+      }
+      if (doc.body) {
+        if (relSlug) doc.body.setAttribute('data-wm-relationship', relSlug);
+        if (varSlug) doc.body.setAttribute('data-wm-variant', varSlug);
+      }
+
+      // 1. Apply variant theme colors directly to CSS root variables
+      const colors = sampleData.colors || sampleData.theme || {};
+      const primaryColor = colors.primary || colors.accentColor || '';
+      const secondaryColor = colors.secondary || '';
+      const accentColor = colors.accent || '';
+      if (doc.documentElement && doc.documentElement.style) {
+        if (primaryColor) {
+          doc.documentElement.style.setProperty('--wm-primary', primaryColor);
+          doc.documentElement.style.setProperty('--primary', primaryColor);
+          doc.documentElement.style.setProperty('--accent-color', primaryColor);
+          doc.documentElement.style.setProperty('--theme-primary', primaryColor);
+        }
+        if (secondaryColor) {
+          doc.documentElement.style.setProperty('--wm-secondary', secondaryColor);
+          doc.documentElement.style.setProperty('--secondary', secondaryColor);
+        }
+        if (accentColor) {
+          doc.documentElement.style.setProperty('--wm-accent', accentColor);
+          doc.documentElement.style.setProperty('--accent', accentColor);
+          doc.documentElement.style.setProperty('--theme-accent', accentColor);
+        }
+      }
+
+      // 2. Call WishMagicRuntime / WishMagicTemplate inside the iframe if present
+      if (win) {
+        try {
+          if (win.WishMagicRuntime && typeof win.WishMagicRuntime.updateState === 'function') {
+            win.WishMagicRuntime.updateState(sampleData, 'preview');
+          } else if (win.WishMagicTemplate && typeof win.WishMagicTemplate.applyData === 'function') {
+            win.WishMagicTemplate.applyData(sampleData, doc);
+          }
+        } catch (_) {}
+
+        // 3. Call any custom template-level relationship/variant switch hooks if defined by the template author
+        const hookNames = ['setRelationship', 'setRelation', 'applyVariant', 'switchVariant', 'selectRelation', 'changeRelation', 'onRelationshipChange'];
+        for (const fnName of hookNames) {
+          if (typeof win[fnName] === 'function' && relSlug) {
+            try { win[fnName](relSlug, sampleData); } catch (_) {}
+          }
+        }
+      }
+
+      // 4. Directly hydrate [data-wm-field] elements in the iframe DOM
+      const textFieldKeys = [
+        'recipient_name', 'sender_name', 'custom_message', 'main_message', 'message',
+        'hero_title', 'title', 'hero_subtitle', 'subtitle', 'gallery_heading',
+        'memory_heading', 'final_message', 'surprise_text', 'relationship_label'
+      ];
+      textFieldKeys.forEach(k => {
+        const val = sampleData[k];
+        if (val && typeof val === 'string') {
+          doc.querySelectorAll(`[data-wm-field="${k}"]`).forEach(el => {
+            if (el.tagName !== 'IMG' && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
+              el.textContent = val;
+            }
+          });
+        }
+      });
+
+      // 5. If a variant is selected and the template has a top badge without data-wm-field, reflect the selected relationship edition
+      if (selectedVariant) {
+        const relLabel = selectedVariant.relationshipLabel || selectedVariant.label || '';
+        const relIcon = selectedVariant.icon || '✨';
+        const badgeEl = doc.querySelector('.top-badge:not([data-wm-field]), [data-wm-role="relation-badge"]:not([data-wm-field])');
+        if (badgeEl && relLabel) {
+          badgeEl.textContent = `${relIcon} ${sampleData.subtitle || (relLabel + ' Special Edition')}`;
+        }
+      }
+    }
+
     function loadInteractivePreview(t, selectedVariant) {
       const iframe = document.getElementById('live-template-iframe');
       const loadingEl = document.getElementById('preview-loading-skeleton');
       if (!iframe || !t) return;
 
-      const previewTargetObj = selectedVariant
-        ? { ...t, entryFile: selectedVariant.entryFile || t.entryFile }
-        : t;
-      const url = resolveTemplatePreviewUrlClient(previewTargetObj);
+      const url = resolveTemplatePreviewUrlClient(t, selectedVariant);
       const customizeUrl = buildCustomizeUrl(t, selectedVariant);
       const bfCfg = getBrandingFooterConfig();
 
@@ -501,7 +695,14 @@
         clearTimeout(safetyTimer);
         if (loadingEl) loadingEl.classList.add('hidden');
 
-        const varMsgs = (selectedVariant && selectedVariant.messages) || {};
+        const relSlug = selectedVariant
+          ? String(selectedVariant.relationshipSlug || selectedVariant.relationship || '').toLowerCase().replace(/[\s-]+/g, '_')
+          : '';
+        const presetFallback = (relSlug && PREVIEW_RELATIONSHIP_FALLBACK_PRESETS[relSlug]) || null;
+        const varMsgs = {
+          ...(presetFallback ? presetFallback : {}),
+          ...((selectedVariant && selectedVariant.messages && typeof selectedVariant.messages === 'object') ? selectedVariant.messages : {})
+        };
         const rawVarAssets = (selectedVariant && selectedVariant.assets) || {};
         const varAssets = {};
         Object.entries(rawVarAssets).forEach(([ak, av]) => {
@@ -509,7 +710,14 @@
             varAssets[ak] = av;
           }
         });
-        const isCustomUploadedBundle = Boolean(t.entryUrl || t.previewUrl || t.storagePrefix || t.hasCustomCode);
+
+        const rawTheme = (selectedVariant && (selectedVariant.theme || selectedVariant.palette)) || (presetFallback && presetFallback.theme) || null;
+        const resolvedColors = rawTheme ? {
+          primary: rawTheme.primary || rawTheme.accentColor || '#ec4899',
+          secondary: rawTheme.secondary || '#8b5cf6',
+          accent: rawTheme.accent || '#fbbf24'
+        } : null;
+
         const effectiveSections = (selectedVariant && Array.isArray(selectedVariant.sections))
           ? selectedVariant.sections
           : (Array.isArray(t.sections) ? t.sections : []);
@@ -517,21 +725,33 @@
           ? selectedVariant.actions
           : (Array.isArray(t.actions) ? t.actions : []);
 
+        const relLabel = selectedVariant ? (selectedVariant.relationshipLabel || selectedVariant.label || '') : '';
+        const resolvedRecipient = varMsgs.recipient_name || varMsgs.recipient_placeholder || (relLabel ? `My Dear ${relLabel}` : 'Someone Special');
+        const resolvedSender = varMsgs.sender_name || varMsgs.sender_placeholder || 'From Someone Who Cares';
+        const resolvedMessage = varMsgs.custom_message || varMsgs.main_message || varMsgs.message || varMsgs.defaultWish || 'Wishing you a magnificent celebration filled with boundless joy, radiant smiles, and unforgettable magic!';
+        const resolvedTitle = varMsgs.hero_title || varMsgs.title || '';
+        const resolvedSubtitle = varMsgs.subtitle || varMsgs.hero_subtitle || '';
+
         const sampleData = {
           templateId: t.id,
           templateSlug: t.slug || t.id,
-          ...(isCustomUploadedBundle ? {} : {
-            recipient_name: varMsgs.recipient_name || 'Someone Special',
-            sender_name: varMsgs.sender_name || 'From Someone Who Cares',
-            custom_message: varMsgs.custom_message || varMsgs.defaultWish || varMsgs.main_message || 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
-            event_date: 'Today',
-            photo_1: varAssets.photo_1 || varAssets.cover || t.thumbnail || t.previewImage || '/assets/file_ab2082.png'
-          }),
+          ...varMsgs,
+          ...varAssets,
+          recipient_name: resolvedRecipient,
+          sender_name: resolvedSender,
+          custom_message: resolvedMessage,
+          main_message: resolvedMessage,
+          message: resolvedMessage,
+          ...(resolvedTitle ? { hero_title: resolvedTitle, title: resolvedTitle } : {}),
+          ...(resolvedSubtitle ? { subtitle: resolvedSubtitle, hero_subtitle: resolvedSubtitle } : {}),
+          event_date: 'Today',
+          ...(varAssets.photo_1 || varAssets.cover ? { photo_1: varAssets.photo_1 || varAssets.cover } : {}),
           variant: selectedVariant ? (selectedVariant.slug || selectedVariant.relationshipSlug || selectedVariant.id) : '',
           variantId: selectedVariant ? selectedVariant.id : '',
           variantSlug: selectedVariant ? (selectedVariant.slug || selectedVariant.id) : '',
-          relationship: selectedVariant ? selectedVariant.relationshipSlug : '',
-          relationshipSlug: selectedVariant ? selectedVariant.relationshipSlug : '',
+          relationship: relSlug,
+          relationshipSlug: relSlug,
+          relationship_label: relLabel,
           visibilityMap: (selectedVariant && selectedVariant.visibilityMap) || t.visibilityMap || {},
           disabledIds: Array.isArray(selectedVariant && selectedVariant.disabledIds) ? selectedVariant.disabledIds : (Array.isArray(t.disabledIds) ? t.disabledIds : []),
           enabledIds: Array.isArray(selectedVariant && selectedVariant.enabledIds) ? selectedVariant.enabledIds : (Array.isArray(t.enabledIds) ? t.enabledIds : []),
@@ -539,11 +759,10 @@
           actions: effectiveActions,
           messages: varMsgs,
           assets: varAssets,
-          theme: selectedVariant ? selectedVariant.theme : null,
-          palette: selectedVariant ? selectedVariant.theme : null,
-          brandingFooter: bfCfg,
-          ...varMsgs,
-          ...varAssets
+          theme: rawTheme ? (rawTheme.mood || rawTheme) : null,
+          colors: resolvedColors,
+          palette: resolvedColors,
+          brandingFooter: bfCfg
         };
 
         try {
@@ -574,6 +793,11 @@
           if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === 'function') {
             window.WishMagicTemplate.applyActionsToDom(doc, sampleData.actions, sampleData);
           }
+
+          hydrateVariantIntoIframeDocument(doc, iframe.contentWindow, sampleData, selectedVariant);
+          setTimeout(() => {
+            try { hydrateVariantIntoIframeDocument(doc, iframe.contentWindow, sampleData, selectedVariant); } catch (_) {}
+          }, 250);
 
           installIframeBrokenImageGuard(doc, t.id || t.slug || '', t.currentVersionId || '');
           ensureAndHydrateBrandingFooterInDoc(doc, customizeUrl, bfCfg);
@@ -656,9 +880,12 @@
 
         if (window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate)) {
           const avail = window.WishMagicVariantFlow.getAvailablePublishedVariants(activeTemplate);
-          const explicitRelOrVar = variantParam || relParam || window.WishMagicVariantFlow.getActiveRelationFilter();
+          const explicitRelOrVar = relParam || variantParam || window.WishMagicVariantFlow.getActiveRelationFilter();
           if (explicitRelOrVar) {
-            const matched = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar) ||
+            const matched =
+              (relParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relParam)) ||
+              (variantParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, variantParam)) ||
+              (activeTemplate.selectedVariant && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, activeTemplate.selectedVariant.relationshipSlug || activeTemplate.selectedVariant.id)) ||
               avail.find(v => v.isDefault) || avail[0] || null;
             applySelectedVariantOnPreviewPage(matched);
             return;

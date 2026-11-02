@@ -505,31 +505,55 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
   activeTemplate.selectedVariant = variant;
   activeTemplate.entryFile = variant.entryFile || activeTemplate.entryFile || 'index.html';
 
+  const relSlug = String(variant.relationshipSlug || variant.relationship || currentCustomData.relationship || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+  const relFallback = (relSlug && DEFAULT_RELATIONSHIP_CONFIGS[relSlug]) || null;
+
   currentCustomData.variantId = variant.id;
   currentCustomData.variantSlug = variant.slug || variant.id;
-  currentCustomData.relationship = variant.relationshipSlug || currentCustomData.relationship;
-  currentCustomData.relationshipLabel = variant.relationshipLabel || variant.relationshipSlug;
+  currentCustomData.relationship = relSlug || variant.relationshipSlug || currentCustomData.relationship;
+  currentCustomData.relationshipLabel = variant.relationshipLabel || variant.label || variant.relationshipSlug;
 
   // Preserve selected variant and relation in URL for refresh & back navigation (Rule E)
   try {
     const url = new URL(window.location.href);
     url.searchParams.set('template', activeTemplate.id);
     url.searchParams.set('variant', variant.id);
-    url.searchParams.set('rel', variant.relationshipSlug);
+    url.searchParams.set('rel', currentCustomData.relationship);
     window.history.replaceState({}, '', url.toString());
   } catch (_) {}
 
+  const mergedVariantMessages = {
+    ...(relFallback && relFallback.messages ? relFallback.messages : {}),
+    ...(variant.messages && typeof variant.messages === 'object' ? variant.messages : {})
+  };
+  if (mergedVariantMessages.main_message && !mergedVariantMessages.custom_message) {
+    mergedVariantMessages.custom_message = mergedVariantMessages.main_message;
+  }
+  if (mergedVariantMessages.defaultWish && !mergedVariantMessages.custom_message) {
+    mergedVariantMessages.custom_message = mergedVariantMessages.defaultWish;
+  }
+  if (mergedVariantMessages.heading && !mergedVariantMessages.hero_title) {
+    mergedVariantMessages.hero_title = mergedVariantMessages.heading;
+  }
+  if (mergedVariantMessages.subheading && !mergedVariantMessages.subtitle) {
+    mergedVariantMessages.subtitle = mergedVariantMessages.subheading;
+  }
+  if (mergedVariantMessages.subtitle && !mergedVariantMessages.hero_subtitle) {
+    mergedVariantMessages.hero_subtitle = mergedVariantMessages.subtitle;
+  }
+  variant.messages = mergedVariantMessages;
+
   // Merge variant-specific fields and sections onto activeTemplate
+  const baseFields = Array.isArray(activeTemplate._baseFields)
+    ? activeTemplate._baseFields
+    : (Array.isArray(activeTemplate.fields) ? [...activeTemplate.fields] : []);
+  activeTemplate._baseFields = baseFields;
+  const mergedMap = new Map();
+  baseFields.forEach(f => {
+    const k = String(f.id || f.key || '').trim();
+    if (k) mergedMap.set(k, { ...f });
+  });
   if (Array.isArray(variant.fields) && variant.fields.length > 0) {
-    const baseFields = Array.isArray(activeTemplate._baseFields)
-      ? activeTemplate._baseFields
-      : (Array.isArray(activeTemplate.fields) ? [...activeTemplate.fields] : []);
-    activeTemplate._baseFields = baseFields;
-    const mergedMap = new Map();
-    baseFields.forEach(f => {
-      const k = String(f.id || f.key || '').trim();
-      if (k) mergedMap.set(k, { ...f });
-    });
     variant.fields.forEach(vf => {
       const k = String(vf.id || vf.key || '').trim();
       if (!k) return;
@@ -541,8 +565,17 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
         mergedMap.set(k, { ...vf });
       }
     });
+  }
+  // Propagate variant messages into field defaultValues so dynamic fields & iframe sync use variant defaults
+  Object.entries(mergedVariantMessages).forEach(([mk, mval]) => {
+    if (mval !== undefined && mval !== null && String(mval) !== '' && mergedMap.has(mk)) {
+      mergedMap.set(mk, { ...mergedMap.get(mk), defaultValue: mval });
+    }
+  });
+  if (mergedMap.size > 0) {
     const mergedList = Array.from(mergedMap.values());
     activeTemplate.fields = mergedList;
+    activeTemplate.detectedFields = mergedList;
     if (activeTemplate.manifest && typeof activeTemplate.manifest === 'object') {
       activeTemplate.manifest.fields = mergedList;
     }
@@ -557,25 +590,23 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
 
   // Apply variant messages, assets, and theme palette into defaults (preserving user-edited values)
   const userEditedSet = window._userModifiedFields instanceof Set ? window._userModifiedFields : new Set();
-  if (variant.messages && typeof variant.messages === 'object') {
-    Object.entries(variant.messages).forEach(([k, val]) => {
-      if (val !== undefined && val !== null && String(val) !== '') {
-        const prevDefault = templateDefaultValues[k];
-        templateDefaultValues[k] = val;
-        const curVal = currentCustomData[k];
-        const isUnchangedFromDefault = !curVal || curVal === prevDefault || !userEditedSet.has(k);
-        if (!isMandatoryIdentityField(k) && isUnchangedFromDefault) {
-          currentCustomData[k] = val;
-        }
+  Object.entries(mergedVariantMessages).forEach(([k, val]) => {
+    if (val !== undefined && val !== null && String(val) !== '') {
+      const prevDefault = templateDefaultValues[k];
+      templateDefaultValues[k] = val;
+      const curVal = currentCustomData[k];
+      const isUnchangedFromDefault = !curVal || curVal === prevDefault || !userEditedSet.has(k);
+      if (!isMandatoryIdentityField(k) && isUnchangedFromDefault) {
+        currentCustomData[k] = val;
       }
-    });
-    const varWish = variant.messages.custom_message || variant.messages.defaultWish || variant.messages.main_message;
-    if (varWish) {
-      const prevWishDef = templateDefaultValues.custom_message;
-      templateDefaultValues.custom_message = varWish;
-      if (!currentCustomData.custom_message || currentCustomData.custom_message === prevWishDef || !userEditedSet.has('custom_message')) {
-        currentCustomData.custom_message = varWish;
-      }
+    }
+  });
+  const varWish = mergedVariantMessages.custom_message || mergedVariantMessages.defaultWish || mergedVariantMessages.main_message;
+  if (varWish) {
+    const prevWishDef = templateDefaultValues.custom_message;
+    templateDefaultValues.custom_message = varWish;
+    if (!currentCustomData.custom_message || currentCustomData.custom_message === prevWishDef || !userEditedSet.has('custom_message')) {
+      currentCustomData.custom_message = varWish;
     }
   }
 
@@ -589,12 +620,14 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
   }
 
   const applyVariantPalette = () => {
-    if (variant.theme && typeof variant.theme === 'object' && !currentCustomData._userOverrodePalette) {
-      const pal = variant.theme.palette || variant.theme;
-      if (pal.primary) currentCustomData.colors.primary = pal.primary;
-      if (pal.secondary) currentCustomData.colors.secondary = pal.secondary;
-      if (pal.accent) currentCustomData.colors.accent = pal.accent;
-      if (pal.background) currentCustomData.colors.background = pal.background;
+    const rawTheme = (variant.theme && typeof variant.theme === 'object')
+      ? (variant.theme.palette || variant.theme)
+      : (variant.palette || (relFallback && relFallback.palette) || null);
+    if (rawTheme && !currentCustomData._userOverrodePalette) {
+      if (rawTheme.primary || rawTheme.accentColor) currentCustomData.colors.primary = rawTheme.primary || rawTheme.accentColor;
+      if (rawTheme.secondary) currentCustomData.colors.secondary = rawTheme.secondary;
+      if (rawTheme.accent) currentCustomData.colors.accent = rawTheme.accent;
+      if (rawTheme.background) currentCustomData.colors.background = rawTheme.background;
     }
   };
   applyVariantPalette();
@@ -650,9 +683,12 @@ async function loadTemplateData(templateId) {
 
     if (window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate) && !currentEditingWishId) {
       availVariantsForPrompt = window.WishMagicVariantFlow.getAvailablePublishedVariants(activeTemplate);
-      const explicitRelOrVar = variantParam || relParam || window.WishMagicVariantFlow.getActiveRelationFilter();
+      const explicitRelOrVar = relParam || variantParam || window.WishMagicVariantFlow.getActiveRelationFilter();
       if (explicitRelOrVar) {
-        const matched = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
+        const matched =
+          (relParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relParam)) ||
+          (variantParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, variantParam)) ||
+          window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
         if (matched) {
           resolvedInitialVariant = matched;
         } else if (availVariantsForPrompt.length === 1) {
@@ -1209,13 +1245,17 @@ function renderDynamicTemplateFields(template) {
       field.required = false;
       field.isRequired = false;
     }
-    if (field.defaultValue !== undefined && field.defaultValue !== null && String(field.defaultValue) !== '') {
-      templateDefaultValues[fieldKey] = field.defaultValue;
+    if (templateDefaultValues[fieldKey] === undefined || templateDefaultValues[fieldKey] === '') {
+      if (field.defaultValue !== undefined && field.defaultValue !== null && String(field.defaultValue) !== '') {
+        templateDefaultValues[fieldKey] = field.defaultValue;
+      }
     }
 
-    // Initialize state with template default value if not present or empty
+    // Initialize state with variant/template default value if not present or empty
     if (currentCustomData[fieldKey] === undefined || currentCustomData[fieldKey] === '') {
-      currentCustomData[fieldKey] = (field.defaultValue !== undefined && field.defaultValue !== null) ? field.defaultValue : '';
+      currentCustomData[fieldKey] = (templateDefaultValues[fieldKey] !== undefined && templateDefaultValues[fieldKey] !== '')
+        ? templateDefaultValues[fieldKey]
+        : ((field.defaultValue !== undefined && field.defaultValue !== null) ? field.defaultValue : '');
     }
 
     const isVisibleByRule = evaluateFieldVisibility(field, currentCustomData);
@@ -2011,34 +2051,108 @@ const DEFAULT_RELATIONSHIP_CONFIGS = {
     },
     atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'golden_sunshine' },
     musicCategory: 'celebration'
+  },
+  sister: {
+    theme: { style: 'magical', mood: 'radiant_sisterhood' },
+    palette: { primary: '#ec4899', secondary: '#a855f7', accent: '#fbbf24', background: '#fdf2f8' },
+    messages: {
+      defaultWish: 'Having you as my sister is the greatest gift life has ever given me. Thank you for filling every childhood memory and every new chapter with laughter, warmth, and sparkle!',
+      main_message: 'Having you as my sister is the greatest gift life has ever given me. Thank you for filling every childhood memory and every new chapter with laughter, warmth, and sparkle!',
+      hero_title: 'To The Best Sister In The Universe 💖',
+      heading: 'To The Best Sister In The Universe 💖',
+      subtitle: 'My built-in best friend and forever confidante',
+      subheading: 'My built-in best friend and forever confidante'
+    },
+    atmosphere: { particles: 'sparkles', intensity: 'vibrant', glow: 'rose_gold' },
+    musicCategory: 'celebration'
+  },
+  brother: {
+    theme: { style: 'celebration', mood: 'bold_brotherhood' },
+    palette: { primary: '#3b82f6', secondary: '#6366f1', accent: '#38bdf8', background: '#eff6ff' },
+    messages: {
+      defaultWish: 'From our crazy childhood adventures to chasing our biggest dreams, having you in my corner means everything. Wishing you unstoppable success and happiness!',
+      main_message: 'From our crazy childhood adventures to chasing our biggest dreams, having you in my corner means everything. Wishing you unstoppable success and happiness!',
+      hero_title: 'Cheers To An Incredible Brother 🌟',
+      heading: 'Cheers To An Incredible Brother 🌟',
+      subtitle: 'My protector, partner-in-crime, and lifelong friend',
+      subheading: 'My protector, partner-in-crime, and lifelong friend'
+    },
+    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'sapphire' },
+    musicCategory: 'celebration'
+  },
+  parents: {
+    theme: { style: 'peaceful', mood: 'golden_tribute' },
+    palette: { primary: '#eab308', secondary: '#f97316', accent: '#fde047', background: '#fefce8' },
+    messages: {
+      defaultWish: 'Everything we are today is because of your sacrifices, warmth, and endless love. Wishing you both boundless joy, health, and togetherness!',
+      main_message: 'Everything we are today is because of your sacrifices, warmth, and endless love. Wishing you both boundless joy, health, and togetherness!',
+      hero_title: 'To The World’s Most Wonderful Parents 💛',
+      heading: 'To The World’s Most Wonderful Parents 💛',
+      subtitle: 'Celebrating the love and foundation you gave us',
+      subheading: 'Celebrating the love and foundation you gave us'
+    },
+    atmosphere: { particles: 'golden_dust', intensity: 'gentle', glow: 'amber_warmth' },
+    musicCategory: 'acoustic'
+  },
+  partner: {
+    theme: { style: 'romantic', mood: 'deep_love' },
+    palette: { primary: '#e11d48', secondary: '#9333ea', accent: '#fbbf24', background: '#fff1f2' },
+    messages: {
+      defaultWish: 'Every single day with you feels like my favorite adventure. Thank you for being my rock, my home, and my greatest love!',
+      main_message: 'Every single day with you feels like my favorite adventure. Thank you for being my rock, my home, and my greatest love!',
+      hero_title: 'To My Forever Partner In Everything 💞',
+      heading: 'To My Forever Partner In Everything 💞',
+      subtitle: 'Celebrating our journey and endless love',
+      subheading: 'Celebrating our journey and endless love'
+    },
+    atmosphere: { particles: 'floating_hearts', intensity: 'vibrant', glow: 'rose_gold' },
+    musicCategory: 'romantic'
   }
 };
 
 function findRelationshipVariantConfig(rel) {
   if (!rel) return null;
-  const relNorm = String(rel).toLowerCase().trim().replace(/\s+/g, '_');
+  const relNorm = String(rel).toLowerCase().trim().replace(/[\s-]+/g, '_');
+  const fallbackPreset = DEFAULT_RELATIONSHIP_CONFIGS[relNorm] || null;
   if (activeTemplate && window.WishMagicVariantFlow) {
     const resolved = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relNorm);
     if (resolved) {
+      const rawPal = (resolved.theme && (resolved.theme.palette || resolved.theme)) || resolved.palette || (fallbackPreset && fallbackPreset.palette) || null;
       return {
         ...resolved,
-        palette: (resolved.theme && (resolved.theme.palette || resolved.theme)) || null,
-        messages: resolved.messages || {}
+        theme: resolved.theme || (fallbackPreset && fallbackPreset.theme) || null,
+        palette: rawPal ? {
+          primary: rawPal.primary || rawPal.accentColor || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.primary) || '#ec4899',
+          secondary: rawPal.secondary || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.secondary) || '#8b5cf6',
+          accent: rawPal.accent || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.accent) || '#fbbf24',
+          background: rawPal.background || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.background) || ''
+        } : null,
+        messages: {
+          ...(fallbackPreset && fallbackPreset.messages ? fallbackPreset.messages : {}),
+          ...(resolved.messages && typeof resolved.messages === 'object' ? resolved.messages : {})
+        }
       };
     }
   }
   if (activeTemplate && Array.isArray(activeTemplate.variants)) {
     const match = activeTemplate.variants.find(v =>
-      (v.relationshipSlug && v.relationshipSlug.toLowerCase() === relNorm) ||
-      (v.relationship_slug && v.relationship_slug.toLowerCase() === relNorm) ||
-      (v.relationship && v.relationship.toLowerCase() === relNorm)
+      (v.relationshipSlug && v.relationshipSlug.toLowerCase().replace(/[\s-]+/g, '_') === relNorm) ||
+      (v.relationship_slug && v.relationship_slug.toLowerCase().replace(/[\s-]+/g, '_') === relNorm) ||
+      (v.relationship && v.relationship.toLowerCase().replace(/[\s-]+/g, '_') === relNorm)
     );
     if (match) {
       const cfg = typeof match.configuration_json === 'string' ? JSON.parse(match.configuration_json) : (match.configuration || match);
-      return cfg;
+      return {
+        ...cfg,
+        palette: cfg.palette || cfg.theme || (fallbackPreset && fallbackPreset.palette) || null,
+        messages: {
+          ...(fallbackPreset && fallbackPreset.messages ? fallbackPreset.messages : {}),
+          ...(cfg.messages && typeof cfg.messages === 'object' ? cfg.messages : {})
+        }
+      };
     }
   }
-  return DEFAULT_RELATIONSHIP_CONFIGS[relNorm] || null;
+  return fallbackPreset;
 }
 
 // Form Inputs Handlers
@@ -2094,24 +2208,28 @@ function initFormInputs() {
   };
 
   window.handleRelationshipInput = function(val) {
-    currentCustomData.relationship = val;
+    const relNorm = String(val || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+    currentCustomData.relationship = relNorm || val;
     const resetBtn = document.getElementById('btn-reset-variant-defaults');
+    const userEditedSet = window._userModifiedFields instanceof Set ? window._userModifiedFields : new Set();
 
     // If activeTemplate is a multi-variant template family, resolve and apply the full relationship variant safely
+    let appliedFullVariant = false;
     if (activeTemplate && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate)) {
       const matchedVariant = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, val);
-      if (matchedVariant && (!activeTemplate.selectedVariant || activeTemplate.selectedVariant.id !== matchedVariant.id)) {
+      if (matchedVariant) {
         applySelectedVariantToCustomizer(matchedVariant, false);
+        appliedFullVariant = true;
       }
     } else if (activeTemplate && Array.isArray(activeTemplate.variants) && activeTemplate.variants.length > 0) {
-      const relNorm = String(val || '').toLowerCase().trim().replace(/\s+/g, '_');
       const matchedVariant = activeTemplate.variants.find(v =>
         v && v.enabled !== false && v.status !== 'disabled' && (
-          String(v.relationship || v.relationshipSlug || v.slug || '').toLowerCase().replace(/-/g, '_') === relNorm
+          String(v.relationship || v.relationshipSlug || v.slug || '').toLowerCase().replace(/[\s-]+/g, '_') === relNorm
         )
       );
-      if (matchedVariant && (!activeTemplate.selectedVariant || activeTemplate.selectedVariant.id !== matchedVariant.id)) {
+      if (matchedVariant) {
         applySelectedVariantToCustomizer(matchedVariant, false);
+        appliedFullVariant = true;
       }
     }
 
@@ -2119,13 +2237,14 @@ function initFormInputs() {
     if (variantConfig) {
       if (resetBtn) resetBtn.classList.remove('hidden');
 
-      // Auto-apply message if empty or unchanged from prior default
+      // Auto-apply message if empty or not manually edited by the user
       const messageInput = document.getElementById('input-message');
       const curMsg = (currentCustomData.custom_message || '').trim();
-      const variantWish = variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
+      const variantWish = variantConfig.messages?.custom_message || variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
 
-      if (!curMsg && variantWish) {
+      if (variantWish && (!curMsg || !userEditedSet.has('custom_message'))) {
         currentCustomData.custom_message = variantWish;
+        templateDefaultValues.custom_message = variantWish;
         if (messageInput) {
           messageInput.value = variantWish;
           const counter = document.getElementById('message-char-count');
@@ -2159,7 +2278,9 @@ function initFormInputs() {
     }
 
     triggerAutosave();
-    syncDataToIframe();
+    if (!appliedFullVariant) {
+      syncDataToIframe();
+    }
     if (window.WishMagicRuntimeBridge) {
       window.WishMagicRuntimeBridge.updateState(currentCustomData);
     }
@@ -2176,9 +2297,14 @@ function initFormInputs() {
       return;
     }
 
-    const variantWish = variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
+    if (window._userModifiedFields instanceof Set) {
+      window._userModifiedFields.delete('custom_message');
+    }
+
+    const variantWish = variantConfig.messages?.custom_message || variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
     if (variantWish) {
       currentCustomData.custom_message = variantWish;
+      templateDefaultValues.custom_message = variantWish;
       const messageInput = document.getElementById('input-message');
       if (messageInput) messageInput.value = variantWish;
       const counter = document.getElementById('message-char-count');
@@ -2215,6 +2341,7 @@ function initFormInputs() {
 
   window.handleMessageInput = function(val) {
     currentCustomData.custom_message = val;
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('custom_message');
     const counter = document.getElementById('message-char-count');
     if (counter) counter.textContent = `${val.length} / 500`;
     triggerAutosave();
@@ -5358,10 +5485,21 @@ function loadTemplateInSandbox() {
   if (!container) return;
 
   const cleanFolder = resolveCanonicalCustomizeFolder(activeTemplate);
-  const entryFile = activeTemplate.entryFile || activeTemplate.entry_file || 'index.html';
-  const templateEntryUrl = (activeTemplate.previewUrl && String(activeTemplate.previewUrl).includes('/versions/ver_'))
-    ? activeTemplate.previewUrl
+  const selVar = activeTemplate.selectedVariant || null;
+  const entryFile = (selVar && selVar.entryFile) || activeTemplate.entryFile || activeTemplate.entry_file || 'index.html';
+  let templateEntryUrl = (activeTemplate.previewUrl && String(activeTemplate.previewUrl).includes('/versions/ver_'))
+    ? String(activeTemplate.previewUrl)
     : `/templates-store/${cleanFolder}/${entryFile}`;
+
+  if (selVar && selVar.entryFile && templateEntryUrl.includes('/versions/ver_')) {
+    templateEntryUrl = templateEntryUrl.replace(/\/[^/?#]+(\?.*)?$/, '/' + selVar.entryFile);
+  }
+  const relSlug = (selVar && (selVar.relationshipSlug || selVar.relationship)) || currentCustomData.relationship || '';
+  const varSlug = (selVar && (selVar.slug || selVar.id)) || currentCustomData.variantSlug || currentCustomData.variantId || '';
+  if (relSlug || varSlug) {
+    const sep = templateEntryUrl.includes('?') ? '&' : '?';
+    templateEntryUrl = `${templateEntryUrl}${sep}variant=${encodeURIComponent(varSlug || relSlug)}&rel=${encodeURIComponent(relSlug)}`;
+  }
 
   container.innerHTML = `
     <div id="sandbox-loading-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-purple-950/80 backdrop-blur-sm text-white rounded-2xl transition-opacity duration-200 pointer-events-none" aria-live="polite">
@@ -5428,6 +5566,7 @@ function syncDataToIframe() {
   currentCustomData.hiddenFields = customerHiddenFieldsList;
 
   const livePayload = {
+    ...templateDefaultValues,
     ...currentCustomData,
     _isLiveCustomizerPreview: true,
     _hiddenSections: customerHiddenSecsList,
@@ -5458,6 +5597,25 @@ function syncDataToIframe() {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     if (!doc) return;
 
+    const activeRelSlug = String(currentCustomData.relationship || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipSlug) || '').toLowerCase().replace(/[\s-]+/g, '_');
+    const activeVarSlug = String(currentCustomData.variantSlug || currentCustomData.variantId || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.slug) || '');
+    if (doc.documentElement) {
+      if (activeRelSlug) doc.documentElement.setAttribute('data-wm-relationship', activeRelSlug);
+      if (activeVarSlug) doc.documentElement.setAttribute('data-wm-variant', activeVarSlug);
+    }
+    if (doc.body) {
+      if (activeRelSlug) doc.body.setAttribute('data-wm-relationship', activeRelSlug);
+      if (activeVarSlug) doc.body.setAttribute('data-wm-variant', activeVarSlug);
+    }
+    if (iframe.contentWindow && activeRelSlug) {
+      const hookNames = ['setRelationship', 'setRelation', 'applyVariant', 'switchVariant', 'selectRelation', 'changeRelation', 'onRelationshipChange'];
+      for (const fnName of hookNames) {
+        if (typeof iframe.contentWindow[fnName] === 'function') {
+          try { iframe.contentWindow[fnName](activeRelSlug, livePayload); } catch (_) {}
+        }
+      }
+    }
+
     const captureAndGetOrigText = (el, key) => {
       if (!el.hasAttribute('data-wm-original-text')) {
         el.setAttribute('data-wm-original-text', el.textContent || '');
@@ -5469,7 +5627,8 @@ function syncDataToIframe() {
     doc.querySelectorAll('[data-wm="recipient_name"], [data-wm-field="recipient_name"]').forEach(el => {
       const defText = captureAndGetOrigText(el, 'recipient_name');
       const recVal = (currentCustomData.recipient_name || '').trim();
-      el.textContent = recVal || defText || 'Someone Special';
+      const relLabel = currentCustomData.relationshipLabel || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipLabel) || '';
+      el.textContent = recVal || templateDefaultValues.recipient_placeholder || (relLabel ? `My Dear ${relLabel}` : '') || defText || 'Someone Special';
     });
 
     // Sender Name
@@ -5480,7 +5639,7 @@ function syncDataToIframe() {
         const origHasDash = (el.getAttribute('data-wm-original-text') || '').trim().startsWith('—');
         el.textContent = origHasDash && !sndVal.startsWith('—') ? `— ${sndVal}` : sndVal;
       } else {
-        el.textContent = defText || '— Someone Special';
+        el.textContent = templateDefaultValues.sender_placeholder || defText || '— Someone Special';
       }
     });
 
@@ -5498,6 +5657,27 @@ function syncDataToIframe() {
       const msgVal = (currentCustomData.custom_message || currentCustomData[fKeyAttr] || '').trim();
       el.textContent = msgVal || defText || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!';
     });
+
+    // Variant headline / subtitle / section headings
+    ['hero_title', 'title', 'subtitle', 'hero_subtitle', 'main_message', 'gallery_heading', 'memory_heading', 'final_message', 'surprise_text'].forEach(vk => {
+      const vVal = (currentCustomData[vk] || templateDefaultValues[vk] || '').toString().trim();
+      if (vVal) {
+        doc.querySelectorAll(`[data-wm="${vk}"], [data-wm-field="${vk}"]`).forEach(el => {
+          if (!['IMG', 'INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) {
+            el.textContent = vVal;
+          }
+        });
+      }
+    });
+
+    if (activeTemplate && activeTemplate.selectedVariant) {
+      const relLbl = activeTemplate.selectedVariant.relationshipLabel || activeTemplate.selectedVariant.label || '';
+      const relIco = activeTemplate.selectedVariant.icon || '✨';
+      const badgeEl = doc.querySelector('.top-badge:not([data-wm-field]), [data-wm-role="relation-badge"]:not([data-wm-field])');
+      if (badgeEl && relLbl) {
+        badgeEl.textContent = `${relIco} ${currentCustomData.subtitle || templateDefaultValues.subtitle || (relLbl + ' Special Edition')}`;
+      }
+    }
 
     // Cover Photo & Photos (ImgBB links)
     const photos = currentCustomData.photos || [];
@@ -5539,9 +5719,9 @@ function syncDataToIframe() {
         if (!fKey) return;
         f.key = fKey;
         const val = currentCustomData[f.key];
-        const fallbackDef = (f.defaultValue !== undefined && f.defaultValue !== null && String(f.defaultValue) !== '')
-          ? f.defaultValue
-          : (templateDefaultValues[f.key] || '');
+        const fallbackDef = (templateDefaultValues[f.key] !== undefined && templateDefaultValues[f.key] !== null && String(templateDefaultValues[f.key]) !== '')
+          ? templateDefaultValues[f.key]
+          : ((f.defaultValue !== undefined && f.defaultValue !== null) ? f.defaultValue : '');
         const effectiveVal = (val !== undefined && val !== null && String(val).trim() !== '') ? val : fallbackDef;
         if (effectiveVal !== undefined && effectiveVal !== null && String(effectiveVal) !== '') {
           const fTypeLower = String(f.type || 'text').toLowerCase();
