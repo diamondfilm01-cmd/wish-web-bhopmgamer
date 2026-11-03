@@ -125,8 +125,33 @@
 
       const skipDirectUpdateKeys = new Set([
         'content', 'media', 'mediaSettings', 'sections', 'sectionOrder',
-        'visual', 'theme', 'colors', 'animations', 'particles', 'typography', 'event'
+        'visual', 'theme', 'colors', 'palette', 'animations', 'particles', 'typography', 'event',
+        'messages', 'variant', 'variantFields', 'fieldValues', 'fields', 'assets', 'images',
+        'visibility', 'visibilityMap', 'disabledIds', 'disabledSectionIds', 'enabledIds',
+        'actions', 'actionsMap', 'effectiveConfig', 'brandingFooter', 'centralLinkConfig'
       ]);
+
+      // Apply variant messages & assets first so explicit top-level fields win
+      const varMessages = (mergedData.messages && typeof mergedData.messages === 'object')
+        ? mergedData.messages
+        : (mergedData.variant && typeof mergedData.variant === 'object' && mergedData.variant.messages ? mergedData.variant.messages : null);
+      if (varMessages) {
+        Object.keys(varMessages).forEach(mk => {
+          if (mergedData[mk] === undefined || mergedData[mk] === null || mergedData[mk] === '') {
+            this.updateField(mk, varMessages[mk], source);
+          }
+        });
+      }
+      const varAssets = (mergedData.assets && typeof mergedData.assets === 'object')
+        ? mergedData.assets
+        : (mergedData.variant && typeof mergedData.variant === 'object' && mergedData.variant.assets ? mergedData.variant.assets : null);
+      if (varAssets) {
+        Object.keys(varAssets).forEach(ak => {
+          if (mergedData[ak] === undefined || mergedData[ak] === null || mergedData[ak] === '') {
+            this.updateField(ak, varAssets[ak], source);
+          }
+        });
+      }
 
       // Apply each scalar field
       Object.keys(mergedData).forEach(key => {
@@ -145,8 +170,9 @@
 
       // Special handling for relationship / variant attributes & hooks
       const doc = getDocument();
-      const relSlug = mergedData.relationship_slug || mergedData.relationship || '';
-      const varSlug = mergedData.variant_slug || mergedData.variant || '';
+      const relSlug = mergedData.relationshipSlug || mergedData.relationship_slug || mergedData.relationship || (mergedData.variant && mergedData.variant.relationshipSlug) || '';
+      const rawVarId = mergedData.declaredVariantId || mergedData.declaredId || mergedData.variantSlug || mergedData.variant_slug || (typeof mergedData.variant === 'string' ? mergedData.variant : (mergedData.variant && (mergedData.variant.declaredId || mergedData.variant.slug || mergedData.variant.id))) || mergedData.variantId || '';
+      const varSlug = String(rawVarId).startsWith('trv_') ? (relSlug || String(rawVarId)) : String(rawVarId || relSlug);
       if (doc && (relSlug || varSlug)) {
         const normRel = String(relSlug || varSlug).toLowerCase().trim().replace(/[\s-]+/g, '_');
         if (doc.documentElement) {
@@ -156,6 +182,12 @@
         if (doc.body) {
           if (normRel) doc.body.setAttribute('data-wm-relationship', normRel);
           if (varSlug) doc.body.setAttribute('data-wm-variant', String(varSlug));
+        }
+        if (typeof this.applyThemeVariant === 'function' && (varSlug || normRel)) {
+          try { this.applyThemeVariant(varSlug || normRel); } catch (e) {}
+          if (normRel && normRel !== varSlug) {
+            try { this.applyThemeVariant(normRel); } catch (e) {}
+          }
         }
         if (global.WishMagicTemplateHooks) {
           if (typeof global.WishMagicTemplateHooks.onRelationshipChange === 'function') {
@@ -168,10 +200,11 @@
       }
 
       // Special handling for theme & colors
-      if (mergedData.theme) {
-        this.updateTheme(mergedData.theme, mergedData.colors);
-      } else if (mergedData.colors) {
-        this.updateColors(mergedData.colors);
+      const effColors = mergedData.colors || mergedData.palette || (mergedData.theme && typeof mergedData.theme === 'object' ? mergedData.theme : null);
+      if (mergedData.theme && typeof mergedData.theme === 'string') {
+        this.updateTheme(mergedData.theme, effColors);
+      } else if (effColors) {
+        this.updateColors(effColors);
       }
 
       // Special handling for sections (Spec 29, 44, 45)
@@ -1490,10 +1523,6 @@
       const payload = event.data.payload || event.data.data || {};
 
       switch (msgType) {
-        case 'WISHMAGIC_INIT':
-          WishMagicRuntime.init(payload.data || payload);
-          break;
-
         case 'WISHMAGIC_STATE':
         case 'WISHMAGIC_LIVE_UPDATE':
           WishMagicRuntime.updateState(payload);
@@ -1616,21 +1645,21 @@
           break;
         }
 
-        case 'WISHMAGIC_INIT':
-          if (payload.data) {
-            WishMagicRuntime.updateState(payload.data, 'init');
-          }
+        case 'WISHMAGIC_INIT': {
+          const initData = payload.data || payload;
+          WishMagicRuntime.init(initData);
           if (payload.schema && typeof WishMagicRuntime.setSchema === 'function') {
             WishMagicRuntime.setSchema(payload.schema);
           }
           if (global.WishMagicRuntime && typeof global.WishMagicRuntime.onInit === 'function') {
             try {
-              global.WishMagicRuntime.onInit(payload.data || {}, payload.schema || {});
+              global.WishMagicRuntime.onInit(initData || {}, payload.schema || {});
             } catch (e) {
               console.warn('[WishMagicRuntime] Author onInit error:', e);
             }
           }
           break;
+        }
 
         case 'WISHMAGIC_CONTENT':
           if (payload && typeof payload === 'object') {

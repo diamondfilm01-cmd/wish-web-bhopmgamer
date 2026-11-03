@@ -1338,24 +1338,52 @@
     removeDisabledContentFromDom(document, data);
 
     // 0a. Apply UTP v1.1.0 / v1.2.0 variant & relationship attributes on root html/body
-    const variantId = data.variantId || data.variant_id || (data.variant && (data.variant.id || data.variant.slug)) || '';
-    const relSlug = data.relationshipSlug || data.relationship_slug || data.relationship || (data.variant && (data.variant.relationshipSlug || data.variant.relationship)) || '';
-    if (variantId && typeof variantId === 'string') {
-      document.documentElement.setAttribute('data-wm-variant', variantId);
-      if (document.body) document.body.setAttribute('data-wm-variant', variantId);
-      if (global.WishMagicRuntime && typeof global.WishMagicRuntime.applyThemeVariant === 'function' && !data.theme_variant) {
-        try { global.WishMagicRuntime.applyThemeVariant(variantId); } catch (_) {}
-      }
-    }
+    const rawVariantId = data.variantId || data.variant_id || (data.variant && typeof data.variant === 'object' && (data.variant.id || data.variant.slug)) || '';
+    const variantSlug = data.variantSlug || data.variant_slug || (data.variant && typeof data.variant === 'object' && data.variant.slug) || (typeof data.variant === 'string' ? data.variant : '') || '';
+    const relSlug = data.relationshipSlug || data.relationship_slug || data.relationship || (data.variant && typeof data.variant === 'object' && (data.variant.relationshipSlug || data.variant.relationship)) || '';
+    const declaredVariantId =
+      data.declaredVariantId ||
+      data.declaredId ||
+      (data.variant && typeof data.variant === 'object' && (data.variant.declaredId || data.variant.declaredVariantId)) ||
+      (rawVariantId && !String(rawVariantId).startsWith('trv_') ? rawVariantId : '') ||
+      variantSlug ||
+      relSlug ||
+      rawVariantId;
+    const effectiveVariantId = declaredVariantId || variantSlug || relSlug || rawVariantId;
+
     if (relSlug && typeof relSlug === 'string') {
       document.documentElement.setAttribute('data-wm-relationship', relSlug);
       if (document.body) document.body.setAttribute('data-wm-relationship', relSlug);
     }
+    if (effectiveVariantId && typeof effectiveVariantId === 'string') {
+      document.documentElement.setAttribute('data-wm-variant', effectiveVariantId);
+      if (document.body) document.body.setAttribute('data-wm-variant', effectiveVariantId);
+      if (global.WishMagicRuntime && typeof global.WishMagicRuntime.applyThemeVariant === 'function' && !data.theme_variant) {
+        const candidateKeys = Array.from(new Set([declaredVariantId, variantSlug, relSlug, rawVariantId].filter(Boolean)));
+        for (const ck of candidateKeys) {
+          try { global.WishMagicRuntime.applyThemeVariant(ck); } catch (_) {}
+        }
+      }
+    }
 
-    // 0b. Apply variant messages & default assets first (so direct user keys in step 1 take higher precedence)
+    // 0b. Apply variant field defaults, messages & default assets first (so direct user keys in step 1 take higher precedence)
+    const variantFieldDefs = (data.variant && typeof data.variant === 'object' && Array.isArray(data.variant.fields))
+      ? data.variant.fields
+      : (Array.isArray(data.variantFields) ? data.variantFields : null);
+    if (variantFieldDefs) {
+      variantFieldDefs.forEach(vf => {
+        const fKey = vf && (vf.id || vf.key);
+        if (fKey && vf.defaultValue !== undefined && vf.defaultValue !== null && vf.defaultValue !== '') {
+          if (data[fKey] === undefined || data[fKey] === null || data[fKey] === '') {
+            setWishMagicField(fKey, vf.defaultValue, data);
+          }
+        }
+      });
+    }
+
     const variantMessages = (data.messages && typeof data.messages === 'object')
       ? data.messages
-      : (data.variant && data.variant.messages && typeof data.variant.messages === 'object' ? data.variant.messages : null);
+      : (data.variant && typeof data.variant === 'object' && data.variant.messages && typeof data.variant.messages === 'object' ? data.variant.messages : null);
     if (variantMessages) {
       Object.keys(variantMessages).forEach(msgKey => {
         if (data[msgKey] === undefined || data[msgKey] === null || data[msgKey] === '') {
@@ -1366,7 +1394,7 @@
 
     const variantAssets = (data.assets && typeof data.assets === 'object')
       ? data.assets
-      : (data.variant && data.variant.assets && typeof data.variant.assets === 'object' ? data.variant.assets : null);
+      : (data.variant && typeof data.variant === 'object' && data.variant.assets && typeof data.variant.assets === 'object' ? data.variant.assets : null);
     if (variantAssets) {
       Object.keys(variantAssets).forEach(assetKey => {
         if (data[assetKey] === undefined || data[assetKey] === null || data[assetKey] === '') {
@@ -1375,9 +1403,17 @@
       });
     }
 
+    if (data.fieldValues && typeof data.fieldValues === 'object') {
+      Object.keys(data.fieldValues).forEach(fk => {
+        if (data[fk] === undefined || data[fk] === null || data[fk] === '') {
+          setWishMagicField(fk, data.fieldValues[fk], data);
+        }
+      });
+    }
+
     // 1. Apply all direct keys in data (Customer Wish values override variant defaults)
     Object.keys(data).forEach(key => {
-      if (['messages', 'assets', 'variant', 'colors', 'palette', 'sections', 'sectionsMap', '_hiddenSections', 'hiddenSections', '_hiddenFields', 'hiddenFields', '_isLiveCustomizerPreview', 'media', 'visibilityMap', 'disabledIds', 'enabledIds', 'actions', 'actionsMap', 'effectiveConfig'].includes(key)) return;
+      if (['messages', 'assets', 'variant', 'variantFields', 'fieldValues', 'fields', 'colors', 'palette', 'sections', 'sectionsMap', '_hiddenSections', 'hiddenSections', '_hiddenFields', 'hiddenFields', '_isLiveCustomizerPreview', 'media', 'visibilityMap', 'visibility', 'disabledIds', 'disabledSectionIds', 'enabledIds', 'actions', 'actionsMap', 'effectiveConfig', 'brandingFooter', 'centralLinkConfig'].includes(key)) return;
       setWishMagicField(key, data[key], data);
     });
 
@@ -1432,9 +1468,22 @@
         ? data.palette
         : (data.theme && typeof data.theme === 'object' ? data.theme : (data.variant && data.variant.theme && typeof data.variant.theme === 'object' ? data.variant.theme : null)));
     if (colorSource) {
-      if (colorSource.primary) document.documentElement.style.setProperty('--wm-primary', colorSource.primary);
-      if (colorSource.secondary) document.documentElement.style.setProperty('--wm-secondary', colorSource.secondary);
-      if (colorSource.accent) document.documentElement.style.setProperty('--wm-accent', colorSource.accent);
+      const pCol = colorSource.primary || colorSource.accentColor;
+      if (pCol) {
+        document.documentElement.style.setProperty('--wm-primary', pCol);
+        document.documentElement.style.setProperty('--primary', pCol);
+        document.documentElement.style.setProperty('--accent-color', pCol);
+        document.documentElement.style.setProperty('--theme-primary', pCol);
+      }
+      if (colorSource.secondary) {
+        document.documentElement.style.setProperty('--wm-secondary', colorSource.secondary);
+        document.documentElement.style.setProperty('--secondary', colorSource.secondary);
+      }
+      if (colorSource.accent) {
+        document.documentElement.style.setProperty('--wm-accent', colorSource.accent);
+        document.documentElement.style.setProperty('--accent', colorSource.accent);
+        document.documentElement.style.setProperty('--theme-accent', colorSource.accent);
+      }
       if (colorSource.background) document.documentElement.style.setProperty('--wm-bg', colorSource.background);
       if (colorSource.text) document.documentElement.style.setProperty('--wm-text', colorSource.text);
     }
@@ -1479,12 +1528,39 @@
     }
     applyBrandingFooterToDom(data.brandingFooter, data, document);
 
-    // 7. Dispatch CustomEvent so template scripts (countdowns, carousels, particles) react immediately
-    // Keep _isDispatchingDataUpdatedEvent = true during dispatch so if a legacy template calls
-    // WishMagicTemplate.applyData() inside its 'wishmagic:data-updated' listener, it is safely ignored!
+    // 7. Invoke template-specific variant/data hooks & dispatch CustomEvent so template scripts react immediately
     try {
       global.WishMagicData = data;
       _isDispatchingDataUpdatedEvent = true;
+      const mergedFieldsObj = Object.assign({}, data.fieldValues || {}, variantMessages || {}, variantAssets || {}, data);
+      if (global.BroCodeTemplate && typeof global.BroCodeTemplate.applyData === 'function') {
+        try {
+          global.BroCodeTemplate.applyData({
+            relationship: relSlug,
+            variantId: effectiveVariantId,
+            theme: colorSource || data.theme,
+            fields: mergedFieldsObj,
+            visibility: data.visibilityMap || data.visibility || {},
+            actions: data.actionsMap || data.actions || {}
+          });
+        } catch (_) {}
+      }
+      if (global.WishMagicTemplateHooks) {
+        if (typeof global.WishMagicTemplateHooks.onRelationshipChange === 'function' && relSlug) {
+          try { global.WishMagicTemplateHooks.onRelationshipChange(relSlug, data); } catch (_) {}
+        }
+        if (typeof global.WishMagicTemplateHooks.onVariantChange === 'function' && effectiveVariantId) {
+          try { global.WishMagicTemplateHooks.onVariantChange(effectiveVariantId, data); } catch (_) {}
+        }
+      }
+      if (relSlug || effectiveVariantId) {
+        const hookNames = ['setRelationship', 'setRelation', 'applyVariant', 'switchVariant', 'selectRelation', 'changeRelation', 'onRelationshipChange'];
+        for (const fnName of hookNames) {
+          if (typeof global[fnName] === 'function') {
+            try { global[fnName](relSlug || effectiveVariantId, data); } catch (_) {}
+          }
+        }
+      }
       const evt = new CustomEvent('wishmagic:data-updated', { detail: data });
       window.dispatchEvent(evt);
       document.dispatchEvent(evt);
@@ -1761,6 +1837,22 @@
       setTimeout(scanAll, 1800);
     }
   }
+
+  // Immediately apply URL query parameters (?rel= / ?variant=) onto <html> before DOMContentLoaded
+  try {
+    if (typeof window !== 'undefined' && window.location && window.location.search && typeof document !== 'undefined' && document.documentElement) {
+      const initParams = new URLSearchParams(window.location.search);
+      const qRel = (initParams.get('rel') || initParams.get('relationship') || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+      const qVarRaw = (initParams.get('variant') || '').trim();
+      const qVar = qVarRaw.startsWith('trv_') ? (qRel || qVarRaw.replace(/^trv_tpl_[a-z0-9_]+_/i, '')) : (qVarRaw || qRel);
+      if (qRel && !document.documentElement.getAttribute('data-wm-relationship')) {
+        document.documentElement.setAttribute('data-wm-relationship', qRel);
+      }
+      if (qVar && !document.documentElement.getAttribute('data-wm-variant')) {
+        document.documentElement.setAttribute('data-wm-variant', qVar);
+      }
+    }
+  } catch (_) {}
 
   // Auto-hydrate if window.WishMagicData is preset (skip host wrapper shells like template-preview.html)
   const isHostPreviewShell = () => Boolean(

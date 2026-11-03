@@ -3059,11 +3059,17 @@ export async function executeB2TemplateIngestPipeline(params) {
                       name: v.name,
                       relationship: v.relationship,
                       relationshipLabel: v.relationshipLabel || v.label,
+                      entry: v.entry || 'index.html',
                       enabled: v.enabled !== false,
                       status: v.status || 'published',
                       isDefault: Boolean(v.isDefault),
                       order: v.order || v.sortOrder || 1,
                       theme: v.theme || {},
+                      palette: v.palette || v.theme || {},
+                      messages: v.messages || {},
+                      fields: v.fields || [],
+                      sections: v.sections || [],
+                      assets: v.assets || {},
                       visibilityOverrides: v.visibilityOverrides || v.visibility || {},
                       actions: v.actions || []
                     }))

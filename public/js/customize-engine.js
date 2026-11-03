@@ -506,10 +506,11 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
   activeTemplate.entryFile = variant.entryFile || activeTemplate.entryFile || 'index.html';
 
   const relSlug = String(variant.relationshipSlug || variant.relationship || currentCustomData.relationship || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
-  const relFallback = (relSlug && DEFAULT_RELATIONSHIP_CONFIGS[relSlug]) || null;
+  const declaredVarId = String(variant.declaredId || variant.declaredVariantId || (!String(variant.id || '').startsWith('trv_') ? variant.id : '') || variant.slug || relSlug).trim();
 
   currentCustomData.variantId = variant.id;
-  currentCustomData.variantSlug = variant.slug || variant.id;
+  currentCustomData.declaredVariantId = declaredVarId;
+  currentCustomData.variantSlug = variant.slug || declaredVarId || variant.id;
   currentCustomData.relationship = relSlug || variant.relationshipSlug || currentCustomData.relationship;
   currentCustomData.relationshipLabel = variant.relationshipLabel || variant.label || variant.relationshipSlug;
 
@@ -523,9 +524,18 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
   } catch (_) {}
 
   const mergedVariantMessages = {
-    ...(relFallback && relFallback.messages ? relFallback.messages : {}),
     ...(variant.messages && typeof variant.messages === 'object' ? variant.messages : {})
   };
+  if (Array.isArray(variant.fields)) {
+    variant.fields.forEach(vf => {
+      const fk = vf && (vf.id || vf.key);
+      if (fk && vf.defaultValue !== undefined && vf.defaultValue !== null && vf.defaultValue !== '' && mergedVariantMessages[fk] === undefined) {
+        if (!['image', 'audio', 'video'].includes(vf.type)) {
+          mergedVariantMessages[fk] = vf.defaultValue;
+        }
+      }
+    });
+  }
   if (mergedVariantMessages.main_message && !mergedVariantMessages.custom_message) {
     mergedVariantMessages.custom_message = mergedVariantMessages.main_message;
   }
@@ -622,7 +632,7 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
   const applyVariantPalette = () => {
     const rawTheme = (variant.theme && typeof variant.theme === 'object')
       ? (variant.theme.palette || variant.theme)
-      : (variant.palette || (relFallback && relFallback.palette) || null);
+      : (variant.palette || null);
     if (rawTheme && !currentCustomData._userOverrodePalette) {
       if (rawTheme.primary || rawTheme.accentColor) currentCustomData.colors.primary = rawTheme.primary || rawTheme.accentColor;
       if (rawTheme.secondary) currentCustomData.colors.secondary = rawTheme.secondary;
@@ -5495,10 +5505,17 @@ function loadTemplateInSandbox() {
     templateEntryUrl = templateEntryUrl.replace(/\/[^/?#]+(\?.*)?$/, '/' + selVar.entryFile);
   }
   const relSlug = (selVar && (selVar.relationshipSlug || selVar.relationship)) || currentCustomData.relationship || '';
-  const varSlug = (selVar && (selVar.slug || selVar.id)) || currentCustomData.variantSlug || currentCustomData.variantId || '';
-  if (relSlug || varSlug) {
-    const sep = templateEntryUrl.includes('?') ? '&' : '?';
-    templateEntryUrl = `${templateEntryUrl}${sep}variant=${encodeURIComponent(varSlug || relSlug)}&rel=${encodeURIComponent(relSlug)}`;
+  const declaredVarId = (selVar && (selVar.declaredId || selVar.declaredVariantId || (!String(selVar.id || '').startsWith('trv_') ? selVar.id : '') || selVar.slug)) || currentCustomData.declaredVariantId || currentCustomData.variantSlug || '';
+  if (relSlug || declaredVarId) {
+    try {
+      const u = new URL(templateEntryUrl, window.location.origin);
+      if (declaredVarId || relSlug) u.searchParams.set('variant', declaredVarId || relSlug);
+      if (relSlug) u.searchParams.set('rel', relSlug);
+      templateEntryUrl = u.pathname + u.search;
+    } catch (_) {
+      const cleanBase = templateEntryUrl.split('?')[0];
+      templateEntryUrl = `${cleanBase}?variant=${encodeURIComponent(declaredVarId || relSlug)}&rel=${encodeURIComponent(relSlug)}`;
+    }
   }
 
   container.innerHTML = `
@@ -5565,9 +5582,20 @@ function syncDataToIframe() {
   currentCustomData._hiddenFields = customerHiddenFieldsList;
   currentCustomData.hiddenFields = customerHiddenFieldsList;
 
+  const selVar = (activeTemplate && activeTemplate.selectedVariant) || null;
+  const declaredVarId = (selVar && (selVar.declaredId || selVar.declaredVariantId || (!String(selVar.id || '').startsWith('trv_') ? selVar.id : '') || selVar.slug)) || currentCustomData.declaredVariantId || currentCustomData.variantSlug || '';
+  const activeRelSlug = String(currentCustomData.relationship || (selVar && selVar.relationshipSlug) || '').toLowerCase().replace(/[\s-]+/g, '_');
+
   const livePayload = {
-    ...templateDefaultValues,
     ...currentCustomData,
+    variant: declaredVarId || activeRelSlug,
+    variantId: declaredVarId || currentCustomData.variantId || activeRelSlug,
+    declaredVariantId: declaredVarId || activeRelSlug,
+    variantSlug: (selVar && selVar.slug) || currentCustomData.variantSlug || declaredVarId || activeRelSlug,
+    relationship: activeRelSlug,
+    relationshipSlug: activeRelSlug,
+    messages: (selVar && selVar.messages && typeof selVar.messages === 'object') ? selVar.messages : {},
+    assets: (selVar && selVar.assets && typeof selVar.assets === 'object') ? selVar.assets : {},
     _isLiveCustomizerPreview: true,
     _hiddenSections: customerHiddenSecsList,
     hiddenSections: customerHiddenSecsList,
@@ -5577,8 +5605,8 @@ function syncDataToIframe() {
     templateSlug: activeTemplate ? (activeTemplate.slug || activeTemplate.id) : currentCustomData.templateId,
     visibilityMap: (activeTemplate && activeTemplate.visibilityMap) || {},
     disabledIds: (activeTemplate && Array.isArray(activeTemplate.disabledIds)) ? activeTemplate.disabledIds : [],
-    actions: (activeTemplate && activeTemplate.selectedVariant && Array.isArray(activeTemplate.selectedVariant.actions))
-      ? activeTemplate.selectedVariant.actions
+    actions: (selVar && Array.isArray(selVar.actions))
+      ? selVar.actions
       : ((activeTemplate && Array.isArray(activeTemplate.actions)) ? activeTemplate.actions : [])
   };
   if (iframe.contentWindow) {
@@ -5597,8 +5625,7 @@ function syncDataToIframe() {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     if (!doc) return;
 
-    const activeRelSlug = String(currentCustomData.relationship || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipSlug) || '').toLowerCase().replace(/[\s-]+/g, '_');
-    const activeVarSlug = String(currentCustomData.variantSlug || currentCustomData.variantId || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.slug) || '');
+    const activeVarSlug = String(declaredVarId || currentCustomData.variantSlug || activeRelSlug || '');
     if (doc.documentElement) {
       if (activeRelSlug) doc.documentElement.setAttribute('data-wm-relationship', activeRelSlug);
       if (activeVarSlug) doc.documentElement.setAttribute('data-wm-variant', activeVarSlug);
@@ -5607,11 +5634,31 @@ function syncDataToIframe() {
       if (activeRelSlug) doc.body.setAttribute('data-wm-relationship', activeRelSlug);
       if (activeVarSlug) doc.body.setAttribute('data-wm-variant', activeVarSlug);
     }
-    if (iframe.contentWindow && activeRelSlug) {
-      const hookNames = ['setRelationship', 'setRelation', 'applyVariant', 'switchVariant', 'selectRelation', 'changeRelation', 'onRelationshipChange'];
-      for (const fnName of hookNames) {
-        if (typeof iframe.contentWindow[fnName] === 'function') {
-          try { iframe.contentWindow[fnName](activeRelSlug, livePayload); } catch (_) {}
+    if (iframe.contentWindow) {
+      if (iframe.contentWindow.WishMagicRuntime && typeof iframe.contentWindow.WishMagicRuntime.applyThemeVariant === 'function' && (activeVarSlug || activeRelSlug)) {
+        try { iframe.contentWindow.WishMagicRuntime.applyThemeVariant(activeVarSlug || activeRelSlug); } catch (_) {}
+        if (activeRelSlug && activeRelSlug !== activeVarSlug) {
+          try { iframe.contentWindow.WishMagicRuntime.applyThemeVariant(activeRelSlug); } catch (_) {}
+        }
+      }
+      if (iframe.contentWindow.BroCodeTemplate && typeof iframe.contentWindow.BroCodeTemplate.applyData === 'function') {
+        try {
+          iframe.contentWindow.BroCodeTemplate.applyData({
+            relationship: activeRelSlug,
+            variantId: activeVarSlug || activeRelSlug,
+            theme: currentCustomData.colors,
+            fields: Object.assign({}, livePayload.messages || {}, currentCustomData),
+            visibility: livePayload.visibilityMap,
+            actions: livePayload.actions
+          });
+        } catch (_) {}
+      }
+      if (activeRelSlug || activeVarSlug) {
+        const hookNames = ['setRelationship', 'setRelation', 'applyVariant', 'switchVariant', 'selectRelation', 'changeRelation', 'onRelationshipChange'];
+        for (const fnName of hookNames) {
+          if (typeof iframe.contentWindow[fnName] === 'function') {
+            try { iframe.contentWindow[fnName](activeRelSlug || activeVarSlug, livePayload); } catch (_) {}
+          }
         }
       }
     }

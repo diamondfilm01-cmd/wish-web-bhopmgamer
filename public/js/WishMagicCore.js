@@ -235,32 +235,13 @@ window.WishMagicCore = {
    */
   function getAvailablePublishedVariants(family) {
     if (!family || typeof family !== 'object') return [];
-    let rawList = (Array.isArray(family.availableVariants) && family.availableVariants.length > 0)
+    const rawList = (Array.isArray(family.availableVariants) && family.availableVariants.length > 0)
       ? family.availableVariants
       : (Array.isArray(family.variants) && family.variants.length > 0
           ? family.variants
           : (Array.isArray(family.availableRelations) && family.availableRelations.length > 0
               ? family.availableRelations
               : []));
-
-    if (rawList.length === 0 && Array.isArray(family.relationships) && family.relationships.length > 0) {
-      rawList = family.relationships.map((r, idx) => {
-        const lbl = typeof r === 'object' ? (r.label || r.name || r.slug || '') : String(r || '');
-        const meta = getRelationMeta(lbl, lbl);
-        return {
-          id: `trv_${family.id || 'tpl'}_${meta.slug}`,
-          slug: meta.slug,
-          relationshipSlug: meta.slug,
-          relationshipLabel: meta.label,
-          relationshipId: meta.id,
-          icon: meta.icon,
-          status: 'published',
-          enabled: true,
-          isDefault: idx === 0,
-          sort_order: idx + 1
-        };
-      });
-    }
 
     const allDisabledBug = rawList.length > 0 && rawList.every(v => v && (v.enabled === false || v.enabled === 0 || String(v.status || '').toLowerCase() === 'disabled'));
 
@@ -296,12 +277,15 @@ window.WishMagicCore = {
 
       const varId = String(v.id || v.variantId || v.variant_id || v.slug || v.variantSlug || v.variant_slug || `trv_${family.id || 'tpl'}_${relMeta.slug}`).trim();
       const varSlug = String(v.slug || v.variantSlug || v.variant_slug || relMeta.slug).trim();
+      const declaredId = String(v.declaredId || v.declaredVariantId || (!varId.startsWith('trv_') ? varId : '') || varSlug || relMeta.slug).trim();
       if (seenIds.has(varId) || seenRels.has(relMeta.slug)) continue;
       seenIds.add(varId);
       seenRels.add(relMeta.slug);
 
       valid.push({
         id: varId,
+        declaredId: declaredId,
+        declaredVariantId: declaredId,
         slug: varSlug,
         templateId: family.id || v.templateId || v.template_id,
         name: String(v.name || v.displayName || v.variant_name || `${family.name || 'Template'} — ${relMeta.label}`).trim(),
@@ -342,6 +326,7 @@ window.WishMagicCore = {
 
     return variants.find(v => {
       const vId = String(v.id || '').toLowerCase();
+      const vDeclaredId = String(v.declaredId || v.declaredVariantId || '').toLowerCase();
       const vSlug = String(v.slug || '').toLowerCase();
       const vSlugNorm = normalizeRelationSlug(vSlug);
       const vRelSlug = String(v.relationshipSlug || '').toLowerCase();
@@ -349,6 +334,7 @@ window.WishMagicCore = {
       const vLabel = String(v.relationshipLabel || v.label || '').toLowerCase();
       return (
         vId === rawTarget ||
+        (vDeclaredId && vDeclaredId === rawTarget) ||
         vSlug === rawTarget ||
         vSlugNorm === targetSlug ||
         vRelSlug === targetSlug ||

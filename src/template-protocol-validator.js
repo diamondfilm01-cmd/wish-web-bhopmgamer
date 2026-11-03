@@ -538,12 +538,15 @@ export function normalizeManifestToUtp(raw = {}) {
     entry
   };
 
+  const rawRelVariantsInput = raw.relationshipVariants || tObj.relationshipVariants || null;
+  const rawRelVariants = Array.isArray(rawRelVariantsInput)
+    ? rawRelVariantsInput
+    : (rawRelVariantsInput && typeof rawRelVariantsInput === 'object'
+        ? Object.entries(rawRelVariantsInput).map(([rk, rv]) => (rv && typeof rv === 'object' ? { relationship: rk, slug: rk, ...rv } : null)).filter(Boolean)
+        : []);
   const rawVariantsBase = Array.isArray(raw.variants)
     ? raw.variants
-    : (Array.isArray(tObj.variants) ? tObj.variants : (Array.isArray(raw.relationshipVariants) ? raw.relationshipVariants : []));
-  const rawRelVariants = Array.isArray(raw.relationshipVariants)
-    ? raw.relationshipVariants
-    : (Array.isArray(tObj.relationshipVariants) ? tObj.relationshipVariants : []);
+    : (Array.isArray(tObj.variants) ? tObj.variants : rawRelVariants);
   const relVarBySlug = new Map();
   for (const rv of rawRelVariants) {
     if (rv && typeof rv === 'object') {
@@ -2370,9 +2373,30 @@ export function validateUtpManifest(rawManifest, options = {}) {
   }
 
   // 6b. UTP v1.1.0 / v1.2.0 Multi-Variant Family Declaration Validation
-  const rawVariantsProp = rawManifest.variants !== undefined
+  const rawRelVarsForValidation = rawManifest.relationshipVariants || (rawManifest.template && rawManifest.template.relationshipVariants) || null;
+  const parsedRelVarsList = Array.isArray(rawRelVarsForValidation)
+    ? rawRelVarsForValidation
+    : (rawRelVarsForValidation && typeof rawRelVarsForValidation === 'object'
+        ? Object.entries(rawRelVarsForValidation).map(([rk, rv]) => (rv && typeof rv === 'object' ? { relationship: rk, slug: rk, ...rv } : null)).filter(Boolean)
+        : undefined);
+  const rawVariantsPropBase = rawManifest.variants !== undefined
     ? rawManifest.variants
-    : (rawManifest.template && rawManifest.template.variants !== undefined ? rawManifest.template.variants : undefined);
+    : (rawManifest.template && rawManifest.template.variants !== undefined ? rawManifest.template.variants : parsedRelVarsList);
+  const rawVariantsProp = Array.isArray(rawVariantsPropBase) && Array.isArray(parsedRelVarsList) && rawVariantsPropBase !== parsedRelVarsList
+    ? rawVariantsPropBase.map((v) => {
+        if (!v || typeof v !== 'object') return v;
+        const rk = String(v.relationship || v.slug || v.id || '').toLowerCase().trim().replace(/^rel_/, '');
+        const rvMatch = parsedRelVarsList.find(rv => rv && String(rv.relationship || rv.slug || rv.id || '').toLowerCase().trim().replace(/^rel_/, '') === rk);
+        if (!rvMatch) return v;
+        return {
+          ...rvMatch,
+          ...v,
+          label: v.label || rvMatch.label || v.name,
+          relationshipLabel: v.relationshipLabel || rvMatch.label || v.label,
+          messages: (v.messages && Object.keys(v.messages).length > 0) ? v.messages : (rvMatch.messages || {})
+        };
+      })
+    : rawVariantsPropBase;
 
   const validVariants = [];
   const invalidVariants = [];

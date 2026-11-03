@@ -11808,6 +11808,14 @@ export default {
             }
           }
 
+          if (/(?:^|\/)wishmagic-template-(?:protocol|runtime)\.js$/i.test(relPath)) {
+            const scriptFile = relPath.split('/').pop();
+            const redirectScriptUrl = new URL(request.url);
+            redirectScriptUrl.pathname = `/js/${scriptFile}`;
+            redirectScriptUrl.search = '';
+            return Response.redirect(redirectScriptUrl.toString(), 302);
+          }
+
           const cleanFamilySlug = String(templateId || 'default').replace(/^tpl_/, '');
           const familyIdForKey = resolvedVerRow?.template_family_id || `fam_${cleanFamilySlug}`;
           const targetStorageKey = fileRecord?.storage_key || (relPath === 'wishmagic.json' && resolvedVerRow?.manifest_storage_key ? resolvedVerRow.manifest_storage_key : `templates/${familyIdForKey}/versions/${resolvedB2VersionId}/runtime/${relPath.replace(/^\/+/, '')}`);
@@ -11862,6 +11870,100 @@ export default {
               if (relPath.toLowerCase().endsWith('.html')) {
                 try {
                   let htmlStr = new TextDecoder('utf-8').decode(rawBody);
+
+                  // Rewrite relative wishmagic-template-protocol.js or wishmagic-template-runtime.js references to /js/...
+                  htmlStr = htmlStr.replace(
+                    /(<script[^>]+src\s*=\s*["'])(?!\/js\/|https?:\/\/)[^"']*?(wishmagic-template-(?:protocol|runtime)\.js)(["'][^>]*>)/gi,
+                    '$1/js/$2$3'
+                  );
+                  if (!/wishmagic-template-protocol\.js/i.test(htmlStr)) {
+                    const protoTag = `<script src="/js/wishmagic-template-protocol.js"></script>`;
+                    if (htmlStr.includes('</body>')) {
+                      htmlStr = htmlStr.replace('</body>', protoTag + '\n</body>');
+                    } else {
+                      htmlStr += '\n' + protoTag;
+                    }
+                  }
+
+                  // Resolve selected variant from query parameters (?rel= / ?variant=) against version manifest_json
+                  // and inject early <head> bootstrap (matching Import Studio's buildSandboxedTemplatePreviewHtml)
+                  const reqRelParam = (url.searchParams.get('rel') || url.searchParams.get('relationship') || '').trim();
+                  const reqVarParam = (url.searchParams.get('variant') || '').trim();
+                  const parsedManifest = resolvedVerRow?.manifest_json
+                    ? (typeof resolvedVerRow.manifest_json === 'string' ? safeJsonParse(resolvedVerRow.manifest_json, null) : resolvedVerRow.manifest_json)
+                    : null;
+
+                  if (parsedManifest || reqRelParam || reqVarParam) {
+                    const manifestVars = Array.isArray(parsedManifest?.variants) ? parsedManifest.variants : [];
+                    const normTarget = (s) => String(s || '').trim().toLowerCase().replace(/^trv_tpl_[a-z0-9_]+_/i, '').replace(/^(?:var|rel|utpvar)_/i, '').replace(/[\s-]+/g, '_');
+                    const targetRelNorm = normTarget(reqRelParam || reqVarParam);
+                    let matchedVar = null;
+                    if (targetRelNorm && manifestVars.length > 0) {
+                      matchedVar = manifestVars.find(v => {
+                        if (!v || typeof v !== 'object') return false;
+                        return (
+                          normTarget(v.relationship || v.relationshipSlug) === targetRelNorm ||
+                          normTarget(v.slug) === targetRelNorm ||
+                          normTarget(v.id) === targetRelNorm ||
+                          String(v.id || '').toLowerCase() === reqVarParam.toLowerCase()
+                        );
+                      }) || null;
+                    }
+                    if (!matchedVar && manifestVars.length > 0 && !targetRelNorm) {
+                      matchedVar = manifestVars.find(v => v && (v.isDefault || v.default)) || manifestVars[0] || null;
+                    }
+
+                    const effRelSlug = (matchedVar && (matchedVar.relationship || matchedVar.relationshipSlug || matchedVar.slug)) || targetRelNorm || '';
+                    const effDeclaredVarId = (matchedVar && (matchedVar.id || matchedVar.slug || matchedVar.relationship)) || (reqVarParam && !reqVarParam.startsWith('trv_') ? reqVarParam : effRelSlug) || '';
+                    const effTheme = (matchedVar && (matchedVar.theme || matchedVar.palette)) || parsedManifest?.theme || {};
+                    const effFieldValues = {};
+                    if (Array.isArray(parsedManifest?.fields)) {
+                      for (const f of parsedManifest.fields) {
+                        const fk = f && (f.id || f.key);
+                        if (fk && f.defaultValue !== undefined) effFieldValues[fk] = f.defaultValue;
+                      }
+                    }
+                    if (matchedVar && Array.isArray(matchedVar.fields)) {
+                      for (const vf of matchedVar.fields) {
+                        const fk = vf && (vf.id || vf.key);
+                        if (fk && vf.defaultValue !== undefined) effFieldValues[fk] = vf.defaultValue;
+                      }
+                    }
+                    const varMsgs = (matchedVar && matchedVar.messages && typeof matchedVar.messages === 'object') ? matchedVar.messages : {};
+                    for (const [mk, mv] of Object.entries(varMsgs)) {
+                      if (mv !== undefined && mv !== null && mv !== '') effFieldValues[mk] = mv;
+                    }
+                    const varAssets = (matchedVar && matchedVar.assets && typeof matchedVar.assets === 'object') ? matchedVar.assets : {};
+                    for (const [ak, av] of Object.entries(varAssets)) {
+                      if (av) effFieldValues[ak] = av;
+                    }
+
+                    const bootstrapPayload = {
+                      templateId,
+                      relationshipSlug: effRelSlug,
+                      relationship: effRelSlug,
+                      variantId: effDeclaredVarId,
+                      declaredVariantId: effDeclaredVarId,
+                      variantSlug: (matchedVar && matchedVar.slug) || effRelSlug,
+                      variant: matchedVar || null,
+                      theme: effTheme,
+                      colors: effTheme,
+                      palette: effTheme,
+                      messages: varMsgs,
+                      assets: varAssets,
+                      fieldValues: effFieldValues,
+                      visibility: (matchedVar && (matchedVar.visibilityOverrides || matchedVar.visibility)) || {},
+                      actions: (matchedVar && matchedVar.actions) || parsedManifest?.actions || []
+                    };
+
+                    const earlyVariantScript = `<script data-wm-variant-bootstrap="1">(function(){var P=${JSON.stringify(bootstrapPayload)};window.__WM_INITIAL_VARIANT_PAYLOAD__=P;window.WishMagicData=Object.assign({},P.fieldValues||{},P.messages||{},P.assets||{},P,window.WishMagicData||{});try{var r=document.documentElement;if(P.relationshipSlug)r.setAttribute("data-wm-relationship",P.relationshipSlug);if(P.variantId)r.setAttribute("data-wm-variant",P.variantId);var t=P.theme||{};var pc=t.primary||t.accentColor;if(pc){r.style.setProperty("--wm-primary",pc);r.style.setProperty("--primary",pc);r.style.setProperty("--accent-color",pc);r.style.setProperty("--theme-primary",pc);}if(t.secondary){r.style.setProperty("--wm-secondary",t.secondary);r.style.setProperty("--secondary",t.secondary);}if(t.accent){r.style.setProperty("--wm-accent",t.accent);r.style.setProperty("--accent",t.accent);r.style.setProperty("--theme-accent",t.accent);}if(t.background)r.style.setProperty("--wm-bg",t.background);if(t.text)r.style.setProperty("--wm-text",t.text);}catch(_){}function ap(){try{if(document.body){if(P.relationshipSlug&&!document.body.getAttribute("data-wm-relationship"))document.body.setAttribute("data-wm-relationship",P.relationshipSlug);if(P.variantId&&!document.body.getAttribute("data-wm-variant"))document.body.setAttribute("data-wm-variant",P.variantId);}if(window.WishMagicTemplate&&typeof window.WishMagicTemplate.applyData==="function"){window.WishMagicTemplate.applyData(window.WishMagicData);}else if(window.BroCodeTemplate&&typeof window.BroCodeTemplate.applyData==="function"){window.BroCodeTemplate.applyData({relationship:P.relationshipSlug,variantId:P.variantId,theme:P.theme,fields:Object.assign({},P.fieldValues||{},P.messages||{}),visibility:P.visibility,actions:P.actions});}if(window.WishMagicRuntime&&typeof window.WishMagicRuntime.applyThemeVariant==="function"&&P.variantId){try{window.WishMagicRuntime.applyThemeVariant(P.variantId);}catch(_){}if(P.relationshipSlug&&P.relationshipSlug!==P.variantId){try{window.WishMagicRuntime.applyThemeVariant(P.relationshipSlug);}catch(_){}}}}catch(_){}}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",ap);else setTimeout(ap,0);})();<\/script>`;
+                    if (/<head[^>]*>/i.test(htmlStr)) {
+                      htmlStr = htmlStr.replace(/<head([^>]*)>/i, `<head$1>${earlyVariantScript}`);
+                    } else {
+                      htmlStr = earlyVariantScript + htmlStr;
+                    }
+                  }
+
                   if (htmlStr.includes('ibb.co') || htmlStr.includes('<img')) {
                     const guardScript = `<script data-wm-imgbb-healer="1">(function(){var T=${JSON.stringify(templateId)},V=${JSON.stringify(resolvedB2VersionId)};window.__WM_PREVIEW_TEMPLATE_ID__=T;window.__WM_PREVIEW_VERSION_ID__=V;function h(i){if(!i||i.tagName!=="IMG"||i.dataset.wmImgHealed==="1")return;var s=String(i.getAttribute("src")||i.src||"").trim();if(!s||s.indexOf("data:")===0||s.indexOf("/api/media/safe-img")!==-1)return;var ibb=s.indexOf("ibb.co/")!==-1;var unavail=ibb&&i.complete&&i.naturalWidth>0&&i.naturalWidth<=220&&i.naturalHeight>0&&i.naturalHeight<=220&&Math.abs(i.naturalWidth-i.naturalHeight)<=4;var brk=i.complete&&i.naturalWidth===0&&s.length>0;if(unavail||(ibb&&brk)){i.dataset.wmImgHealed="1";i.src="/api/media/safe-img?u="+encodeURIComponent(s)+"&tpl="+encodeURIComponent(T)+"&ver="+encodeURIComponent(V);}}document.addEventListener("load",function(e){if(e&&e.target&&e.target.tagName==="IMG")h(e.target);},true);document.addEventListener("error",function(e){var i=e&&e.target;if(!i||i.tagName!=="IMG"||i.dataset.wmImgHealed==="1")return;var s=String(i.getAttribute("src")||i.src||"").trim();if(!s||s.indexOf("data:")===0||s.indexOf("/api/media/safe-img")!==-1)return;i.dataset.wmImgHealed="1";i.src="/api/media/safe-img?u="+encodeURIComponent(s)+"&tpl="+encodeURIComponent(T)+"&ver="+encodeURIComponent(V);},true);function sc(){try{document.querySelectorAll("img").forEach(h);}catch(_){}}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sc);else sc();setTimeout(sc,600);setTimeout(sc,1800);})();<\/script>`;
                     if (htmlStr.includes('</body>')) {
@@ -11869,18 +11971,19 @@ export default {
                     } else {
                       htmlStr += guardScript;
                     }
-                    const modBytes = new TextEncoder().encode(htmlStr);
-                    return new Response(modBytes, {
-                      status: 200,
-                      headers: {
-                        'Content-Type': contentType,
-                        'Content-Length': String(modBytes.byteLength),
-                        'Access-Control-Allow-Origin': '*',
-                        'Cache-Control': 'public, max-age=300',
-                        'X-Frame-Options': 'SAMEORIGIN'
-                      }
-                    });
                   }
+
+                  const modBytes = new TextEncoder().encode(htmlStr);
+                  return new Response(modBytes, {
+                    status: 200,
+                    headers: {
+                      'Content-Type': contentType,
+                      'Content-Length': String(modBytes.byteLength),
+                      'Access-Control-Allow-Origin': '*',
+                      'Cache-Control': 'no-cache, no-store, must-revalidate',
+                      'X-Frame-Options': 'SAMEORIGIN'
+                    }
+                  });
                 } catch (_) {}
               }
 
@@ -14549,8 +14652,8 @@ export default {
         if (env.DB && typeof env.DB.prepare === 'function') {
           template = (await env.DB.prepare('SELECT * FROM templates WHERE id = ? LIMIT 1').bind(templateId).first()) || template;
           templateVersion = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(templateId).first();
-          musicLibrary = (await env.DB.prepare('SELECT * FROM music_library WHERE status = "active"').all()).results || [];
-          templateImages = (await env.DB.prepare('SELECT * FROM template_images WHERE template_id = ? AND status = "active"').bind(templateId).all()).results || [];
+          musicLibrary = (await env.DB.prepare("SELECT * FROM music_library WHERE status = 'active'").all().catch(() => ({ results: [] }))).results || [];
+          templateImages = (await env.DB.prepare("SELECT * FROM template_images WHERE template_id = ? AND status = 'active'").bind(templateId).all().catch(() => ({ results: [] }))).results || [];
         }
 
         const validation = validateVariantConfiguration(body, {
@@ -14597,8 +14700,8 @@ export default {
         const activeVersion = (await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(templateId).first());
         const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
 
-        const musicLibrary = (await env.DB.prepare('SELECT * FROM music_library WHERE status = "active"').all()).results || [];
-        const templateImages = (await env.DB.prepare('SELECT * FROM template_images WHERE template_id = ? AND status = "active"').bind(templateId).all()).results || [];
+        const musicLibrary = (await env.DB.prepare("SELECT * FROM music_library WHERE status = 'active'").all().catch(() => ({ results: [] }))).results || [];
+        const templateImages = (await env.DB.prepare("SELECT * FROM template_images WHERE template_id = ? AND status = 'active'").bind(templateId).all().catch(() => ({ results: [] }))).results || [];
 
         // Validation check
         const validation = validateVariantConfiguration(body, { template, templateVersion: activeVersion, musicLibrary, templateImages });
@@ -14758,7 +14861,7 @@ export default {
           activeVersion = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(tId).first();
           const versionId = activeVersion ? activeVersion.id : `tv_${tId}_v1`;
 
-          relationships = (await env.DB.prepare('SELECT * FROM relationships WHERE status = "active" ORDER BY sort_order ASC').all()).results || [];
+          relationships = (await env.DB.prepare("SELECT * FROM relationships WHERE status = 'active' ORDER BY sort_order ASC").all().catch(() => ({ results: [] }))).results || [];
           const normRel = relQuery ? normalizeRelationshipIdentifier(relQuery) : null;
           const targetRel = relationships.find(r => r.slug.toLowerCase() === (normRel ? normRel.slug : relQuery.toLowerCase()) || r.id === relQuery);
           const targetRelId = targetRel ? targetRel.id : (normRel ? normRel.id : relQuery);
@@ -14767,7 +14870,7 @@ export default {
           const allVarRows = await env.DB.prepare(
             `SELECT * FROM template_relationship_variants
              WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1`
-          ).bind(tId, versionId).all();
+          ).bind(tId, versionId).all().catch(() => ({ results: [] }));
           allFamilyVariants = allVarRows.results || [];
 
           if (variantQuery) {
@@ -14782,8 +14885,8 @@ export default {
             ) || null;
           }
 
-          templateImages = (await env.DB.prepare('SELECT * FROM template_images WHERE (template_id = ? OR template_version_id = ?) AND status = "active"').bind(tId, versionId).all()).results || [];
-          musicLibrary = (await env.DB.prepare('SELECT * FROM music_library WHERE status = "active"').all()).results || [];
+          templateImages = (await env.DB.prepare("SELECT * FROM template_images WHERE (template_id = ? OR template_version_id = ?) AND status = 'active'").bind(tId, versionId).all().catch(() => ({ results: [] }))).results || [];
+          musicLibrary = (await env.DB.prepare("SELECT * FROM music_library WHERE status = 'active'").all().catch(() => ({ results: [] }))).results || [];
         }
 
         // Enforce strict authoritative variant availability & family ownership check
