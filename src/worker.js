@@ -6324,21 +6324,37 @@ async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides 
       }
       if (!row) {
         row = await env.DB.prepare(
-          "SELECT * FROM template_versions WHERE template_id = ? ORDER BY is_current DESC, CASE WHEN status IN ('published', 'active') THEN 1 ELSE 0 END DESC, version_number DESC LIMIT 1"
+          "SELECT * FROM template_versions WHERE template_id = ? ORDER BY CASE WHEN id LIKE 'ver_%' OR storage_provider = 'b2' THEN 0 ELSE 1 END ASC, is_current DESC, CASE WHEN status IN ('published', 'active') THEN 1 ELSE 0 END DESC, version_number DESC LIMIT 1"
         ).bind(cleanId).first();
       }
 
       if (row) {
+        const entryFile = row.entry_file || 'index.html';
+        const isB2Row = String(row.id || '').startsWith('ver_') || row.storage_provider === 'b2' || Boolean(row.b2_prefix);
+        const computedPreviewUrl = isB2Row
+          ? `/api/templates/${encodeURIComponent(row.template_id)}/versions/${encodeURIComponent(row.id)}/preview/${entryFile}`
+          : null;
         let snapshotData = null;
         if (row.snapshot_data) {
           try { snapshotData = JSON.parse(row.snapshot_data); } catch (e) {}
         }
-        if (snapshotData) return snapshotData;
+        if (snapshotData) {
+          if (computedPreviewUrl && !snapshotData.previewUrl) snapshotData.previewUrl = computedPreviewUrl;
+          if (!snapshotData.currentVersionId) snapshotData.currentVersionId = row.id;
+          if (!snapshotData.activeVersionId) snapshotData.activeVersionId = row.id;
+          if (!snapshotData.templateId) snapshotData.templateId = row.template_id;
+          if (!snapshotData.entryFile) snapshotData.entryFile = entryFile;
+          return snapshotData;
+        }
 
+        const parsedFields = row.fields_json ? (typeof row.fields_json === 'string' ? safeJsonParse(row.fields_json, []) : row.fields_json) : [];
+        const parsedManifest = row.manifest_json ? (typeof row.manifest_json === 'string' ? safeJsonParse(row.manifest_json, {}) : row.manifest_json) : {};
         // Construct from columns including UTP v1.2.0 configuration fields
         return {
           id: row.id,
           versionId: row.id,
+          currentVersionId: row.id,
+          activeVersionId: row.id,
           templateId: row.template_id,
           versionNumber: row.version_number,
           versionLabel: row.version_label || `v${row.version_number || 1}.0.0`,
@@ -6349,9 +6365,13 @@ async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides 
           price: row.price,
           isPremium: Boolean(row.tier === 'vip' || row.price > 0),
           thumbnail: row.thumbnail,
+          entryFile,
+          previewUrl: computedPreviewUrl,
           theme: row.theme ? (typeof row.theme === 'string' ? JSON.parse(row.theme) : row.theme) : (DEFAULT_TEMPLATE_THEMES[row.template_id] || {}),
           sections: row.sections ? (typeof row.sections === 'string' ? JSON.parse(row.sections) : row.sections) : DEFAULT_TEMPLATE_SECTIONS,
-          detectedFields: row.fields_json ? (typeof row.fields_json === 'string' ? safeJsonParse(row.fields_json, []) : row.fields_json) : undefined,
+          fields: parsedFields,
+          detectedFields: parsedFields,
+          manifest: parsedManifest,
           fields_json: row.fields_json || '[]',
           actions_json: row.actions_json || '[]',
           visibility_config_json: row.visibility_config_json || '{}',
@@ -6443,31 +6463,89 @@ async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides 
 }
 
 async function getTemplateVersionById(env, versionId, fallbackTemplateId = null) {
+  let tplRow = null;
+  if (env && env.DB && typeof env.DB.prepare === 'function' && fallbackTemplateId) {
+    try {
+      tplRow = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(fallbackTemplateId, fallbackTemplateId).first();
+    } catch (e) {}
+  }
+
+  const enrichTemplateVersionResult = async (resObj, verRow) => {
+    if (!resObj) return null;
+    const resolvedTplId = (verRow && verRow.template_id) || resObj.templateId || (tplRow && tplRow.id) || fallbackTemplateId;
+    if (!tplRow && resolvedTplId && env && env.DB && typeof env.DB.prepare === 'function') {
+      try {
+        tplRow = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(resolvedTplId, resolvedTplId).first();
+      } catch (e) {}
+    }
+    let b2VerRow = (verRow && (String(verRow.id || '').startsWith('ver_') || verRow.storage_provider === 'b2' || Boolean(verRow.b2_prefix))) ? verRow : null;
+    if (!b2VerRow && resolvedTplId && env && env.DB && typeof env.DB.prepare === 'function') {
+      try {
+        if (tplRow && tplRow.current_version_id && String(tplRow.current_version_id).startsWith('ver_')) {
+          b2VerRow = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(tplRow.current_version_id).first();
+        }
+        if (!b2VerRow) {
+          b2VerRow = await env.DB.prepare(
+            "SELECT * FROM template_versions WHERE template_id = ? AND (id LIKE 'ver_%' OR storage_provider = 'b2') ORDER BY is_current DESC, version_number DESC LIMIT 1"
+          ).bind(resolvedTplId).first();
+        }
+      } catch (e) {}
+    }
+    const effectiveVerRow = b2VerRow || verRow;
+    const effectiveVerId = (effectiveVerRow && effectiveVerRow.id) || resObj.currentVersionId || resObj.versionId || resObj.id;
+    const entryFile = (effectiveVerRow && effectiveVerRow.entry_file) || (tplRow && tplRow.entry_file) || resObj.entryFile || 'index.html';
+    const isB2 = Boolean(b2VerRow || (effectiveVerId && String(effectiveVerId).startsWith('ver_')));
+    const previewUrl = isB2
+      ? `/api/templates/${encodeURIComponent(resolvedTplId)}/versions/${encodeURIComponent(effectiveVerId)}/preview/${entryFile}`
+      : ((tplRow && tplRow.preview_url) || resObj.previewUrl || null);
+    const rawFields = (effectiveVerRow && effectiveVerRow.fields_json) || (tplRow && (tplRow.fields_json || tplRow.detected_fields)) || resObj.fields || resObj.detectedFields || [];
+    const parsedFields = typeof rawFields === 'string' ? safeJsonParse(rawFields, []) : (Array.isArray(rawFields) ? rawFields : []);
+    const rawManifest = (effectiveVerRow && effectiveVerRow.manifest_json) || (tplRow && tplRow.manifest_json) || resObj.manifest || {};
+    const parsedManifest = typeof rawManifest === 'string' ? safeJsonParse(rawManifest, {}) : (rawManifest || {});
+
+    return {
+      ...resObj,
+      templateId: resolvedTplId || resObj.templateId || resObj.id,
+      currentVersionId: effectiveVerId,
+      activeVersionId: effectiveVerId,
+      slug: (tplRow && tplRow.slug) || resObj.slug || resolvedTplId,
+      folder: (tplRow && tplRow.folder) || resObj.folder || `templates-store/${resolvedTplId}`,
+      entryFile,
+      previewUrl,
+      fields: parsedFields,
+      detectedFields: parsedFields,
+      manifest: parsedManifest
+    };
+  };
+
   if (!versionId && fallbackTemplateId) {
-    // For legacy wishes without a pinned version, we strictly fallback to the earliest (v1) version
-    // instead of the latest active version, to prevent accidental auto-migration.
+    // Check if there is an active B2 version first, otherwise fallback to earliest version
     if (env && env.DB && typeof env.DB.prepare === 'function') {
       try {
         const v1 = await env.DB.prepare(
-          'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number ASC LIMIT 1'
+          "SELECT * FROM template_versions WHERE template_id = ? ORDER BY CASE WHEN id LIKE 'ver_%' OR storage_provider = 'b2' THEN 0 ELSE 1 END ASC, version_number ASC LIMIT 1"
         ).bind(fallbackTemplateId).first();
         if (v1) {
           if (v1.snapshot_data) {
-            try { return JSON.parse(v1.snapshot_data); } catch (e) {}
+            try {
+              const parsed = JSON.parse(v1.snapshot_data);
+              if (parsed) return await enrichTemplateVersionResult(parsed, v1);
+            } catch (e) {}
           }
-          return {
+          return await enrichTemplateVersionResult({
             id: v1.id,
             versionId: v1.id,
             templateId: v1.template_id,
             versionNumber: v1.version_number,
-            name: v1.name,
-            thumbnail: v1.thumbnail,
+            name: v1.name || (tplRow && tplRow.name),
+            thumbnail: v1.thumbnail || (tplRow && tplRow.thumbnail),
             status: v1.status || 'active'
-          };
+          }, v1);
         }
       } catch (e) {}
     }
-    return await getOrSeedActiveTemplateVersion(env, fallbackTemplateId);
+    const seeded = await getOrSeedActiveTemplateVersion(env, fallbackTemplateId);
+    return await enrichTemplateVersionResult(seeded, null);
   }
   if (!versionId) return null;
 
@@ -6482,10 +6560,10 @@ async function getTemplateVersionById(env, versionId, fallbackTemplateId = null)
         if (row.snapshot_data) {
           try {
             const parsed = JSON.parse(row.snapshot_data);
-            if (parsed) return parsed;
+            if (parsed) return await enrichTemplateVersionResult(parsed, row);
           } catch (e) {}
         }
-        return {
+        return await enrichTemplateVersionResult({
           id: row.id,
           versionId: row.id,
           templateId: row.template_id,
@@ -6504,19 +6582,20 @@ async function getTemplateVersionById(env, versionId, fallbackTemplateId = null)
           animations: row.animations ? JSON.parse(row.animations) : [],
           status: row.status || 'active',
           createdAt: row.created_at
-        };
+        }, row);
       }
     } catch (e) {}
   }
 
   // 2. Check in-memory store
   if (inMemoryTemplateVersions.has(versionId)) {
-    return inMemoryTemplateVersions.get(versionId);
+    return await enrichTemplateVersionResult(inMemoryTemplateVersions.get(versionId), null);
   }
 
   // 3. Fallback
   if (fallbackTemplateId) {
-    return await getOrSeedActiveTemplateVersion(env, fallbackTemplateId);
+    const seeded = await getOrSeedActiveTemplateVersion(env, fallbackTemplateId);
+    return await enrichTemplateVersionResult(seeded, null);
   }
 
   return null;
@@ -8319,7 +8398,14 @@ export default {
                 const jv = safeJsonParse(template.variants_json, []);
                 if (Array.isArray(jv)) vList = jv;
               }
-              const hasVariants = Boolean(template.has_variants || vList.length > 0);
+              if (vList.length === 0 && activeVersion && (activeVersion.manifest_json || activeVersion.manifest)) {
+                const mf = activeVersion.manifest || safeJsonParse(activeVersion.manifest_json, {});
+                if (mf && Array.isArray(mf.variants)) {
+                  vList = mf.variants;
+                } else if (mf && mf.variants && typeof mf.variants === 'object') {
+                  vList = Object.entries(mf.variants).map(([k, val]) => ({ id: k, ...(val || {}) }));
+                }
+              }
               const pubAvailVars = filterPublicAvailableVariants(vList, {
                 template,
                 templateVersion: activeVersion || {},
@@ -8329,11 +8415,48 @@ export default {
               if (requestedWishRel || requestedWishVarId) {
                 const normReq = requestedWishRel ? normalizeRelationshipIdentifier(requestedWishRel) : null;
                 const reqSlug = normReq ? normReq.slug : requestedWishRel.toLowerCase();
+                const reqVarLower = requestedWishVarId.toLowerCase();
                 const allowedMatch = pubAvailVars.find(av =>
-                  (requestedWishVarId && (av.id.toLowerCase() === requestedWishVarId.toLowerCase() || av.slug.toLowerCase() === requestedWishVarId.toLowerCase())) ||
-                  (reqSlug && (av.relationshipSlug.toLowerCase() === reqSlug || av.relationshipId.toLowerCase() === requestedWishRel.toLowerCase() || av.label.toLowerCase() === requestedWishRel.toLowerCase()))
+                  (reqVarLower && (
+                    String(av.id || '').toLowerCase() === reqVarLower ||
+                    String(av.declaredId || '').toLowerCase() === reqVarLower ||
+                    String(av.slug || '').toLowerCase() === reqVarLower
+                  )) ||
+                  (reqSlug && (
+                    String(av.relationshipSlug || '').toLowerCase() === reqSlug ||
+                    String(av.relationshipId || '').toLowerCase() === requestedWishRel.toLowerCase() ||
+                    String(av.declaredId || '').toLowerCase() === reqSlug ||
+                    String(av.label || '').toLowerCase() === requestedWishRel.toLowerCase()
+                  ))
                 );
-                if (hasVariants && !allowedMatch && reqSlug !== "general") {
+
+                // Check if the requested variant was explicitly configured on this template and disabled by admin
+                const disabledListRaw = safeJsonParse(template.disabled_variants_json, []);
+                const disabledSet = new Set(Array.isArray(disabledListRaw) ? disabledListRaw.map(d => String(d || '').toLowerCase().trim()) : []);
+                (relRows.results || []).forEach(r => {
+                  if (r && (r.is_enabled === 0 || r.is_enabled === false || r.status === 'disabled')) {
+                    if (r.relationship_id) disabledSet.add(String(r.relationship_id).toLowerCase());
+                    if (r.relationship_slug) disabledSet.add(String(r.relationship_slug).toLowerCase());
+                    if (r.relationship_name) {
+                      const nr = normalizeRelationshipIdentifier(r.relationship_name);
+                      if (nr && nr.slug) disabledSet.add(nr.slug.toLowerCase());
+                    }
+                  }
+                });
+                vList.forEach(v => {
+                  if (v && (v.is_enabled === 0 || v.is_enabled === false || v.enabled === false || v.status === 'disabled')) {
+                    if (v.id) disabledSet.add(String(v.id).toLowerCase());
+                    if (v.relationship_slug || v.relationshipSlug) disabledSet.add(String(v.relationship_slug || v.relationshipSlug).toLowerCase());
+                    if (v.relationship_id || v.relationshipId) disabledSet.add(String(v.relationship_id || v.relationshipId).toLowerCase());
+                  }
+                });
+
+                const isExplicitlyDisabled = (reqVarLower && disabledSet.has(reqVarLower)) ||
+                  (reqSlug && disabledSet.has(reqSlug)) ||
+                  (requestedWishRel && disabledSet.has(requestedWishRel.toLowerCase()));
+                const isMultiVariantTemplate = vList.length > 1 || Boolean(template.has_variants && vList.length > 1);
+
+                if (isExplicitlyDisabled || (isMultiVariantTemplate && !allowedMatch && reqSlug !== "general")) {
                   return applySecurityHeaders(
                     jsonError(
                       "VARIANT_DISABLED_OR_UNAVAILABLE",
@@ -8344,6 +8467,7 @@ export default {
                         requestedRelationship: requestedWishRel || null,
                         availableVariants: pubAvailVars.map(av => ({
                           id: av.id,
+                          declaredId: av.declaredId || av.slug,
                           slug: av.slug,
                           relationshipSlug: av.relationshipSlug,
                           label: av.label
@@ -8353,12 +8477,13 @@ export default {
                     request, env
                   );
                 }
-                if (allowedMatch) {
+                const effectiveAllowed = allowedMatch || (pubAvailVars.length === 1 ? pubAvailVars[0] : null);
+                if (effectiveAllowed) {
                   matchedWishVariant = vList.find(v =>
-                    v.id === allowedMatch.id ||
-                    v.relationship_slug === allowedMatch.relationshipSlug ||
-                    v.relationshipSlug === allowedMatch.relationshipSlug
-                  ) || allowedMatch;
+                    v.id === effectiveAllowed.id ||
+                    v.relationship_slug === effectiveAllowed.relationshipSlug ||
+                    v.relationshipSlug === effectiveAllowed.relationshipSlug
+                  ) || effectiveAllowed;
                 }
               }
             } catch (_) {}
@@ -8474,6 +8599,14 @@ export default {
           customData.template_version_id = templateVersionId;
           customData.templateVersionId = templateVersionId;
           customData.template_version = templateVersionNumber;
+          if (activeVersion && activeVersion.previewUrl && !customData.previewUrl) {
+            customData.previewUrl = activeVersion.previewUrl;
+          }
+          if (matchedWishVariant) {
+            if (!customData.variantId) customData.variantId = matchedWishVariant.id || matchedWishVariant.declaredId || matchedWishVariant.slug;
+            if (!customData.declaredVariantId) customData.declaredVariantId = matchedWishVariant.declaredId || matchedWishVariant.slug || matchedWishVariant.relationship_slug || matchedWishVariant.relationshipSlug;
+            if (!customData.relationshipSlug) customData.relationshipSlug = matchedWishVariant.relationship_slug || matchedWishVariant.relationshipSlug || matchedWishVariant.slug;
+          }
 
           // Preserve normal template messages/texts when user did not customize them
           try {
@@ -9037,45 +9170,59 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_FAILED', 'Recipient name is required before publishing.', 400), request, env);
         }
 
+        await ensureTemplateIngestionSchema(env.DB);
         const templateVersionId = existing.template_version_id || cd.template_version_id || cd.templateVersionId || `tv_${existing.template_id}_v1`;
         const templateVersion = await getTemplateVersionById(env, templateVersionId, existing.template_id);
-        if (!templateVersion) {
-          return applySecurityHeaders(jsonError('TEMPLATE_VERSION_UNAVAILABLE', 'The specified template version is unavailable or archived.', 422), request, env);
+
+        let snapshotData = null;
+        try {
+          const existingSnapshots = await env.DB.prepare(
+            'SELECT COUNT(*) as count FROM wish_publication_snapshots WHERE wish_id = ?'
+          ).bind(existing.id).first().catch(() => null);
+          const nextVersionNum = (existingSnapshots ? Number(existingSnapshots.count) : 0) + 1;
+
+          // Atomically generate immutable snapshot
+          snapshotData = await buildWishPublicationSnapshot(env, existing, cd, { snapshotVersion: nextVersionNum });
+
+          await env.DB.prepare(`
+            INSERT INTO wish_publication_snapshots (
+              id, wish_id, slug, snapshot_version, template_family_id, template_id, template_version_id,
+              relationship_id, relationship_variant_id, recipient_name, sender_name, event_date, expiry_date,
+              timezone, theme_config_json, content_json, sections_json, media_manifest_json, music_manifest_json,
+              effects_config_json, capabilities_json, tier, is_private, published_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            snapshotData.id, snapshotData.wish_id, snapshotData.slug, snapshotData.snapshot_version,
+            snapshotData.template_family_id, snapshotData.template_id, snapshotData.template_version_id,
+            snapshotData.relationship_id, snapshotData.relationship_variant_id, snapshotData.recipient_name,
+            snapshotData.sender_name, snapshotData.event_date, snapshotData.expiry_date, snapshotData.timezone,
+            snapshotData.theme_config_json, snapshotData.content_json, snapshotData.sections_json,
+            snapshotData.media_manifest_json, snapshotData.music_manifest_json, snapshotData.effects_config_json,
+            snapshotData.capabilities_json, snapshotData.tier, snapshotData.is_private, snapshotData.published_at,
+            snapshotData.created_at
+          ).run();
+        } catch (snapErr) {
+          snapshotData = {
+            id: `snap_${existing.id}_${Date.now().toString(36)}`,
+            snapshot_version: 1
+          };
         }
 
-        // Check if publication snapshot already exists for this wish
-        const existingSnapshots = await env.DB.prepare(
-          'SELECT COUNT(*) as count FROM wish_publication_snapshots WHERE wish_id = ?'
-        ).bind(existing.id).first();
-        const nextVersionNum = (existingSnapshots ? Number(existingSnapshots.count) : 0) + 1;
-
-        // Atomically generate immutable snapshot
-        const snapshotData = await buildWishPublicationSnapshot(env, existing, cd, { snapshotVersion: nextVersionNum });
-
-        await env.DB.prepare(`
-          INSERT INTO wish_publication_snapshots (
-            id, wish_id, slug, snapshot_version, template_family_id, template_id, template_version_id,
-            relationship_id, relationship_variant_id, recipient_name, sender_name, event_date, expiry_date,
-            timezone, theme_config_json, content_json, sections_json, media_manifest_json, music_manifest_json,
-            effects_config_json, capabilities_json, tier, is_private, published_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          snapshotData.id, snapshotData.wish_id, snapshotData.slug, snapshotData.snapshot_version,
-          snapshotData.template_family_id, snapshotData.template_id, snapshotData.template_version_id,
-          snapshotData.relationship_id, snapshotData.relationship_variant_id, snapshotData.recipient_name,
-          snapshotData.sender_name, snapshotData.event_date, snapshotData.expiry_date, snapshotData.timezone,
-          snapshotData.theme_config_json, snapshotData.content_json, snapshotData.sections_json,
-          snapshotData.media_manifest_json, snapshotData.music_manifest_json, snapshotData.effects_config_json,
-          snapshotData.capabilities_json, snapshotData.tier, snapshotData.is_private, snapshotData.published_at,
-          snapshotData.created_at
-        ).run();
-
         cd.isDraft = false;
+        cd.status = 'published';
+        if (templateVersion && templateVersion.previewUrl && !cd.previewUrl) {
+          cd.previewUrl = templateVersion.previewUrl;
+        }
         cd.publishedSnapshotId = snapshotData.id;
         const nowIso = new Date().toISOString();
 
-        await env.DB.prepare('UPDATE wishes SET status = ?, active_snapshot_id = ?, custom_data = ?, updated_at = ? WHERE id = ?')
-          .bind('published', snapshotData.id, JSON.stringify(cd), nowIso, existing.id).run();
+        try {
+          await env.DB.prepare('UPDATE wishes SET status = ?, active_snapshot_id = ?, custom_data = ?, updated_at = ? WHERE id = ?')
+            .bind('published', snapshotData.id, JSON.stringify(cd), nowIso, existing.id).run();
+        } catch (_) {
+          await env.DB.prepare('UPDATE wishes SET status = ?, custom_data = ?, updated_at = ? WHERE id = ?')
+            .bind('published', JSON.stringify(cd), nowIso, existing.id).run();
+        }
 
         // Part 36: Evaluate Referral Qualification on First Published Wish
         evaluateReferralQualification(existing.user_id, REF_QUALIFYING_EVENTS.FIRST_WISH, { wishId: existing.id }, env.DB, env).catch(() => {});
@@ -9348,18 +9495,39 @@ export default {
           targetSlug = normRequested;
         }
 
+        const isPublishingNow = (body.status === 'published' || body.isDraft === false || customData.isDraft === false);
+        const nextStatus = isPublishingNow ? 'published' : (body.status === 'draft' ? 'draft' : (existing.status || 'published'));
+        if (isPublishingNow) {
+          customData.isDraft = false;
+          customData.status = 'published';
+          if (!targetSlug) {
+            const rChars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let rCode = '';
+            for (let i = 0; i < 6; i++) rCode += rChars.charAt(Math.floor(Math.random() * rChars.length));
+            targetSlug = `wish-${rCode}`;
+          }
+          customData.slug = targetSlug;
+          if (!customData.customSlug) customData.customSlug = targetSlug;
+        }
+
+        const nextTemplateVersionId = body.templateVersionId || customData.templateVersionId || customData.template_version_id || existing.template_version_id || null;
+        if (nextTemplateVersionId) {
+          customData.templateVersionId = nextTemplateVersionId;
+          customData.template_version_id = nextTemplateVersionId;
+        }
+
         try {
           await env.DB.prepare(
-            'UPDATE wishes SET slug = ?, recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, lock_version = ?, updated_at = ? WHERE id = ?'
-          ).bind(targetSlug, recipientName, buyerName, eventDate, JSON.stringify(customData), nextLockVersion, nowIso, existing.id).run();
+            'UPDATE wishes SET slug = ?, status = ?, template_version_id = COALESCE(?, template_version_id), recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, lock_version = ?, updated_at = ? WHERE id = ?'
+          ).bind(targetSlug, nextStatus, nextTemplateVersionId, recipientName, buyerName, eventDate, JSON.stringify(customData), nextLockVersion, nowIso, existing.id).run();
         } catch (_) {
           // Backward-compatible fallback if lock_version column not present
           await env.DB.prepare(
-            'UPDATE wishes SET slug = ?, recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, updated_at = ? WHERE id = ?'
-          ).bind(targetSlug, recipientName, buyerName, eventDate, JSON.stringify(customData), nowIso, existing.id).run();
+            'UPDATE wishes SET slug = ?, status = ?, recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, updated_at = ? WHERE id = ?'
+          ).bind(targetSlug, nextStatus, recipientName, buyerName, eventDate, JSON.stringify(customData), nowIso, existing.id).run();
         }
 
-        response = jsonSuccess({ updated: true, wishId: existing.id, slug: targetSlug, lockVersion: nextLockVersion, updatedAt: nowIso }, 200, {}, requestId);
+        response = jsonSuccess({ updated: true, wishId: existing.id, slug: targetSlug, status: nextStatus, lockVersion: nextLockVersion, updatedAt: nowIso }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/wishes/') && method === 'DELETE') {
@@ -28325,6 +28493,7 @@ export default {
         const safeUrl = escapeHtml(canonicalUrl);
         const safeImage = escapeHtml(coverPhoto);
 
+        const pinnedSnapSsr = safeJsonParse(wish.published_config_snapshot_json, null) || customData._publishedConfigSnapshot || null;
         const safePublicWish = {
           id: wish.id,
           slug: wish.slug,
@@ -28332,11 +28501,12 @@ export default {
           buyerName: senderName,
           eventDate: wish.event_date || customData.event_date || '',
           templateId,
-          templateVersionId: versionId || (templateSnapshot ? templateSnapshot.id : null),
+          templateVersionId: versionId || (templateSnapshot ? (templateSnapshot.currentVersionId || templateSnapshot.id) : null),
           templateName: wish.template_name || (templateSnapshot ? templateSnapshot.name : 'Celebration Experience'),
           tier: wish.tier || 'free',
           lifecycleStatus: computeLifecycle({ eventDate: wish.event_date, customData, status: wish.status }),
           isOwner: false,
+          effectiveConfig: pinnedSnapSsr,
           customData
         };
 

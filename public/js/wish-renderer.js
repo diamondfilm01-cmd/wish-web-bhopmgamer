@@ -610,162 +610,101 @@
     if (!storyFlow) return;
     storyFlow.innerHTML = '';
 
-    // If this wish uses a custom uploaded B2+ImgBB template, render its interactive runtime showcase first
-    const builtinIds = new Set([
-      'tpl_glitter_birthday',
-      'tpl_romantic_scrapbook',
-      'tpl_midnight_countdown',
-      'tpl_friendship_chronicles',
-      'tpl_golden_anniversary',
-      'tpl_parents_tribute'
-    ]);
-    const activeTplId = (template && template.id) || normalized.templateId || '';
-    const isCustomUploadedTemplate = Boolean(
-      (template && (template.previewUrl || template.currentVersionId)) ||
-      (activeTplId && !builtinIds.has(activeTplId))
-    );
+    // Resolve real template ID and version ID (never confuse versionId like ver_... or tv_... with templateId)
+    const RENDERER_FOLDER_MAP = {
+      'tpl_glitter_birthday': 'tpl_glitter_birthday',
+      'glitter-birthday-blast': 'tpl_glitter_birthday',
+      'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
+      'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
+      'romantic-starlight': 'tpl_romantic_scrapbook',
+      'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
+      'tpl_golden_elegance': 'tpl_golden_anniversary',
+      'golden-elegance-anniversary': 'tpl_golden_anniversary',
+      'tpl_golden_anniversary': 'tpl_golden_anniversary',
+      'tpl_neon_party': 'tpl_cosmic_aurora',
+      'neon-night-celebration': 'tpl_cosmic_aurora',
+      'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
+      'tpl_parents_tribute': 'tpl_parents_tribute',
+      'dearest-parents-tribute': 'tpl_parents_tribute',
+      'tpl_midnight_countdown': 'tpl_midnight_countdown',
+      'midnight-celebration-countdown': 'tpl_midnight_countdown',
+      'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
+      'forever-friends-funhouse': 'tpl_friendship_chronicles',
+      'tpl_festive_lights': 'tpl_golden_anniversary',
+      'royal-festival-celebration': 'tpl_golden_anniversary'
+    };
 
-    if (isCustomUploadedTemplate) {
-      const RENDERER_FOLDER_MAP = {
-        'tpl_glitter_birthday': 'tpl_glitter_birthday',
-        'glitter-birthday-blast': 'tpl_glitter_birthday',
-        'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
-        'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
-        'romantic-starlight': 'tpl_romantic_scrapbook',
-        'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
-        'tpl_golden_elegance': 'tpl_golden_anniversary',
-        'golden-elegance-anniversary': 'tpl_golden_anniversary',
-        'tpl_golden_anniversary': 'tpl_golden_anniversary',
-        'tpl_neon_party': 'tpl_cosmic_aurora',
-        'neon-night-celebration': 'tpl_cosmic_aurora',
-        'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
-        'tpl_parents_tribute': 'tpl_parents_tribute',
-        'dearest-parents-tribute': 'tpl_parents_tribute',
-        'tpl_midnight_countdown': 'tpl_midnight_countdown',
-        'midnight-celebration-countdown': 'tpl_midnight_countdown',
-        'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
-        'forever-friends-funhouse': 'tpl_friendship_chronicles',
-        'tpl_festive_lights': 'tpl_golden_anniversary',
-        'royal-festival-celebration': 'tpl_golden_anniversary'
-      };
-      const rawFolderCands = [template && template.id, activeTplId, template && template.slug, template && template.folder]
-        .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
-        .filter(Boolean);
-      let cleanFolder = rawFolderCands[0] || 'tpl_glitter_birthday';
-      for (const c of rawFolderCands) {
-        if (RENDERER_FOLDER_MAP[c.toLowerCase()]) {
-          cleanFolder = RENDERER_FOLDER_MAP[c.toLowerCase()];
-          break;
-        }
-      }
-      const entryFile = (template && (template.entryFile || template.entry_file)) || 'index.html';
-      const customRuntimeUrl = (template && template.previewUrl && String(template.previewUrl).includes('/versions/ver_'))
-        ? template.previewUrl
-        : `/templates-store/${cleanFolder}/${entryFile}`;
+    const isVersionLikeId = (val) => {
+      const s = String(val || '').trim();
+      return s.startsWith('ver_') || s.startsWith('tv_');
+    };
 
-      const customStage = document.createElement('section');
-      customStage.id = 'section-custom-template-runtime';
-      customStage.className = 'w-full max-w-5xl px-2 sm:px-6 py-4 flex flex-col items-center';
-      customStage.innerHTML = `
-        <div class="w-full rounded-3xl overflow-hidden border border-white/20 shadow-2xl bg-black/40 backdrop-blur-xl">
-          <iframe id="wish-custom-template-iframe" src="${customRuntimeUrl}" class="w-full h-[680px] sm:h-[760px] border-0 bg-white" sandbox="allow-scripts allow-same-origin allow-forms" title="Celebration Experience"></iframe>
-        </div>
-      `;
-      storyFlow.appendChild(customStage);
+    const realTplId = (template && template.templateId && !isVersionLikeId(template.templateId) ? template.templateId : '') ||
+      (currentRawWish && currentRawWish.templateId && !isVersionLikeId(currentRawWish.templateId) ? currentRawWish.templateId : '') ||
+      (normalized.templateId && !isVersionLikeId(normalized.templateId) ? normalized.templateId : '') ||
+      (template && template.id && !isVersionLikeId(template.id) ? template.id : '') ||
+      'tpl_glitter_birthday';
 
-      const customIframe = customStage.querySelector('#wish-custom-template-iframe');
-      if (customIframe) {
-        customIframe.onload = () => {
-          try {
-            const tplFields = (template && (template.fields || template.detectedFields)) || [];
-            const effCfg = (currentRawWish && currentRawWish.effectiveConfig) || (template && {
-              visibilityMap: template.visibilityMap || {},
-              disabledIds: Array.isArray(template.disabledIds) ? template.disabledIds : [],
-              sections: Array.isArray(template.sections) ? template.sections : [],
-              actions: Array.isArray(template.actions) ? template.actions : []
-            }) || {};
-            const custHiddenSecs = Array.isArray(normalized._hiddenSections) ? normalized._hiddenSections : (Array.isArray(normalized.hiddenSections) ? normalized.hiddenSections : []);
-            const custHiddenFields = Array.isArray(normalized._hiddenFields) ? normalized._hiddenFields : (Array.isArray(normalized.hiddenFields) ? normalized.hiddenFields : []);
-            const custDisabledFromSecs = Array.isArray(normalized.sections)
-              ? normalized.sections.filter(s => s && s.id && s.enabled === false).map(s => s.id)
-              : [];
-            const mergedDisabled = Array.from(new Set([
-              ...(Array.isArray(effCfg.disabledIds) ? effCfg.disabledIds : []),
-              ...custHiddenSecs,
-              ...custDisabledFromSecs
-            ]));
-            const effectivePayload = {
-              ...normalized,
-              _hiddenSections: custHiddenSecs,
-              hiddenSections: custHiddenSecs,
-              _hiddenFields: custHiddenFields,
-              hiddenFields: custHiddenFields,
-              visibilityMap: effCfg.visibilityMap || {},
-              disabledIds: mergedDisabled,
-              sections: Array.isArray(normalized.sections) && normalized.sections.length > 0 ? normalized.sections : (Array.isArray(effCfg.sections) ? effCfg.sections : []),
-              actions: Array.isArray(effCfg.actions) ? effCfg.actions : []
-            };
-            tplFields.forEach(tf => {
-              const fKey = tf && (tf.key || tf.id);
-              if (fKey && tf.defaultValue !== undefined && tf.defaultValue !== null && String(tf.defaultValue) !== '') {
-                if (effectivePayload[fKey] === undefined || effectivePayload[fKey] === null || String(effectivePayload[fKey]).trim() === '') {
-                  effectivePayload[fKey] = tf.defaultValue;
-                }
-              }
-            });
-            if (customIframe.contentWindow) {
-              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_INIT', payload: effectivePayload }, '*');
-              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_LIVE_UPDATE', payload: effectivePayload }, '*');
-            }
-            const doc = customIframe.contentDocument || customIframe.contentWindow.document;
-            if (doc) {
-              if (window.WishMagicTemplate && typeof window.WishMagicTemplate.removeDisabledContentFromDom === 'function') {
-                window.WishMagicTemplate.removeDisabledContentFromDom(doc, effectivePayload);
-              }
-              if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === 'function') {
-                window.WishMagicTemplate.applyActionsToDom(doc, effectivePayload.actions, effectivePayload);
-              }
-              Object.keys(effectivePayload).forEach(k => {
-                const v = effectivePayload[k];
-                if (v === undefined || v === null || typeof v === 'object' || String(v).trim() === '') return;
-                doc.querySelectorAll(`[data-wm="${k}"], [data-wm-field="${k}"]`).forEach(el => {
-                  if (!el.hasAttribute('data-wm-original-text') && !['IMG', 'AUDIO', 'VIDEO'].includes(el.tagName)) {
-                    el.setAttribute('data-wm-original-text', el.textContent || '');
-                  }
-                  if (el.tagName === 'IMG') el.src = v;
-                  else if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
-                    el.src = v;
-                    const s = el.querySelector('source');
-                    if (s) s.src = v;
-                    try { el.load(); } catch (_) {}
-                  } else {
-                    el.textContent = v;
-                  }
-                });
-              });
-              const activeCover = mediaState.coverPhoto || normalized.cover_photo || normalized.photo_1;
-              if (activeCover) {
-                doc.querySelectorAll('[data-wm="photo_1"], [data-wm-field="photo_1"], [data-wm="cover_photo"], [data-wm-field="cover_photo"]').forEach(el => {
-                  if (el.tagName === 'IMG') el.src = activeCover;
-                });
-              }
-              if (Array.isArray(mediaState.photos)) {
-                mediaState.photos.forEach((ph, idx) => {
-                  const pUrl = ph && (ph.displayUrl || ph.url || ph.src);
-                  if (pUrl) {
-                    doc.querySelectorAll(`[data-wm="photo_${idx + 1}"], [data-wm-field="photo_${idx + 1}"]`).forEach(el => {
-                      if (el.tagName === 'IMG') el.src = pUrl;
-                    });
-                  }
-                });
-              }
-            }
-          } catch (_) {}
-        };
+    const realVerId = (template && template.currentVersionId && String(template.currentVersionId).startsWith('ver_') ? template.currentVersionId : '') ||
+      (currentRawWish && currentRawWish.templateVersionId && String(currentRawWish.templateVersionId).startsWith('ver_') ? currentRawWish.templateVersionId : '') ||
+      (normalized.templateVersionId && String(normalized.templateVersionId).startsWith('ver_') ? normalized.templateVersionId : '') ||
+      (normalized.template_version_id && String(normalized.template_version_id).startsWith('ver_') ? normalized.template_version_id : '') ||
+      (template && template.id && String(template.id).startsWith('ver_') ? template.id : '') ||
+      '';
+
+    const rawFolderCands = [
+      template && template.folder,
+      template && template.slug,
+      realTplId,
+      template && !isVersionLikeId(template.id) ? template.id : ''
+    ]
+      .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
+      .filter(v => v && !isVersionLikeId(v));
+
+    let cleanFolder = rawFolderCands[0] || realTplId || 'tpl_glitter_birthday';
+    for (const c of rawFolderCands) {
+      if (RENDERER_FOLDER_MAP[c.toLowerCase()]) {
+        cleanFolder = RENDERER_FOLDER_MAP[c.toLowerCase()];
+        break;
       }
     }
 
-    // Determine section list & order (excluding any admin-disabled sections from the customer experience)
+    const entryFile = (template && (template.entryFile || template.entry_file)) || 'index.html';
+    const candidatePreviewUrl = (template && template.previewUrl) || normalized.previewUrl || '';
+    let baseRuntimeUrl = '';
+    if (candidatePreviewUrl && String(candidatePreviewUrl).includes('/versions/ver_')) {
+      baseRuntimeUrl = candidatePreviewUrl;
+    } else if (realVerId && String(realVerId).startsWith('ver_') && realTplId) {
+      baseRuntimeUrl = `/api/templates/${encodeURIComponent(realTplId)}/versions/${encodeURIComponent(realVerId)}/preview/${entryFile}`;
+    } else {
+      baseRuntimeUrl = `/templates-store/${cleanFolder}/${entryFile}`;
+    }
+
+    const relSlug = String(
+      normalized.relationshipSlug ||
+      normalized.relationship ||
+      (currentRawWish && currentRawWish.effectiveConfig && currentRawWish.effectiveConfig.relationshipSlug) ||
+      ''
+    ).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const declaredVarId = String(
+      normalized.declaredVariantId ||
+      normalized.variantSlug ||
+      normalized.variantId ||
+      normalized.variant ||
+      relSlug ||
+      ''
+    ).trim();
+
+    let customRuntimeUrl = baseRuntimeUrl;
+    if (declaredVarId || relSlug) {
+      const sep = customRuntimeUrl.includes('?') ? '&' : '?';
+      const qParts = [];
+      if (declaredVarId) qParts.push(`variant=${encodeURIComponent(declaredVarId)}`);
+      if (relSlug) qParts.push(`rel=${encodeURIComponent(relSlug)}`);
+      customRuntimeUrl = `${customRuntimeUrl}${sep}${qParts.join('&')}`;
+    }
+
+    // Determine section list & order (used if fallback sections are ever needed)
     const wishEffCfg = (currentRawWish && currentRawWish.effectiveConfig) || (template && {
       visibilityMap: template.visibilityMap || {},
       disabledIds: Array.isArray(template.disabledIds) ? template.disabledIds : []
@@ -774,86 +713,293 @@
     if (wishEffCfg.visibilityMap && typeof wishEffCfg.visibilityMap === 'object') {
       Object.entries(wishEffCfg.visibilityMap).forEach(([k, v]) => { if (v === false) wishDisabledSet.add(k); });
     }
-    const orderedSections = getOrderedSections(normalized, template).filter(sec => sec && !wishDisabledSet.has(sec.id));
 
-    orderedSections.forEach((sec) => {
-      if (!sec.enabled || wishDisabledSet.has(sec.id)) return;
+    const renderFallbackStorySections = () => {
+      const orderedSections = getOrderedSections(normalized, template).filter(sec => sec && !wishDisabledSet.has(sec.id));
+      orderedSections.forEach((sec) => {
+        if (!sec.enabled || wishDisabledSet.has(sec.id)) return;
 
-      const secWrapper = document.createElement('section');
-      secWrapper.id = `section-${sec.id}`;
-      secWrapper.className = 'w-full max-w-2xl px-4 sm:px-6 py-6 sm:py-8 flex flex-col items-center transition-all duration-500';
+        const secWrapper = document.createElement('section');
+        secWrapper.id = `section-${sec.id}`;
+        secWrapper.className = 'w-full max-w-2xl px-4 sm:px-6 py-6 sm:py-8 flex flex-col items-center transition-all duration-500';
 
-      switch (sec.id) {
-        case 'hero':
-          secWrapper.innerHTML = buildHeroSectionHTML(normalized, template, mediaState);
-          break;
-        case 'message':
-        case 'special_message':
-          secWrapper.innerHTML = buildMessageSectionHTML(normalized, recipientName, senderName, message);
-          break;
-        case 'gallery':
-        case 'photo_gallery':
-          secWrapper.innerHTML = buildGallerySectionHTML(mediaState, sec.layout || normalized.gallery_layout || 'polaroid');
-          break;
-        case 'memories':
-          if (mediaState.photos && mediaState.photos.length > 0) {
-            secWrapper.innerHTML = buildMemoriesSectionHTML(mediaState);
-          } else {
-            return;
-          }
-          break;
-        case 'voice':
-        case 'voice_note':
-          if (mediaState.voiceNote && mediaState.voiceNote.enabled && (mediaState.voiceNote.src || mediaState.voiceNote.url)) {
-            secWrapper.innerHTML = buildVoiceNoteSectionHTML(mediaState.voiceNote, senderName);
-          } else {
-            return;
-          }
-          break;
-        case 'countdown':
-          if (eventDate) {
-            secWrapper.innerHTML = buildCountdownSectionHTML(eventDate, recipientName);
-          } else {
-            return;
-          }
-          break;
-        case 'timeline':
-          if (normalized.timeline && Array.isArray(normalized.timeline) && normalized.timeline.length > 0) {
-            secWrapper.innerHTML = buildTimelineSectionHTML(normalized.timeline);
-          } else {
-            return;
-          }
-          break;
-        case 'open_when':
-          if (normalized.open_when_cards && Array.isArray(normalized.open_when_cards) && normalized.open_when_cards.length > 0) {
-            secWrapper.innerHTML = buildOpenWhenSectionHTML(normalized.open_when_cards, senderName);
-          } else {
-            return;
-          }
-          break;
-        case 'secret_message':
-          if (normalized.secret_message && (normalized.secret_message.secretText || normalized.secret_message.title)) {
-            secWrapper.innerHTML = buildSecretMessageSectionHTML(normalized.secret_message, recipientName);
-          } else {
-            return;
-          }
-          break;
-        case 'finale':
-        case 'final_surprise':
-          secWrapper.innerHTML = buildFinaleSectionHTML(recipientName, senderName, normalized.finale);
-          break;
-        default:
-          // Part 12: Safe Unknown Section Handling
-          if (isCreatorPreview) {
-            console.info(`[WishRenderer] Note: Custom section "${sec.id}" rendered using default wrapper`);
-          }
-          break;
-      }
+        switch (sec.id) {
+          case 'hero':
+            secWrapper.innerHTML = buildHeroSectionHTML(normalized, template, mediaState);
+            break;
+          case 'message':
+          case 'special_message':
+            secWrapper.innerHTML = buildMessageSectionHTML(normalized, recipientName, senderName, message);
+            break;
+          case 'gallery':
+          case 'photo_gallery':
+            secWrapper.innerHTML = buildGallerySectionHTML(mediaState, sec.layout || normalized.gallery_layout || 'polaroid');
+            break;
+          case 'memories':
+            if (mediaState.photos && mediaState.photos.length > 0) {
+              secWrapper.innerHTML = buildMemoriesSectionHTML(mediaState);
+            } else {
+              return;
+            }
+            break;
+          case 'voice':
+          case 'voice_note':
+            if (mediaState.voiceNote && mediaState.voiceNote.enabled && (mediaState.voiceNote.src || mediaState.voiceNote.url)) {
+              secWrapper.innerHTML = buildVoiceNoteSectionHTML(mediaState.voiceNote, senderName);
+            } else {
+              return;
+            }
+            break;
+          case 'countdown':
+            if (eventDate) {
+              secWrapper.innerHTML = buildCountdownSectionHTML(eventDate, recipientName);
+            } else {
+              return;
+            }
+            break;
+          case 'timeline':
+            if (normalized.timeline && Array.isArray(normalized.timeline) && normalized.timeline.length > 0) {
+              secWrapper.innerHTML = buildTimelineSectionHTML(normalized.timeline);
+            } else {
+              return;
+            }
+            break;
+          case 'open_when':
+            if (normalized.open_when_cards && Array.isArray(normalized.open_when_cards) && normalized.open_when_cards.length > 0) {
+              secWrapper.innerHTML = buildOpenWhenSectionHTML(normalized.open_when_cards, senderName);
+            } else {
+              return;
+            }
+            break;
+          case 'secret_message':
+            if (normalized.secret_message && (normalized.secret_message.secretText || normalized.secret_message.title)) {
+              secWrapper.innerHTML = buildSecretMessageSectionHTML(normalized.secret_message, recipientName);
+            } else {
+              return;
+            }
+            break;
+          case 'finale':
+          case 'final_surprise':
+            secWrapper.innerHTML = buildFinaleSectionHTML(recipientName, senderName, normalized.finale);
+            break;
+          default:
+            if (isCreatorPreview) {
+              console.info(`[WishRenderer] Note: Custom section "${sec.id}" rendered using default wrapper`);
+            }
+            break;
+        }
 
-      if (secWrapper.innerHTML && secWrapper.innerHTML.trim().length > 0) {
-        storyFlow.appendChild(secWrapper);
-      }
-    });
+        if (secWrapper.innerHTML && secWrapper.innerHTML.trim().length > 0) {
+          storyFlow.appendChild(secWrapper);
+        }
+      });
+    };
+
+    // Render the actual customized template HTML experience
+    storyFlow.className = 'w-full min-h-screen flex flex-col items-center p-0 m-0';
+    const customStage = document.createElement('section');
+    customStage.id = 'section-custom-template-runtime';
+    customStage.className = 'w-full min-h-screen flex flex-col items-center p-0 m-0';
+    customStage.innerHTML = `
+      <div class="w-full min-h-screen overflow-hidden bg-black/20">
+        <iframe id="wish-custom-template-iframe" src="${customRuntimeUrl}" class="w-full min-h-screen h-screen border-0 bg-transparent" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" title="Celebration Experience"></iframe>
+      </div>
+    `;
+    storyFlow.appendChild(customStage);
+
+    const customIframe = customStage.querySelector('#wish-custom-template-iframe');
+    if (customIframe) {
+      const buildEffectiveIframePayload = () => {
+        const tplFields = (template && (template.fields || template.detectedFields)) || [];
+        const effCfg = (currentRawWish && currentRawWish.effectiveConfig) || (template && {
+          visibilityMap: template.visibilityMap || {},
+          disabledIds: Array.isArray(template.disabledIds) ? template.disabledIds : [],
+          sections: Array.isArray(template.sections) ? template.sections : [],
+          actions: Array.isArray(template.actions) ? template.actions : []
+        }) || {};
+        const custHiddenSecs = Array.isArray(normalized._hiddenSections) ? normalized._hiddenSections : (Array.isArray(normalized.hiddenSections) ? normalized.hiddenSections : []);
+        const custHiddenFields = Array.isArray(normalized._hiddenFields) ? normalized._hiddenFields : (Array.isArray(normalized.hiddenFields) ? normalized.hiddenFields : []);
+        const custDisabledFromSecs = Array.isArray(normalized.sections)
+          ? normalized.sections.filter(s => s && s.id && s.enabled === false).map(s => s.id)
+          : [];
+        const mergedDisabled = Array.from(new Set([
+          ...(Array.isArray(effCfg.disabledIds) ? effCfg.disabledIds : []),
+          ...custHiddenSecs,
+          ...custDisabledFromSecs
+        ]));
+
+        // Extract variant messages/assets from template manifest if available
+        let manifestVarMessages = {};
+        let manifestVarAssets = {};
+        try {
+          const mf = (template && template.manifest) || {};
+          const mfVars = mf.variants || {};
+          let matchedMfVar = null;
+          if (Array.isArray(mfVars)) {
+            matchedMfVar = mfVars.find(v => v && (
+              String(v.id || '').toLowerCase() === declaredVarId.toLowerCase() ||
+              String(v.relationship || v.relationshipSlug || '').toLowerCase() === relSlug
+            ));
+          } else if (mfVars && typeof mfVars === 'object') {
+            matchedMfVar = mfVars[declaredVarId] || mfVars[relSlug] ||
+              Object.values(mfVars).find(v => v && (
+                String(v.id || '').toLowerCase() === declaredVarId.toLowerCase() ||
+                String(v.relationship || v.relationshipSlug || '').toLowerCase() === relSlug
+              ));
+          }
+          if (matchedMfVar) {
+            if (matchedMfVar.messages && typeof matchedMfVar.messages === 'object') manifestVarMessages = matchedMfVar.messages;
+            if (matchedMfVar.assets && typeof matchedMfVar.assets === 'object') manifestVarAssets = matchedMfVar.assets;
+          }
+        } catch (_) {}
+
+        const mergedMessages = {
+          ...manifestVarMessages,
+          ...(normalized.messages && typeof normalized.messages === 'object' ? normalized.messages : {})
+        };
+        const mergedAssets = {
+          ...manifestVarAssets,
+          ...(normalized.assets && typeof normalized.assets === 'object' ? normalized.assets : {})
+        };
+
+        const effectivePayload = {
+          ...manifestVarMessages,
+          ...normalized,
+          recipient_name: recipientName,
+          recipientName: recipientName,
+          sender_name: senderName,
+          senderName: senderName,
+          message: message || normalized.message || manifestVarMessages.message || manifestVarMessages.special_message || '',
+          special_message: normalized.special_message || message || manifestVarMessages.special_message || manifestVarMessages.message || '',
+          relationship: normalized.relationship || relSlug || '',
+          relationshipSlug: relSlug || normalized.relationship || '',
+          variant: declaredVarId || relSlug || '',
+          variantId: declaredVarId || normalized.variantId || relSlug || '',
+          declaredVariantId: declaredVarId || relSlug || '',
+          messages: mergedMessages,
+          assets: mergedAssets,
+          _hiddenSections: custHiddenSecs,
+          hiddenSections: custHiddenSecs,
+          _hiddenFields: custHiddenFields,
+          hiddenFields: custHiddenFields,
+          visibilityMap: effCfg.visibilityMap || {},
+          disabledIds: mergedDisabled,
+          sections: Array.isArray(normalized.sections) && normalized.sections.length > 0 ? normalized.sections : (Array.isArray(effCfg.sections) ? effCfg.sections : []),
+          actions: Array.isArray(effCfg.actions) ? effCfg.actions : []
+        };
+
+        tplFields.forEach(tf => {
+          const fKey = tf && (tf.key || tf.id);
+          if (fKey && tf.defaultValue !== undefined && tf.defaultValue !== null && String(tf.defaultValue) !== '') {
+            if (effectivePayload[fKey] === undefined || effectivePayload[fKey] === null || String(effectivePayload[fKey]).trim() === '') {
+              effectivePayload[fKey] = tf.defaultValue;
+            }
+          }
+        });
+
+        const activeCover = mediaState.coverPhoto || normalized.cover_photo || normalized.photo_1;
+        if (activeCover) {
+          effectivePayload.cover_photo = activeCover;
+          effectivePayload.photo_1 = activeCover;
+        }
+        if (Array.isArray(mediaState.photos)) {
+          mediaState.photos.forEach((ph, idx) => {
+            const pUrl = ph && (ph.displayUrl || ph.url || ph.src);
+            if (pUrl) {
+              effectivePayload[`photo_${idx + 1}`] = pUrl;
+            }
+          });
+        }
+        if (mediaState.music && mediaState.music.src) {
+          effectivePayload.bg_music = mediaState.music.src;
+          effectivePayload.music_url = mediaState.music.src;
+        }
+
+        return effectivePayload;
+      };
+
+      const hydrateCustomIframe = () => {
+        try {
+          const effectivePayload = buildEffectiveIframePayload();
+          const win = customIframe.contentWindow;
+          const doc = customIframe.contentDocument || (win && win.document);
+
+          if (win) {
+            win.__WISH_DATA__ = effectivePayload;
+            win.WISH_DATA = effectivePayload;
+            win.postMessage({ type: 'WISHMAGIC_INIT', payload: effectivePayload }, '*');
+            win.postMessage({ type: 'WISHMAGIC_LIVE_UPDATE', payload: effectivePayload }, '*');
+            win.postMessage({
+              type: 'WM_VARIANT_CHANGE',
+              variantId: effectivePayload.declaredVariantId || effectivePayload.variantId,
+              relationship: effectivePayload.relationshipSlug || effectivePayload.relationship,
+              payload: effectivePayload
+            }, '*');
+          }
+
+          if (doc) {
+            if (doc.body && (effectivePayload.relationshipSlug || effectivePayload.declaredVariantId)) {
+              doc.body.setAttribute('data-wm-relationship', effectivePayload.relationshipSlug || effectivePayload.declaredVariantId);
+              doc.body.setAttribute('data-wm-active-variant', effectivePayload.declaredVariantId || effectivePayload.relationshipSlug);
+            }
+            if (win && win.WishMagicTemplate && typeof win.WishMagicTemplate.applyData === 'function') {
+              try { win.WishMagicTemplate.applyData(effectivePayload, doc); } catch (_) {}
+            } else if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyData === 'function') {
+              try { window.WishMagicTemplate.applyData(effectivePayload, doc); } catch (_) {}
+            }
+            if (window.WishMagicTemplate && typeof window.WishMagicTemplate.removeDisabledContentFromDom === 'function') {
+              window.WishMagicTemplate.removeDisabledContentFromDom(doc, effectivePayload);
+            }
+            if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === 'function') {
+              window.WishMagicTemplate.applyActionsToDom(doc, effectivePayload.actions, effectivePayload);
+            }
+            Object.keys(effectivePayload).forEach(k => {
+              const v = effectivePayload[k];
+              if (v === undefined || v === null || typeof v === 'object' || String(v).trim() === '') return;
+              doc.querySelectorAll(`[data-wm="${k}"], [data-wm-field="${k}"], [data-field="${k}"], [data-wish="${k}"]`).forEach(el => {
+                if (!el.hasAttribute('data-wm-original-text') && !['IMG', 'AUDIO', 'VIDEO'].includes(el.tagName)) {
+                  el.setAttribute('data-wm-original-text', el.textContent || '');
+                }
+                if (el.tagName === 'IMG') el.src = v;
+                else if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
+                  el.src = v;
+                  const s = el.querySelector('source');
+                  if (s) s.src = v;
+                  try { el.load(); } catch (_) {}
+                } else {
+                  el.textContent = v;
+                }
+              });
+            });
+            if (win && typeof win.CustomEvent === 'function') {
+              try {
+                win.dispatchEvent(new win.CustomEvent('wishmagic:data-updated', { detail: effectivePayload }));
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      };
+
+      customIframe.onload = () => {
+        hydrateCustomIframe();
+        setTimeout(hydrateCustomIframe, 150);
+        setTimeout(hydrateCustomIframe, 600);
+      };
+
+      customIframe.onerror = () => {
+        customStage.remove();
+        renderFallbackStorySections();
+      };
+
+      window.addEventListener('message', (ev) => {
+        if (!ev || !ev.data || typeof ev.data !== 'object') return;
+        if (ev.data.type === 'WISHMAGIC_READY' || ev.data.type === 'WM_TEMPLATE_READY') {
+          hydrateCustomIframe();
+        }
+      });
+    } else {
+      renderFallbackStorySections();
+    }
 
     // Initialize Interactive Components
     initInteractiveComponents(customData, eventDate);

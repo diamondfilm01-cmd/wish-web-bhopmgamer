@@ -4385,18 +4385,24 @@ window.publishFreeRandomWish = async function() {
     currentCustomData.slug = randomSlug;
     currentCustomData.linkType = 'random';
     currentCustomData.link_type = 'random';
+    currentCustomData.isDraft = false;
+    currentCustomData.status = 'published';
 
     await executeWishCreation({
       slug: randomSlug,
       linkType: 'random',
       tier: 'free',
       price: 0,
+      status: 'published',
+      isDraft: false,
       customData: {
         ...currentCustomData,
         customSlug: randomSlug,
         slug: randomSlug,
         linkType: 'random',
-        link_type: 'random'
+        link_type: 'random',
+        isDraft: false,
+        status: 'published'
       }
     });
   } catch (err) {
@@ -4581,23 +4587,25 @@ window.initSmartWishLinkUI = function() {
 
   // 2. Select initial slug if not set or if using empty state
   const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
-  
+  const previewSlug = currentSlugSuggestions.length > 0 ? currentSlugSuggestions[0] : '';
+
   if (currentEditingWishSlug && !isChangeLinkModeActive) {
     currentCustomData.customSlug = currentEditingWishSlug;
-  } else if (!currentCustomData.customSlug && currentSlugSuggestions.length > 0) {
-    currentCustomData.customSlug = currentSlugSuggestions[0];
+  } else if ((isPersonalizedStudioOpen || currentCustomData.linkType === 'personalized') && !currentCustomData.customSlug && previewSlug) {
+    currentCustomData.customSlug = previewSlug;
   }
 
-  if (input && currentCustomData.customSlug) {
-    input.value = currentCustomData.customSlug;
+  if (input) {
+    input.value = currentCustomData.customSlug || previewSlug || '';
   }
 
   // 3. Render suggestions
   window.renderSlugSuggestionChips();
 
   // 4. Initial live availability check
-  if (currentCustomData.customSlug) {
-    window.checkSlugAvailability(currentCustomData.customSlug, true);
+  const slugToCheck = currentCustomData.customSlug || previewSlug;
+  if (slugToCheck) {
+    window.checkSlugAvailability(slugToCheck, true);
   }
 };
 
@@ -6523,20 +6531,43 @@ window.publishWishAndGetLink = async function() {
     return;
   }
 
-  // Verify Custom Link entitlement if user is publishing a personalized slug
+  // Verify Custom Link entitlement only if user explicitly selected a personalized link
   const randomPrefix = (currentWishLinkSettings && currentWishLinkSettings.random && currentWishLinkSettings.random.prefix) || 'wish-';
-  const isRandomSlug = Boolean(chosenSlug && chosenSlug.startsWith(randomPrefix) && (currentCustomData.linkType === 'random' || currentCustomData.link_type === 'random'));
-  const wantsPersonalizedLink = Boolean(chosenSlug && !isRandomSlug && !currentCustomData.useReferralCredit);
+  const isRandomSlug = Boolean(
+    (chosenSlug && chosenSlug.startsWith(randomPrefix)) ||
+    currentCustomData.linkType === 'random' ||
+    currentCustomData.link_type === 'random'
+  );
+  const hasCustomLinkEnt = (window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === 'function')
+    ? window.WishEntitlement.hasCustomLinkAccess(chosenSlug, activeTemplate && activeTemplate.id)
+    : (window.WishEntitlement ? window.WishEntitlement.isPremium() : false);
+  const explicitlyChosePersonalized = Boolean(
+    isPersonalizedStudioOpen ||
+    currentCustomData.linkType === 'personalized' ||
+    currentCustomData.link_type === 'personalized'
+  );
+  const wantsPersonalizedLink = Boolean(
+    explicitlyChosePersonalized &&
+    chosenSlug &&
+    !isRandomSlug &&
+    !currentCustomData.useReferralCredit
+  );
 
   if (wantsPersonalizedLink) {
-    const hasCustomLinkEnt = (window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === 'function')
-      ? window.WishEntitlement.hasCustomLinkAccess(chosenSlug, activeTemplate && activeTemplate.id)
-      : (window.WishEntitlement ? window.WishEntitlement.isPremium() : false);
-
     if (!hasCustomLinkEnt && !currentCustomData.verifiedOrderId) {
       await window.handlePersonalizedLinkCheckout(selectedCustomizerPack === 'hd_style' ? 'custom_link' : (selectedCustomizerPack || 'combo'));
       return;
     }
+  } else if (!isRandomSlug && !currentEditingWishSlug && !hasCustomLinkEnt && !currentCustomData.useReferralCredit) {
+    // Default to a Free Random Link when user clicks Finalize/Publish without unlocking a paid custom slug
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let rCode = '';
+    for (let i = 0; i < 6; i++) rCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    const autoRandomSlug = `${randomPrefix}${rCode}`;
+    currentCustomData.customSlug = autoRandomSlug;
+    currentCustomData.slug = autoRandomSlug;
+    currentCustomData.linkType = 'random';
+    currentCustomData.link_type = 'random';
   }
 
   isPublishingInProgress = true;
@@ -6578,34 +6609,55 @@ async function executeWishCreation(extraPayload = {}) {
       }
     } catch (e) {}
 
+    currentCustomData.isDraft = false;
+    currentCustomData.status = 'published';
     const chosenSlug = (extraPayload.slug || currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
-    const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug ? 'personalized' : 'random');
-    const sanitizedData = sanitizeCustomDataForPublish(currentCustomData);
+    const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug && !chosenSlug.startsWith('wish-') ? 'personalized' : 'random');
+    const mergedSourceData = {
+      ...currentCustomData,
+      ...(extraPayload.customData || {}),
+      isDraft: false,
+      status: 'published'
+    };
+    const sanitizedData = sanitizeCustomDataForPublish(mergedSourceData);
+    const resolvedVersionId = (activeTemplate && (activeTemplate.currentVersionId || activeTemplate.activeVersionId || activeTemplate.versionId || activeTemplate.templateVersionId)) || null;
+    const resolvedPreviewUrl = (activeTemplate && activeTemplate.previewUrl) || null;
+    const { customData: _ignoredExtraCd, ...restExtraPayload } = extraPayload;
 
     const urlParamsForCamp = new URLSearchParams(window.location.search || '');
     const activeFestivalCampaignId = window._activeFestivalCampaignId || currentCustomData.festivalCampaignId || urlParamsForCamp.get('campaign') || urlParamsForCamp.get('campaignId') || (activeTemplate && activeTemplate.festivalCampaign && activeTemplate.festivalCampaign.campaignId) || null;
     const payload = {
       templateId: activeTemplate.id,
       ...(activeFestivalCampaignId ? { campaignId: activeFestivalCampaignId, festivalCampaignId: activeFestivalCampaignId } : {}),
-      templateVersionId: activeTemplate.activeVersionId || activeTemplate.versionId || activeTemplate.templateVersionId || null,
+      templateVersionId: resolvedVersionId,
       linkType,
       userId: currentUserId,
       lockVersion: currentLockVersion,
+      status: 'published',
+      isDraft: false,
+      relationship: sanitizedData.relationship || currentCustomData.relationship || '',
+      variantId: sanitizedData.variantId || currentCustomData.variantId || currentCustomData.declaredVariantId || '',
+      slug: chosenSlug,
+      ...restExtraPayload,
       customData: {
         ...sanitizedData,
         userId: currentUserId,
+        templateId: activeTemplate.id,
+        templateVersionId: resolvedVersionId,
+        template_version_id: resolvedVersionId,
+        ...(resolvedPreviewUrl ? { previewUrl: resolvedPreviewUrl } : {}),
         customSlug: chosenSlug,
         slug: chosenSlug,
         linkType,
-        link_type: linkType
-      },
-      slug: chosenSlug,
-      ...extraPayload
+        link_type: linkType,
+        isDraft: false,
+        status: 'published'
+      }
     };
 
     let data = null;
     if (currentEditingWishId) {
-      // 1. Ensure latest customizations are updated
+      // 1. Ensure latest customizations are updated and status is transitioned to published
       payload.status = 'published';
       payload.isDraft = false;
 
@@ -6621,16 +6673,35 @@ async function executeWishCreation(extraPayload = {}) {
         data = await res.json();
       }
 
-      // 2. Trigger server-authoritative publish snapshot generation
-      if (data && data.success) {
-        try {
-          const pubRes = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}/publish`, {
+      // If draft wish was deleted or not found, fallback to creating a new wish via POST /api/wishes
+      if (!data || (!data.success && (data.status === 404 || data.code === 'NOT_FOUND' || data.error === 'NOT_FOUND'))) {
+        currentEditingWishId = null;
+        if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
+          data = await window.WishApiClient.post('/api/wishes', payload);
+        } else {
+          const res = await fetch('/api/wishes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ id: currentEditingWishId })
+            body: JSON.stringify(payload)
           });
-          const pubData = await pubRes.json().catch(() => ({}));
+          data = await res.json();
+        }
+      } else if (data && data.success) {
+        // 2. Trigger server-authoritative publish snapshot generation using authenticated client
+        try {
+          let pubData = null;
+          if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
+            pubData = await window.WishApiClient.post(`/api/wishes/${encodeURIComponent(currentEditingWishId)}/publish`, { id: currentEditingWishId });
+          } else {
+            const pubRes = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}/publish`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ id: currentEditingWishId })
+            });
+            pubData = await pubRes.json().catch(() => ({}));
+          }
           if (pubData && pubData.success) {
             data.activeSnapshotId = pubData.activeSnapshotId;
             data.snapshotVersion = pubData.snapshotVersion;
