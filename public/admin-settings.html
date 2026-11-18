@@ -192,9 +192,7 @@
         <h1 class="wm-page-title">
           <span>Settings &amp;</span> <span >Storefront</span> <span >CMS</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Configure live main website hero text &amp; visuals, storefront sections, active templates, team roles, and global platform parameters.
-        </p>
+        <p class="wm-page-subtitle">Hero, links, pricing &amp; site config.</p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="saveAllSiteSettings()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">publish</span>
@@ -224,8 +222,8 @@
     <div id="admin-settings-category-tabs" class="wm-card bg-surface-container-low/95  rounded-lg p-4 border border-slate-200 shadow-md flex flex-col gap-3.5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <div class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Complete Settings Architecture (12 Categories)</div>
-          <p class="text-xs text-on-surface-variant mt-0.5" id="active-settings-category-desc">Select a category below or search any setting by name, purpose, or keyword.</p>
+          <div class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Settings Categories</div>
+          <p class="text-xs text-on-surface-variant mt-0.5" id="active-settings-category-desc">Pick a category or search below.</p>
         </div>
         <div class="relative w-full sm:w-80">
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px] pointer-events-none">search</span>
@@ -272,8 +270,8 @@
             <span class="material-symbols-outlined text-2xl">view_carousel</span>
           </div>
           <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Storefront Hero Section Manager</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Update the headline, description, floating centerpiece visual, and CTA buttons on the homepage.</p>
+            <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Storefront Hero</h2>
+            <p class="text-xs text-on-surface-variant">Headline, banner &amp; CTA buttons.</p>
           </div>
         </div>
         <div class="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
@@ -380,8 +378,8 @@
             <span class="material-symbols-outlined text-2xl">public</span>
           </div>
           <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Storefront &amp; Brand Parameters</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Manage global currencies, customer support channels, and ambient particle animations.</p>
+            <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Brand &amp; Currency</h2>
+            <p class="text-xs text-on-surface-variant">Brand name, WhatsApp &amp; currency.</p>
           </div>
         </div>
         <button type="button" onclick="saveAllSiteSettings('✨ Brand & Support WhatsApp settings saved!')" class="px-4 py-2 rounded-xl bg-slate-900 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
@@ -436,10 +434,10 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Smart Wish Links &amp; Slug Architecture</h2>
-              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">SLUG &amp; LINK RULES</span>
+              <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Wish Links &amp; Slugs</h2>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">SLUGS</span>
             </div>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Configure Personalized wish link availability, display labels, and Free Random slug generation rules.</p>
+            <p class="text-xs text-on-surface-variant">Custom URLs &amp; random slug rules.</p>
           </div>
         </div>
         <button onclick="saveWishLinkSettings()" class="px-4 py-2 rounded-xl bg-slate-900 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
@@ -589,8 +587,8 @@
             <span class="material-symbols-outlined text-2xl">grid_view</span>
           </div>
           <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Templates, Relation Variants &amp; Gallery Discovery</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Manage storefront popular search tags, relation variant discovery, and navigate to the authoritative Template Studio.</p>
+            <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Templates &amp; Search Tags</h2>
+            <p class="text-xs text-on-surface-variant">Gallery tags &amp; Template Studio.</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -650,10 +648,10 @@
           </div>
           <div>
             <div class="flex items-center gap-2 flex-wrap">
-              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Authoritative Payments, Pricing &amp; Combo Tiers</h2>
-              <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-extrabold uppercase">Single Source of Truth</span>
+              <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Payments &amp; Pricing</h2>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-extrabold uppercase">Authoritative</span>
             </div>
-            <p class="text-xs sm:text-sm text-on-surface-variant">All template base tiers, Custom Link prices, Free Template Combos, Premium Combo Add-Ons, Coupons, and Referral rules are managed in the dedicated Subscriptions &amp; Pricing Studio.</p>
+            <p class="text-xs text-on-surface-variant">Managed in Subscriptions &amp; Pricing Studio.</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
@@ -701,10 +699,10 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Promotional Discounts &amp; 100% Free Offer CMS</h2>
-              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">Special Offer Engine</span>
+              <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Promo &amp; Free Offers</h2>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">Offers</span>
             </div>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Configure strikethrough prices, discount badges, and 1-click 100% FREE limited-time promotional mode.</p>
+            <p class="text-xs text-on-surface-variant">Discount badges &amp; 100% Free mode.</p>
           </div>
         </div>
         <button type="button" onclick="saveAllSiteSettings('✨ Promotional & Offer settings saved!')" class="px-4 py-2 rounded-xl bg-slate-900 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
@@ -724,7 +722,7 @@
               <strong class="text-white text-sm">100% FREE Limited Time Offer Mode</strong>
               <span class="px-2 py-0.5 rounded-full bg-emerald-500 text-purple-950 font-black text-[9px] uppercase tracking-wider ">100% Free Switch</span>
             </div>
-            <p class="text-xs text-slate-600/80 mt-0.5">When enabled, strikes out the original price and makes all links &amp; VIP templates ₹0 FREE for users with a celebratory discount badge.</p>
+            <p class="text-xs text-slate-300 mt-0.5">Makes all templates &amp; links ₹0 free.</p>
           </div>
         </div>
         <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -811,10 +809,10 @@
           </div>
           <div>
             <div class="flex items-center gap-2 flex-wrap">
-              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Festival Scheduler &amp; Automated Campaign Windows</h2>
-              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-extrabold uppercase">Authoritative Scheduler</span>
+              <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Festival Scheduler</h2>
+              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-extrabold uppercase">Scheduler</span>
             </div>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Server-resolved festival dates (Panchang/Gazette + year-scoped overrides) and automatic <code>F - 15</code> to <code>F + 3</code> publication windows are managed in the dedicated Festival Scheduler.</p>
+            <p class="text-xs text-on-surface-variant">Dates &amp; <code>F-15</code> to <code>F+3</code> windows.</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -1400,18 +1398,18 @@
 
 
   const SETTINGS_CATEGORIES = [
-    { key: 'storefront', label: '1. Storefront & Homepage', desc: 'Homepage hero text, 3D visuals, CTAs, brand name, WhatsApp support, and storefront currency.' },
-    { key: 'domain-links', label: '2. Domain, Slugs & Wish Links', desc: 'Canonical domain, future custom domain, UTP v1.4 logical links, and personalized/random wish link slug rules.' },
-    { key: 'templates-gallery', label: '3. Templates & Template Gallery', desc: 'Storefront popular search tags, gallery telemetry, and direct access to the All Templates Studio.' },
-    { key: 'payments-pricing', label: '4. Payments, Pricing & Free Offers', desc: 'Authoritative pricing summary, direct link to Subscriptions & Pricing Studio, and promotional offer banner CMS.' },
-    { key: 'team-rbac', label: '5. Team, Roles & Access', desc: 'Active platform staff directory, role assignments, and RBAC permission studio.' },
-    { key: 'security-audit', label: '6. Security, Auth & Audit', desc: 'Runtime XSS/URL security diagnostics, session & CSRF protections, and immutable admin audit logs.' },
-    { key: 'backup-data', label: '7. Backup, Restore & Data', desc: 'Real D1 backup snapshots, on-demand snapshot creation, and JSON configuration exports.' },
-    { key: 'notifications-integrations', label: '8. Notifications & Integrations', desc: 'Transactional notification queue status, system announcements, ImgBB, Backblaze B2, and Razorpay readiness.' },
-    { key: 'storage-performance', label: '9. Platform, Storage & Performance', desc: 'Cloudflare D1 health, media storage utilization, package upload limits, and cache invalidation policy.' },
-    { key: 'wish-lifecycle', label: '10. Wish Lifecycle & Publication', desc: 'Asia/Kolkata (IST) wish expiration lifecycle, immutable published snapshots, and moderation queue.' },
-    { key: 'festivals-scheduling', label: '11. Festivals & Scheduling', desc: 'Server-resolved festival campaigns, F - 15 to F + 3 publication windows, and direct link to Festival Scheduler.' },
-    { key: 'advanced-maintenance', label: '12. Advanced / Maintenance', desc: 'Storefront maintenance mode, factory settings reset, legal compliance, and search index administration.' }
+    { key: 'storefront', label: '1. Storefront & Homepage', desc: 'Hero text, CTAs, brand & currency.' },
+    { key: 'domain-links', label: '2. Domain, Slugs & Wish Links', desc: 'Domain & wish link slug rules.' },
+    { key: 'templates-gallery', label: '3. Templates & Template Gallery', desc: 'Search tags & Template Studio.' },
+    { key: 'payments-pricing', label: '4. Payments, Pricing & Free Offers', desc: 'Pricing & promo offer settings.' },
+    { key: 'team-rbac', label: '5. Team, Roles & Access', desc: 'Staff roles & permissions.' },
+    { key: 'security-audit', label: '6. Security, Auth & Audit', desc: 'Security checks & audit logs.' },
+    { key: 'backup-data', label: '7. Backup, Restore & Data', desc: 'D1 backups & JSON exports.' },
+    { key: 'notifications-integrations', label: '8. Notifications & Integrations', desc: 'ImgBB, B2 & Razorpay status.' },
+    { key: 'storage-performance', label: '9. Platform, Storage & Performance', desc: 'D1 storage & upload limits.' },
+    { key: 'wish-lifecycle', label: '10. Wish Lifecycle & Publication', desc: 'IST expiry & moderation rules.' },
+    { key: 'festivals-scheduling', label: '11. Festivals & Scheduling', desc: 'Festival dates & F-15 to F+3.' },
+    { key: 'advanced-maintenance', label: '12. Advanced / Maintenance', desc: 'Maintenance mode & reset.' }
   ];
 
   const LEGACY_TAB_ALIASES = {

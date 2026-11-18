@@ -192,7 +192,7 @@
           <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-on-surface">Festival Scheduler &amp; Main Website Campaign Studio</h1>
           <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">UTP v1.4.0 Live</span>
         </div>
-        <p class="text-xs text-on-surface-variant mt-0.5">Annual Festival Calendar, Year-Scoped Date Overrides, Campaign Windows (F-15 to F+3 Inclusive), Template Assignments &amp; Direct Main Website Spotlight Sync</p>
+        <p class="text-xs text-on-surface-variant mt-0.5">Festival dates, overrides &amp; campaigns.</p>
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5">
@@ -275,14 +275,14 @@
     </div>
 
     <!-- Main Workspace Sections -->
-    <div class="p-4 sm:p-8 space-y-8 flex-1">
+    <div class="p-4 sm:p-5 space-y-5 flex-1">
 
       <!-- SECTION A: FESTIVAL CALENDAR -->
       <section id="section-calendar" class="scheduler-panel space-y-4" aria-labelledby="heading-calendar">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 id="heading-calendar" class="text-lg font-extrabold text-on-surface">A. Annual Festival Calendar &amp; 1-Click Website Launch</h2>
-            <p class="text-xs text-on-surface-variant">Resolved festival dates, verification statuses, manual overrides, publication windows (<code>F - daysBefore</code> through <code>F + 3 days</code> inclusive), and 1-click Main Website launch controls.</p>
+            <h2 id="heading-calendar" class="text-base font-extrabold text-on-surface">A. Festival Calendar</h2>
+            <p class="text-xs text-on-surface-variant">Dates, windows &amp; 1-click launch.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <input type="search" id="calendar-search-input" oninput="renderFestivalCalendarTable()" placeholder="Search festival name or slug..." class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3.5 py-2 text-on-surface w-full sm:w-60" aria-label="Search festivals"/>
@@ -323,8 +323,8 @@
         <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div class="flex items-center justify-between">
             <div>
-              <h2 id="heading-details" class="text-lg font-extrabold text-on-surface">B. Festival Details &amp; Configuration</h2>
-              <p class="text-xs text-on-surface-variant">Configure festival identity, localized names, date-calculation method, timezone, and default publication window offsets.</p>
+              <h2 id="heading-details" class="text-base font-extrabold text-on-surface">B. Festival Details</h2>
+              <p class="text-xs text-on-surface-variant">Name, method, timezone &amp; window.</p>
             </div>
           </div>
 
@@ -419,8 +419,8 @@
         <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 id="heading-assignments" class="text-lg font-extrabold text-on-surface">C. Campaign Template &amp; Relation Variant Assignments</h2>
-              <p class="text-xs text-on-surface-variant">Assign existing WishMagic templates to a festival campaign, filter supported relation variants, set display order, and preview without duplicating template files.</p>
+              <h2 id="heading-assignments" class="text-base font-extrabold text-on-surface">C. Template Assignments</h2>
+              <p class="text-xs text-on-surface-variant">Link templates &amp; order to campaign.</p>
             </div>
             <div class="flex items-center gap-2">
               <label for="assign-campaign-select" class="text-xs font-bold">Target Campaign:</label>
@@ -449,8 +449,8 @@
       <section id="section-schedule" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-schedule">
         <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div>
-            <h2 id="heading-schedule" class="text-lg font-extrabold text-on-surface">D. Campaign Publication Schedule &amp; Status Controls</h2>
-            <p class="text-xs text-on-surface-variant">Create or configure festival campaigns. Default window: Start = <code>F - 15 days</code>, End = <code>F + 3 days</code> (inclusive). Wishes created during the active window become accessible immediately.</p>
+            <h2 id="heading-schedule" class="text-base font-extrabold text-on-surface">D. Publication Schedule</h2>
+            <p class="text-xs text-on-surface-variant">Window: <code>F-15</code> to <code>F+3</code> days.</p>
           </div>
 
           <form id="form-campaign-schedule" onsubmit="saveCampaignSchedule(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs border-b border-outline-variant/25 pb-6">
@@ -506,8 +506,8 @@
       <section id="section-overrides" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-overrides">
         <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div>
-            <h2 id="heading-overrides" class="text-lg font-extrabold text-on-surface">E. Year-Scoped Manual Date Overrides</h2>
-            <p class="text-xs text-on-surface-variant">Override an automatically resolved or imported festival date for a specific year without modifying source code or affecting other years. Removing an override immediately restores automatic resolution.</p>
+            <h2 id="heading-overrides" class="text-base font-extrabold text-on-surface">E. Date Overrides</h2>
+            <p class="text-xs text-on-surface-variant">Set manual date per year.</p>
           </div>
 
           <form id="form-date-override" onsubmit="submitFestivalDateOverride(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
@@ -557,18 +557,18 @@
       <!-- SECTION F: UPCOMING FESTIVALS -->
       <section id="section-upcoming" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-upcoming">
         <div>
-          <h2 id="heading-upcoming" class="text-lg font-extrabold text-on-surface">F. Upcoming Festivals &amp; Campaign Readiness</h2>
-          <p class="text-xs text-on-surface-variant">Chronological view of upcoming festivals, their publication window opening dates, and 1-click website launch controls.</p>
+          <h2 id="heading-upcoming" class="text-base font-extrabold text-on-surface">F. Upcoming Festivals</h2>
+          <p class="text-xs text-on-surface-variant">Upcoming dates &amp; launch controls.</p>
         </div>
         <div id="upcoming-festivals-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </section>
 
       <!-- SECTION G: PREVIEW AND DIAGNOSTICS -->
       <section id="section-preview" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-preview">
-        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-4 space-y-4">
           <div>
-            <h2 id="heading-preview" class="text-lg font-extrabold text-on-surface">G. Publication Window Preview &amp; Schedule Diagnostics</h2>
-            <p class="text-xs text-on-surface-variant">Simulate any festival date, offset, and timestamp to verify authoritative server window calculations (<code>startOfDay(start_date, tz) &lt;= t &lt; startOfDay(end_date + 1 day, tz)</code>).</p>
+            <h2 id="heading-preview" class="text-base font-extrabold text-on-surface">G. Window Diagnostics</h2>
+            <p class="text-xs text-on-surface-variant">Simulate campaign window rules.</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
@@ -598,8 +598,8 @@
       <!-- SECTION H: CHANGE HISTORY -->
       <section id="section-history" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-history">
         <div>
-          <h2 id="heading-history" class="text-lg font-extrabold text-on-surface">H. Administrative Change History &amp; Synchronization Audit Logs</h2>
-          <p class="text-xs text-on-surface-variant">Immutable audit trail recording administrator identity, timestamp, affected festival/year, previous value, new value, and override reason.</p>
+          <h2 id="heading-history" class="text-base font-extrabold text-on-surface">H. Change History</h2>
+          <p class="text-xs text-on-surface-variant">Admin override &amp; sync logs.</p>
         </div>
         <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">

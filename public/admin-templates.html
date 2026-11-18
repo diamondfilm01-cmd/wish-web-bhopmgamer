@@ -197,9 +197,7 @@
         <h1 class="wm-page-title">
           <span>Templates</span> <span >Library</span> <span >&amp; Upload Studio</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Upload new website/template ZIPs or folders, auto-detect dynamic fields, preview live, and set templates directly on the main WishMagic storefront!
-        </p>
+        <p class="wm-page-subtitle">Upload ZIP/folder, preview &amp; publish templates.</p>
         <div class="flex flex-wrap items-center gap-3">
           <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
@@ -229,8 +227,8 @@
               <span class="material-symbols-outlined text-[22px]">verified</span>
             </div>
             <div>
-              <h3 class="text-sm sm:text-base font-extrabold text-on-surface">🏷️ Website Branding &amp; Template Footer Studio (UTP v1.4.0)</h3>
-              <p class="text-xs text-on-surface-variant">Template ke last me dikhne wale Branding Footer ka design template ke andar rehta hai (upload se pehle hidden), lekin usme kya Website Name aur text dikhega wo yahan se tay hota hai.</p>
+              <h3 class="text-sm font-extrabold text-on-surface">Footer Branding (UTP v1.4.0)</h3>
+              <p class="text-xs text-on-surface-variant">Set footer brand name &amp; CTA text.</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -297,52 +295,52 @@
     <section class="wm-card hidden p-0 overflow-hidden mb-2" id="upload-code-modal">
   <div class="w-full flex flex-col">
     <!-- Modal Header -->
-    <div class="p-4 sm:p-6 bg-surface-container flex items-center justify-between border-b border-slate-200">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-lg shadow-sm">
-          <span class="material-symbols-outlined text-[24px]">folder_zip</span>
+    <div class="p-3.5 sm:p-4 bg-surface-container flex items-center justify-between border-b border-slate-200">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white">
+          <span class="material-symbols-outlined text-[20px]">folder_zip</span>
         </div>
         <div class="flex flex-col text-left">
-          <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Upload Website Code / Folder</h3>
-          <span class="font-label-sm text-label-sm text-primary">Deploy entire HTML/CSS/JS websites as custom templates</span>
+          <h3 class="font-headline-sm text-sm font-bold text-on-surface">Upload Template</h3>
+          <span class="text-[11px] text-primary">HTML/CSS/JS ZIP or folder</span>
         </div>
       </div>
-      <button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition" onclick="toggleModal('upload-code-modal')">
-        <span class="material-symbols-outlined text-[22px]">close</span>
+      <button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition" onclick="toggleModal('upload-code-modal')">
+        <span class="material-symbols-outlined text-[20px]">close</span>
       </button>
     </div>
 
     <!-- Modal Body -->
-    <div class="p-4 sm:p-6 flex flex-col gap-6 overflow-y-auto">
+    <div class="p-4 flex flex-col gap-4 overflow-y-auto">
       
       <!-- 2-Option Template Upload / Update Mode Selector (Full ZIP vs Changed/New Files Only) -->
-      <div id="template-upload-update-mode-bar" class="p-4 rounded-lg bg-surface-container-low border border-slate-200 flex flex-col gap-3">
+      <div id="template-upload-update-mode-bar" class="p-3 rounded-lg bg-surface-container-low border border-slate-200 flex flex-col gap-2.5">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-primary text-[20px]">system_update_alt</span>
-            <span class="text-xs sm:text-sm font-extrabold text-on-surface">Select Template Upload / Update Mode (2 Options)</span>
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-primary text-[18px]">system_update_alt</span>
+            <span class="text-xs font-extrabold text-on-surface">Upload Mode</span>
           </div>
-          <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">Smart Delta &amp; Full Package Support</span>
+          <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">Full / Delta</span>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button type="button" id="upload-mode-card-full" onclick="setUploadUpdatePackageMode('full_package')" class="p-3.5 rounded-xl border-2 border-primary bg-primary/15 text-left flex items-start gap-3 transition cursor-pointer">
-            <span class="material-symbols-outlined text-primary text-[22px] mt-0.5">folder_zip</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <button type="button" id="upload-mode-card-full" onclick="setUploadUpdatePackageMode('full_package')" class="p-2.5 rounded-lg border-2 border-primary bg-primary/15 text-left flex items-start gap-2.5 transition cursor-pointer">
+            <span class="material-symbols-outlined text-primary text-[20px] mt-0.5">folder_zip</span>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-xs sm:text-sm font-extrabold text-on-surface">1. Full Template ZIP Upload</span>
+                <span class="text-xs font-extrabold text-on-surface">1. Full ZIP Upload</span>
                 <span id="upload-mode-badge-full" class="px-2 py-0.5 rounded-full bg-primary text-white text-[9px] font-bold uppercase">Active</span>
               </div>
-              <p class="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Poora template ZIP ya folder upload karein — saare code aur media files naye version me complete package ke roop me upload honge.</p>
+              <p class="text-[11px] text-on-surface-variant mt-0.5">Upload complete package.</p>
             </div>
           </button>
-          <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-3.5 rounded-xl border border-slate-200 bg-surface-container hover:bg-surface-container-high text-left flex items-start gap-3 transition cursor-pointer">
-            <span class="material-symbols-outlined text-emerald-400 text-[22px] mt-0.5">bolt</span>
+          <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-2.5 rounded-lg border border-slate-200 bg-surface-container hover:bg-surface-container-high text-left flex items-start gap-2.5 transition cursor-pointer">
+            <span class="material-symbols-outlined text-emerald-400 text-[20px] mt-0.5">bolt</span>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-xs sm:text-sm font-extrabold text-on-surface">2. Only Changed &amp; New Files Update</span>
-                <span id="upload-mode-badge-delta" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase">Smart Delta</span>
+                <span class="text-xs font-extrabold text-on-surface">2. Changed Files Only</span>
+                <span id="upload-mode-badge-delta" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase">Delta</span>
               </div>
-              <p class="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Sirf wo code ya files update hongi jinme changes hue hain ya jo nayi bani hain! Unchanged files/photos/music automatically purane version se reuse honge.</p>
+              <p class="text-[11px] text-on-surface-variant mt-0.5">Update edited files; reuse assets.</p>
             </div>
           </button>
         </div>
@@ -358,21 +356,19 @@
       </div>
 
       <!-- Upload Drop Zone & Selection Area -->
-      <div id="code-drop-zone" class="border-2 border-dashed border-slate-200 rounded-lg p-6 sm:p-8 flex flex-col items-center justify-center gap-4 text-center bg-surface-container-lowest/50 hover:bg-surface-container-high/30 transition-all cursor-pointer">
+      <div id="code-drop-zone" class="border-2 border-dashed border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center gap-2.5 text-center bg-surface-container-lowest/50 hover:bg-surface-container-high/30 transition-all cursor-pointer">
         <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)"/>
         <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="handleZipFile(this.files[0])"/>
         <input type="file" id="delta-files-input" multiple class="hidden" onchange="handleDeltaFilesSelection(this.files)"/>
         <input type="file" id="custom-thumb-input" accept="image/*" class="hidden" onchange="handleCustomCoverThumb(this)"/>
 
-        <div class="w-16 h-16 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shadow-inner">
-          <span class="material-symbols-outlined text-[36px]">drive_folder_upload</span>
+        <div class="w-11 h-11 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+          <span class="material-symbols-outlined text-[24px]">drive_folder_upload</span>
         </div>
 
-        <div class="flex flex-col gap-1">
-          <h4 class="font-headline-sm text-headline-sm font-bold text-on-surface">Drag & Drop Your Website Folder or ZIP Archive</h4>
-          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-md">
-            Upload your complete website with <code class="text-primary font-mono font-bold">index.html</code>, CSS, JS, images, and audio in one click!
-          </p>
+        <div class="flex flex-col gap-0.5">
+          <h4 class="text-sm font-bold text-on-surface">Drop Folder or ZIP</h4>
+          <p class="text-xs text-on-surface-variant">Include <code class="text-primary font-mono font-bold">index.html</code>, CSS, JS &amp; assets.</p>
         </div>
 
         <div class="flex flex-wrap items-center justify-center gap-3 mt-2">
@@ -404,9 +400,9 @@
       </div>
 
       <!-- Placeholder before upload -->
-      <div id="upload-placeholder-state" class="flex flex-col items-center justify-center py-6 text-center text-outline">
-        <span class="material-symbols-outlined text-[32px] mb-2 opacity-50">developer_mode</span>
-        <p class="text-sm font-medium">Select a folder or ZIP above to see auto-detected customization slots and live sandbox preview.</p>
+      <div id="upload-placeholder-state" class="flex items-center justify-center gap-2 py-3 text-center text-outline">
+        <span class="material-symbols-outlined text-[20px] opacity-60">developer_mode</span>
+        <p class="text-xs font-medium">Select folder or ZIP to preview.</p>
       </div>
 
       <!-- Step 2 & 3: Config & Live Sandbox (Unhidden after upload) -->
@@ -459,9 +455,7 @@
           <div class="flex items-center justify-end"><button type="button" id="btn-toggle-detected-fields" onclick="toggleDetectedFieldsList()" class="text-[11px] font-bold text-primary hover:underline cursor-pointer">Show Fields ▾</button></div><div id="detected-fields-container" class="hidden flex flex-wrap gap-2">
             <!-- Badges dynamically injected by JS -->
           </div>
-          <p class="text-[11px] text-outline italic">
-            Tip: WishMagic automatically mapped all elements using <code class="text-primary font-mono">data-wm="..."</code> and <code class="text-primary font-mono">{{tokens}}</code> for dynamic customer personalizations!
-          </p>
+          <p class="text-[11px] text-outline italic">Mapped <code class="text-primary font-mono">data-wm</code> &amp; <code class="text-primary font-mono">{{tokens}}</code>.</p>
         </div>
 
         <!-- UTP v1.2.0 Section/Subsection Visibility & Button/Action Configuration Editor (Upload Flow) -->
@@ -985,9 +979,9 @@
           <div>
             <h4 class="font-bold text-sm text-on-surface flex items-center gap-1.5">
               <span class="material-symbols-outlined text-[18px] text-primary">extension</span>
-              <span>Template Capabilities Matrix</span>
+              <span>Capabilities</span>
             </h4>
-            <p class="text-[11px] text-on-surface-variant">Controls which interactive features the customizer and recipient view activate for this template.</p>
+            <p class="text-[11px] text-on-surface-variant">Active template features.</p>
           </div>
           <span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-mono font-bold">15 Capabilities</span>
         </div>
@@ -1121,9 +1115,7 @@
           <span id="var-supported-count" class="text-[11px] font-mono text-primary font-bold">0 Active</span>
         </div>
 
-        <p class="text-[11px] text-outline">
-          Select a relationship to configure tailored messages, styling and audio. Check the box to activate it for customer selection.
-        </p>
+        <p class="text-[11px] text-outline">Pick a relation to edit.</p>
 
         <!-- Relationship Cards List -->
         <div id="var-relationships-list" class="flex flex-col gap-2 mt-1">
@@ -1295,7 +1287,7 @@
           <div class="p-3 rounded-xl bg-surface-container-high/50 border border-slate-200 flex items-center justify-between">
             <div>
               <span class="text-xs font-bold text-on-surface">Assigned Background Track</span>
-              <p class="text-[11px] text-on-surface-variant">Plays automatically when celebration opens for this relationship</p>
+              <p class="text-[11px] text-on-surface-variant">Auto-plays for this relation.</p>
             </div>
             <span id="var-music-assigned-badge" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">Ready</span>
           </div>
@@ -1324,7 +1316,7 @@
           <div class="flex items-center justify-between">
             <div>
               <h5 class="text-xs font-bold text-on-surface">Configuration Integrity & Health Check</h5>
-              <p class="text-[11px] text-on-surface-variant">Rules enforced before publishing to guarantee glitch-free customer experience</p>
+              <p class="text-[11px] text-on-surface-variant">Pre-publish checks.</p>
             </div>
             <button type="button" onclick="runVariantValidation()" class="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 active:scale-95 transition cursor-pointer">
               Run Health Check

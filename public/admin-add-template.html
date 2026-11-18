@@ -195,9 +195,7 @@
         <h1 class="wm-page-title">
           <span>Add &amp; Upload</span> <span >New Template</span> <span >Studio</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Upload any complete HTML/CSS/JS website folder or <code class="font-mono text-slate-600">.ZIP</code> archive, preview live in the browser sandbox, and publish directly to the main WishMagic storefront!
-        </p>
+        <p class="wm-page-subtitle">Upload ZIP/folder, preview &amp; publish.</p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="document.getElementById('folder-input').click()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' 1;">folder</span>
@@ -278,8 +276,8 @@
                 <span class="material-symbols-outlined text-[22px]">folder_zip</span>
               </div>
               <div>
-                <h2 class="text-base sm:text-lg font-extrabold text-on-surface">Step 1: Upload Website Code Folder or .ZIP Archive</h2>
-                <p class="text-xs text-on-surface-variant">Supports complete multi-file HTML, CSS, JS, images, and background audio packages</p>
+                <h2 class="text-sm sm:text-base font-extrabold text-on-surface">Step 1: Upload Code / ZIP</h2>
+                <p class="text-xs text-on-surface-variant">HTML, CSS, JS, images &amp; audio.</p>
               </div>
             </div>
             <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-900 text-[11px] font-bold">Auto-Ingest v4.9</span>
@@ -298,15 +296,15 @@
               <button type="button" id="upload-mode-card-full" onclick="setUploadUpdatePackageMode('full_package')" class="p-3 rounded-xl border-2 border-primary bg-primary/15 text-left flex items-start gap-2.5 transition cursor-pointer">
                 <span class="material-symbols-outlined text-primary text-[20px] mt-0.5">folder_zip</span>
                 <div>
-                  <div class="text-xs font-extrabold text-on-surface">1. Full Template ZIP Upload</div>
-                  <div class="text-[10px] text-on-surface-variant mt-0.5">Poora template ZIP ya folder upload karein.</div>
+                  <div class="text-xs font-extrabold text-on-surface">1. Full ZIP Upload</div>
+                  <div class="text-[10px] text-on-surface-variant mt-0.5">Upload complete package.</div>
                 </div>
               </button>
-              <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-3 rounded-xl border border-slate-200 bg-surface-container text-left flex items-start gap-2.5 transition cursor-pointer">
-                <span class="material-symbols-outlined text-emerald-400 text-[20px] mt-0.5">bolt</span>
+              <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-2.5 rounded-lg border border-slate-200 bg-surface-container text-left flex items-start gap-2 transition cursor-pointer">
+                <span class="material-symbols-outlined text-emerald-400 text-[18px] mt-0.5">bolt</span>
                 <div>
-                  <div class="text-xs font-extrabold text-on-surface">2. Only Changed &amp; New Files Update</div>
-                  <div class="text-[10px] text-on-surface-variant mt-0.5">Sirf jin files/code me changes hue hain ya nayi bani hain unhe update karein.</div>
+                  <div class="text-xs font-extrabold text-on-surface">2. Changed Files Only</div>
+                  <div class="text-[10px] text-on-surface-variant mt-0.5">Update edited/new files only.</div>
                 </div>
               </button>
             </div>
@@ -318,21 +316,19 @@
             </div>
           </div>
 
-          <div id="code-drop-zone" class="border-2 border-dashed border-slate-200 rounded-lg p-6 sm:p-8 flex flex-col items-center justify-center gap-4 text-center bg-surface-container-high/50 hover:bg-surface-container-high transition-all cursor-pointer">
+          <div id="code-drop-zone" class="border-2 border-dashed border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center gap-2.5 text-center bg-surface-container-high/50 hover:bg-surface-container-high transition-all cursor-pointer">
             <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)"/>
             <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="handleZipFile(this.files[0])"/>
             <input type="file" id="delta-files-input" multiple class="hidden" onchange="handleDeltaFilesSelection(this.files)"/>
             <input type="file" id="custom-thumb-input" accept="image/*" class="hidden" onchange="handleCustomCoverThumb(this)"/>
 
-            <div class="w-16 h-16 rounded-lg bg-slate-900 text-primary flex items-center justify-center shadow-inner">
-              <span class="material-symbols-outlined text-[36px]">drive_folder_upload</span>
+            <div class="w-11 h-11 rounded-lg bg-slate-900 text-primary flex items-center justify-center">
+              <span class="material-symbols-outlined text-[24px]">drive_folder_upload</span>
             </div>
 
-            <div class="flex flex-col gap-1">
-              <h3 class="text-base font-extrabold text-on-surface">Drag &amp; Drop Your Website Folder or .ZIP Archive Here</h3>
-              <p class="text-xs text-on-surface-variant max-w-md">
-                Include <code class="text-primary font-mono font-bold">index.html</code> along with your CSS, JS, images, or audio files. WishMagic automatically extracts and wires all assets!
-              </p>
+            <div class="flex flex-col gap-0.5">
+              <h3 class="text-sm font-extrabold text-on-surface">Drop Folder or .ZIP</h3>
+              <p class="text-xs text-on-surface-variant">Include <code class="text-primary font-mono font-bold">index.html</code> &amp; assets.</p>
             </div>
 
             <div class="flex flex-wrap items-center justify-center gap-3 mt-1">
@@ -387,8 +383,8 @@
                 <span class="material-symbols-outlined text-[22px]">tune</span>
               </div>
               <div>
-                <h2 class="text-base sm:text-lg font-extrabold text-on-surface">Step 3: Template Metadata, Pricing &amp; Storefront Placement</h2>
-                <p class="text-xs text-on-surface-variant">Configure how this template appears and is priced on the main WishMagic website</p>
+                <h2 class="text-sm sm:text-base font-extrabold text-on-surface">Step 3: Details &amp; Pricing</h2>
+                <p class="text-xs text-on-surface-variant">Title, category, tier &amp; placement.</p>
               </div>
             </div>
           </div>
@@ -528,17 +524,15 @@
           <div id="sandbox-iframe-wrapper" class="w-full h-[360px] sm:h-[420px] rounded-lg border border-slate-200 overflow-hidden bg-[#120924] relative shadow-inner transition-all">
             <iframe id="upload-preview-iframe" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
           </div>
-          <p class="text-[11px] text-on-surface-variant">
-            As soon as you select a website folder or <code class="font-mono text-primary">.zip</code> archive on the left, your uploaded template runs live inside this isolated preview frame.
-          </p>
+          <p class="text-[11px] text-on-surface-variant">Auto-runs selected package live.</p>
         </section>
 
         <!-- CARD 2: QUICK-SET & PUBLISH EXISTING TEMPLATES ON LIVE WEBSITE -->
-        <section class="wm-card p-5 flex flex-col gap-3.5">
+        <section class="wm-card p-4 flex flex-col gap-3">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-base font-extrabold text-on-surface">Live Storefront Templates</h3>
-              <p class="text-xs text-on-surface-variant">1-click set or unpublish templates on the main website</p>
+              <h3 class="text-sm font-extrabold text-on-surface">Storefront Templates</h3>
+              <p class="text-xs text-on-surface-variant">1-click publish / hide.</p>
             </div>
             <a href="/admin/anktech/anktech/admin/templates" class="wm-view-all-pill">
               <span>Full Library</span>

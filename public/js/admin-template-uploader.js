@@ -6903,9 +6903,9 @@ function renderSmartImportStudioWorkspace() {
                   '</div>' +
                   '<iframe id="sbs-existing-preview-iframe" data-deferred-src="' + escapeHtmlSafe(existingIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" title="Existing Published Template Preview"></iframe>' +
                 '</div>'
-              : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-outline text-xs">' +
-                  '<span class="material-symbols-outlined text-[32px] mb-2 opacity-50">web_asset_off</span>' +
-                  '<span>No existing published template selected for comparison.</span>' +
+              : '<div class="h-48 flex flex-col items-center justify-center text-center p-4 text-outline text-xs">' +
+                  '<span class="material-symbols-outlined text-[24px] mb-1 opacity-50">web_asset_off</span>' +
+                  '<span>No existing template selected.</span>' +
                 '</div>') +
           '</div>' +
           (exTpl
@@ -6941,9 +6941,9 @@ function renderSmartImportStudioWorkspace() {
                   '</div>' +
                   '<iframe id="sbs-staged-preview-iframe" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>' +
                 '</div>'
-              : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-rose-300 text-xs">' +
-                  '<span class="material-symbols-outlined text-[32px] mb-2">error</span>' +
-                  '<span>Uploaded package cannot be safely rendered: ' + escapeHtmlSafe(valReport.errorMessage || "Invalid package structure") + '</span>' +
+              : '<div class="h-48 flex flex-col items-center justify-center text-center p-4 text-rose-300 text-xs">' +
+                  '<span class="material-symbols-outlined text-[24px] mb-1">error</span>' +
+                  '<span>Render error: ' + escapeHtmlSafe(valReport.errorMessage || "Invalid package") + '</span>' +
                 '</div>') +
           '</div>' +
           '<div class="grid grid-cols-4 gap-1.5 text-[10px] text-center pt-1">' +
@@ -7134,7 +7134,7 @@ function renderSmartImportStudioWorkspace() {
                 '<span class="text-xs font-extrabold text-on-surface">Option 1: Full Template ZIP Upload</span>' +
                 '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ' + (!isDeltaModeActive ? 'bg-primary text-white' : 'bg-surface-container-highest text-outline') + '">' + (!isDeltaModeActive ? '✓ Selected' : 'Select') + '</span>' +
               '</div>' +
-              '<p class="text-[11px] text-on-surface-variant mt-0.5">Poora template ZIP upload karein (' + totalPackageFilesCount + ' files). Saari files naye version me fresh upload hongi.</p>' +
+              '<p class="text-[11px] text-on-surface-variant mt-0.5">Full ZIP upload (' + totalPackageFilesCount + ' files).</p>' +
             '</div>' +
           '</button>' +
           '<button type="button" onclick="setUploadUpdatePackageMode(\'delta_changed_only\')" class="p-3 rounded-xl border text-left transition cursor-pointer flex items-start gap-2.5 ' +
@@ -7142,10 +7142,10 @@ function renderSmartImportStudioWorkspace() {
             '<span class="material-symbols-outlined text-emerald-400 text-[20px] mt-0.5">bolt</span>' +
             '<div class="flex-1 min-w-0">' +
               '<div class="flex items-center justify-between gap-2">' +
-                '<span class="text-xs font-extrabold text-on-surface">Option 2: Only Changed &amp; New Files Update</span>' +
+                '<span class="text-xs font-extrabold text-on-surface">Option 2: Changed &amp; New Files Only</span>' +
                 '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ' + (isDeltaModeActive ? 'bg-emerald-500 text-purple-950 font-black' : 'bg-emerald-500/20 text-emerald-300') + '">' + (isDeltaModeActive ? '✓ Selected' : 'Select') + '</span>' +
               '</div>' +
-              '<p class="text-[11px] text-on-surface-variant mt-0.5">Sirf <b>' + changedAndNewCount + ' changed/new file(s)</b> (' + filesSummary.modifiedCount + ' modified, ' + filesSummary.addedCount + ' new) update hongi • <b>' + unchangedReusedCount + ' unchanged file(s)</b> reuse hongi!</p>' +
+              '<p class="text-[11px] text-on-surface-variant mt-0.5"><b>' + changedAndNewCount + ' changed/new</b> • <b>' + unchangedReusedCount + ' reused</b>.</p>' +
             '</div>' +
           '</button>' +
         '</div>' +
@@ -7154,11 +7154,11 @@ function renderSmartImportStudioWorkspace() {
 
   const decisionBarHtml =
     updateModeSelectorCardHtml +
-    '<div class="p-4 rounded-2xl bg-gradient-to-r from-surface-container via-purple-950/30 to-surface-container border border-purple-500/40 flex flex-col gap-3">' +
+    '<div class="p-3 rounded-xl bg-gradient-to-r from-surface-container via-purple-950/30 to-surface-container border border-purple-500/40 flex flex-col gap-2">' +
       '<div class="flex flex-wrap items-center justify-between gap-2">' +
         '<div>' +
-          '<h4 class="text-xs sm:text-sm font-extrabold text-on-surface">Manual Administrator Decision Required</h4>' +
-          '<p class="text-[11px] text-on-surface-variant">WishMagic never overwrites a live template automatically. Choose whether to update the selected template (Full ZIP or Changed/New Files Only), create a new template, or cancel.</p>' +
+          '<h4 class="text-xs sm:text-sm font-extrabold text-on-surface">Confirm Import Action</h4>' +
+          '<p class="text-[11px] text-on-surface-variant">Update existing template, create new, or cancel.</p>' +
         '</div>' +
         '<div class="flex flex-wrap items-center gap-2">' +
           '<button type="button" onclick="cancelActiveImportStudioSession()" class="px-4 py-2 rounded-xl bg-surface-container-highest hover:bg-rose-500/20 text-on-surface hover:text-rose-200 font-bold text-xs transition cursor-pointer flex items-center gap-1.5">' +

@@ -195,9 +195,7 @@
         <h1 class="wm-page-title">
           <span>Wishes &amp;</span> <span >Celebrations</span> <span >Registry</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Audit active celebration links, filter wishes expiring soon, extend 24-hour / 7-day expiry windows, and moderate content.
-        </p>
+        <p class="wm-page-subtitle">Manage wishes, expiry windows &amp; moderation.</p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="exportWishesCSV()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">download</span>
@@ -304,10 +302,10 @@
       </div>
 
       <!-- Empty State -->
-      <div id="wishes-empty-state" class="hidden p-12 text-center flex flex-col items-center justify-center gap-2">
-        <span class="material-symbols-outlined text-4xl text-outline">card_giftcard</span>
-        <h4 class="font-bold text-base text-on-surface">No celebration wishes found</h4>
-        <p class="text-xs text-on-surface-variant">No items match the current search or status filters.</p>
+      <div id="wishes-empty-state" class="hidden p-6 text-center flex flex-col items-center justify-center gap-1.5">
+        <span class="material-symbols-outlined text-3xl text-outline">card_giftcard</span>
+        <h4 class="font-bold text-sm text-on-surface">No wishes found</h4>
+        <p class="text-xs text-on-surface-variant">Clear filters or search.</p>
       </div>
     </div>
 
@@ -316,7 +314,7 @@
 
 <!-- Wish Inspector & Administrative Governance Modal -->
 <div id="wish-inspector-modal" class="fixed inset-0 z-50 bg-black/85  hidden flex items-center justify-center p-4">
-  <div class="w-full max-w-3xl bg-surface-container rounded-xl border border-slate-200 shadow-sm p-6 sm:p-7 flex flex-col gap-5 max-h-[92vh] overflow-y-auto custom-scrollbar relative">
+  <div class="w-full max-w-3xl bg-surface-container rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto custom-scrollbar relative">
     <button onclick="closeWishInspectorModal()" class="absolute top-4 right-4 p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition cursor-pointer">
       <span class="material-symbols-outlined text-[20px]">close</span>
     </button>
@@ -530,14 +528,14 @@
   async function inspectWish(wishId) {
     const modal = document.getElementById('wish-inspector-modal');
     const content = document.getElementById('wish-inspector-content');
-    content.innerHTML = `<div class="p-8 text-center text-outline">Loading deep wish diagnostic &amp; metadata...</div>`;
+    content.innerHTML = `<div class="p-5 text-center text-outline">Loading wish...</div>`;
     modal.classList.remove('hidden');
 
     try {
       const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}`);
       const data = await res.json();
       if (!data.success) {
-        content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">${data.message || 'Wish not found'}</div>`;
+        content.innerHTML = `<div class="p-5 text-center text-rose-400 font-bold">${data.message || 'Wish not found'}</div>`;
         return;
       }
 
@@ -641,7 +639,7 @@
         </div>
       `;
     } catch (e) {
-      content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">Network error loading wish</div>`;
+      content.innerHTML = `<div class="p-5 text-center text-rose-400 font-bold">Network error loading wish</div>`;
     }
   }
 

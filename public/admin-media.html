@@ -192,9 +192,7 @@
         <h1 class="wm-page-title">
           <span>Media</span> <span >Assets</span>, <span >Hero Photo &amp; Music</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Update the main website Hero Showcase photo live, upload template images, and manage photos, videos, and celebration soundtracks!
-        </p>
+        <p class="wm-page-subtitle">Hero image, templates, photos, audio &amp; video.</p>
         <div class="flex flex-wrap items-center gap-2.5">
           <button type="button" onclick="toggleModal('upload-media-modal')" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">cloud_upload</span>
@@ -212,32 +210,23 @@
       </div>
     </section>
     <!-- HERO SECTION PHOTO LIVE CONTROLLER CARD (Requested Feature) -->
-    <div class="wm-card bg-slate-900 rounded-xl p-5 sm:p-7 border border-slate-200 shadow-sm relative overflow-hidden">
-      <!-- Glow ambient backdrop -->
-      <div class="absolute -top-24 -right-24 w-80 h-80 bg-slate-100 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div class="flex flex-col lg:flex-row items-center justify-between gap-6 relative z-10">
+    <div class="wm-card bg-slate-900 rounded-xl p-4 border border-slate-200 shadow-sm relative overflow-hidden">
+      <div class="flex flex-col lg:flex-row items-center justify-between gap-4 relative z-10">
         <!-- Left: Image Preview & Live Status -->
-        <div class="flex flex-col sm:flex-row items-center gap-5 w-full lg:w-auto">
-          <div class="relative group w-36 h-36 sm:w-44 sm:h-44 rounded-lg overflow-hidden p-1 bg-slate-900 shadow-xl flex-shrink-0">
+        <div class="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+          <div class="relative group w-28 h-28 sm:w-32 sm:h-32 rounded-lg overflow-hidden p-1 bg-slate-900 flex-shrink-0">
             <img id="hero-live-preview-img" src="/assets/icons/admin-icon-192.png" alt="Current Hero Banner Photo" class="w-full h-full object-cover rounded-xl" onerror="this.onerror=null;this.src='/assets/icons/admin-icon-192.png';"/>
             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition rounded-xl text-white cursor-pointer" onclick="openLightboxImage(document.getElementById('hero-live-preview-img').src, 'Storefront Hero Showcase Photo')">
               <span class="material-symbols-outlined text-2xl">zoom_in</span>
             </div>
-            <div class="absolute bottom-2 left-2 right-2 py-0.5 px-1.5 rounded-md bg-black/75  text-center text-[10px] font-bold text-slate-600 border border-white/20">
-              🌟 Active Hero Photo
+            <div class="absolute bottom-1.5 left-1.5 right-1.5 py-0.5 px-1 rounded bg-black/75 text-center text-[10px] font-bold text-white border border-white/20">
+              Active Hero
             </div>
           </div>
 
-          <div class="flex flex-col gap-2 text-center sm:text-left max-w-md">
-            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold w-fit mx-auto sm:mx-0">
-              <span class="w-2 h-2 rounded-full bg-slate-100 "></span>
-              <span>Homepage Hero Showcase Image</span>
-            </div>
-            <h2 class="text-xl sm:text-2xl font-black text-white font-['Outfit',sans-serif]">Storefront Hero Section Photo</h2>
-            <p class="text-xs text-slate-600/80 leading-relaxed">
-              Storefront Hero background: Aap yahan se photo laga sakte hain ya color gradient. Dono ek sath nahi aayenge — 1 click me switch karein!
-            </p>
+          <div class="flex flex-col gap-1.5 text-center sm:text-left max-w-md">
+            <h2 class="text-base sm:text-lg font-black text-white">Storefront Hero Background</h2>
+            <p class="text-xs text-slate-300">Switch between photo or gradient.</p>
             <!-- 1-Click Hero Background Mode Switcher (Photo vs Gradient) -->
             <div class="mt-2 p-2.5 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <div class="flex items-center gap-1.5">
@@ -469,10 +458,10 @@
         </div>
       </div>
 
-      <div id="media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div class="col-span-full p-12 text-center bg-surface-container rounded-lg border border-slate-200 text-on-surface-variant">
-          <span class="animate-spin material-symbols-outlined text-3xl mb-2 text-primary">progress_activity</span>
-          <p class="text-sm font-medium">Scanning Admin media files...</p>
+      <div id="media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="col-span-full p-5 text-center bg-surface-container rounded-lg border border-slate-200 text-on-surface-variant">
+          <span class="animate-spin material-symbols-outlined text-2xl mb-1 text-primary">progress_activity</span>
+          <p class="text-xs font-medium">Loading media...</p>
         </div>
       </div>
     </div>
@@ -499,10 +488,10 @@
         </div>
       </div>
 
-      <div id="user-media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div class="col-span-full p-12 text-center bg-surface-container rounded-lg border border-slate-200 text-on-surface-variant">
-          <span class="animate-spin material-symbols-outlined text-3xl mb-2 text-primary">progress_activity</span>
-          <p class="text-sm font-medium">Scanning Customer uploaded photos, audios &amp; videos...</p>
+      <div id="user-media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="col-span-full p-5 text-center bg-surface-container rounded-lg border border-slate-200 text-on-surface-variant">
+          <span class="animate-spin material-symbols-outlined text-2xl mb-1 text-primary">progress_activity</span>
+          <p class="text-xs font-medium">Loading customer uploads...</p>
         </div>
       </div>
     </div>
@@ -512,11 +501,11 @@
 
 <!-- Modal: Universal Upload (Photos, Videos, Audios) -->
 <div id="upload-media-modal" class="fixed inset-0 bg-black/80  z-50 hidden items-center justify-center p-4">
-  <div class="wm-card bg-surface-container w-full max-w-lg rounded-xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col gap-4">
-    <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+  <div class="wm-card bg-surface-container w-full max-w-lg rounded-xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col gap-3.5">
+    <div class="flex items-center justify-between pb-2.5 border-b border-slate-200">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-primary text-xl">cloud_upload</span>
-        <h3 class="font-headline-sm text-lg font-bold text-on-surface">Upload Media to Vault</h3>
+        <h3 class="font-headline-sm text-base font-bold text-on-surface">Upload Media</h3>
       </div>
       <button onclick="toggleModal('upload-media-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
         <span class="material-symbols-outlined">close</span>
@@ -524,10 +513,8 @@
     </div>
 
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">
-        Asset Title / Name <span class="text-slate-600 font-normal normal-case">(Optional - blank chhodne par file ka original naam use hoga)</span>
-      </label>
-      <input id="upload-asset-title" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm focus:outline-none focus:border-primary" placeholder="e.g. My Favorite Song (Khali chhodne par file ka naam use hoga)"/>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Title <span class="text-slate-500 font-normal normal-case">(Optional)</span></label>
+      <input id="upload-asset-title" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm focus:outline-none focus:border-primary" placeholder="Optional title"/>
     </div>
 
     <!-- Storage Target Destination Indicator -->
@@ -581,7 +568,7 @@
     <div>
       <label class="block text-xs font-bold uppercase text-outline mb-1">Select File(s) from Device <span class="text-rose-400">* (Bulk Selection Allowed)</span></label>
       <input id="upload-asset-file" type="file" multiple accept="audio/*,video/*,image/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv,.3gp,.jpg,.jpeg,.png,.webp,.gif,.svg" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer" onchange="handleFileSelectionChange()"/>
-      <p id="upload-file-hint" class="text-[11px] text-outline mt-1 font-mono">Supported: Photos (.jpg, .png, .webp), Videos (.mp4, .webm, .mov), Audios (.mp3, .wav, .ogg, .m4a, .flac). Exact formats and filenames preserved in B2!</p>
+      <p id="upload-file-hint" class="text-[11px] text-outline mt-1 font-mono">Photos, Videos, Audio supported.</p>
       <div id="upload-file-list-preview" class="hidden text-xs text-slate-600 mt-2 p-2.5 rounded-xl bg-slate-100 border border-slate-200 max-h-32 overflow-y-auto font-mono"></div>
     </div>
 
@@ -667,24 +654,24 @@
 
     if (type === 'audio') {
       if (fileInput) fileInput.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac';
-      if (fileHint) fileHint.textContent = 'Supported: .mp3, .wav, .ogg, .m4a, .aac, .flac (Max 50MB). Select multiple files for bulk upload.';
-      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-amber-300">Backblaze B2 Audio Vault</strong> (Music & SFX)';
+      if (fileHint) fileHint.textContent = 'Audio: mp3, wav, ogg, m4a (Max 50MB).';
+      if (targetText) targetText.innerHTML = 'Target: <strong class="text-amber-300">Backblaze B2</strong>';
       if (targetLimits) targetLimits.textContent = 'Max 50 MB';
     } else if (type === 'video') {
       if (fileInput) fileInput.accept = 'video/*,.mp4,.webm,.mov,.mkv,.3gp';
-      if (fileHint) fileHint.textContent = 'Supported: .mp4, .webm, .mov, .mkv (Max 100MB). Select multiple files for bulk upload.';
-      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-indigo-300">Backblaze B2 Video Storage</strong> (Reels)';
+      if (fileHint) fileHint.textContent = 'Video: mp4, webm, mov (Max 100MB).';
+      if (targetText) targetText.innerHTML = 'Target: <strong class="text-indigo-300">Backblaze B2</strong>';
       if (targetLimits) targetLimits.textContent = 'Max 100 MB';
     } else if (type === 'image') {
       if (fileInput) fileInput.accept = 'image/*,.png,.jpg,.jpeg,.webp,.gif,.svg';
-      if (fileHint) fileHint.textContent = 'Supported: .png, .jpg, .jpeg, .webp, .gif, .svg (Max 32MB). Select multiple files for bulk upload.';
-      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-slate-600">ImgBB Cloud Storage Only</strong> (Photos)';
+      if (fileHint) fileHint.textContent = 'Images: png, jpg, webp, svg (Max 32MB).';
+      if (targetText) targetText.innerHTML = 'Target: <strong class="text-slate-600">ImgBB</strong>';
       if (targetLimits) targetLimits.textContent = 'Max 32 MB';
     } else {
       if (fileInput) fileInput.accept = 'audio/*,video/*,image/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv,.3gp,.jpg,.jpeg,.png,.webp,.gif,.svg';
-      if (fileHint) fileHint.textContent = 'Supported: Photos, Videos & Audios in all formats. Select multiple files for bulk upload!';
-      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-amber-300">Backblaze B2 Vault</strong> (Photos, Videos & Audios)';
-      if (targetLimits) targetLimits.textContent = 'Auto Multi-Cloud';
+      if (fileHint) fileHint.textContent = 'Photos, Videos & Audios supported.';
+      if (targetText) targetText.innerHTML = 'Target: <strong class="text-amber-300">Auto B2 / ImgBB</strong>';
+      if (targetLimits) targetLimits.textContent = 'Auto';
     }
     handleFileSelectionChange();
   }
@@ -715,9 +702,9 @@
   async function loadAllMedia() {
     const grid = document.getElementById('media-assets-grid');
     grid.innerHTML = `
-      <div class="col-span-full p-12 text-center bg-surface-container rounded-2xl border border-slate-200 text-on-surface-variant">
-        <span class="animate-spin material-symbols-outlined text-3xl mb-2 text-primary">progress_activity</span>
-        <p class="text-sm font-medium">Scanning media vault and active usages...</p>
+      <div class="col-span-full p-5 text-center bg-surface-container rounded-xl border border-slate-200 text-on-surface-variant">
+        <span class="animate-spin material-symbols-outlined text-2xl mb-1 text-primary">progress_activity</span>
+        <p class="text-xs font-medium">Loading media...</p>
       </div>
     `;
 
@@ -996,7 +983,7 @@
           
           <!-- Top: Thumbnail Preview & Type Badge -->
           <div class="flex flex-col gap-3">
-            <div class="relative w-full h-44 rounded-xl overflow-hidden bg-surface-container-high border border-slate-200 flex items-center justify-center">
+            <div class="relative w-full h-32 rounded-xl overflow-hidden bg-surface-container-high border border-slate-200 flex items-center justify-center">
               ${isImage ? `
                 <img src="${a.url}" alt="${escapeHtml(a.title)}" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-300" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/icons/admin-icon-192.png';"/>
               ` : isVideo ? `
@@ -1166,12 +1153,12 @@
     if (adminGrid) {
       adminGrid.innerHTML = adminFiltered.length > 0
         ? adminFiltered.map(renderCardHtml).join('')
-        : `<div class="col-span-full py-8 px-6 rounded-2xl bg-surface-container text-center text-xs text-outline border border-slate-200">No Admin-uploaded media matches the current filter.</div>`;
+        : `<div class="col-span-full py-4 px-4 rounded-xl bg-surface-container text-center text-xs text-outline border border-slate-200">No admin media found.</div>`;
     }
     if (userGrid) {
       userGrid.innerHTML = userFiltered.length > 0
         ? userFiltered.map(renderCardHtml).join('')
-        : `<div class="col-span-full py-8 px-6 rounded-2xl bg-surface-container text-center text-xs text-outline border border-slate-200">No Customer-uploaded media matches the current filter.</div>`;
+        : `<div class="col-span-full py-4 px-4 rounded-xl bg-surface-container text-center text-xs text-outline border border-slate-200">No user media found.</div>`;
     }
     updateMediaBulkSelectionUI();
   }

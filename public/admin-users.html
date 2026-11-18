@@ -193,9 +193,7 @@
         <h1 class="wm-page-title">
           <span>Users &amp;</span> <span >Creators</span> <span >Directory</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Audit creator accounts, manage status (Active, Suspended, Banned), upgrade VIP tiers, and inspect celebration history.
-        </p>
+        <p class="wm-page-subtitle">Manage user accounts, VIP &amp; status.</p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="openCreateTestUserModal()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">person_add</span>
@@ -294,10 +292,10 @@
       </div>
 
       <!-- Empty State -->
-      <div id="users-empty-state" class="hidden p-12 text-center flex flex-col items-center justify-center gap-2">
-        <span class="material-symbols-outlined text-4xl text-outline">group_off</span>
-        <h4 class="font-bold text-base text-on-surface">No users match criteria</h4>
-        <p class="text-xs text-on-surface-variant">Try adjusting your search query, status tabs, or plan filter.</p>
+      <div id="users-empty-state" class="hidden p-6 text-center flex flex-col items-center justify-center gap-1.5">
+        <span class="material-symbols-outlined text-3xl text-outline">group_off</span>
+        <h4 class="font-bold text-sm text-on-surface">No users found</h4>
+        <p class="text-xs text-on-surface-variant">Clear search or filters.</p>
       </div>
     </div>
 
@@ -306,7 +304,7 @@
 
 <!-- User Details & Administrative Governance Modal -->
 <div id="user-details-modal" class="fixed inset-0 z-50 bg-black/85  hidden flex items-center justify-center p-4">
-  <div class="w-full max-w-3xl bg-surface-container rounded-xl border border-slate-200 shadow-sm p-6 sm:p-7 flex flex-col gap-5 max-h-[92vh] overflow-y-auto custom-scrollbar relative">
+  <div class="w-full max-w-3xl bg-surface-container rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto custom-scrollbar relative">
     <button onclick="closeUserDetailsModal()" class="absolute top-4 right-4 p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition cursor-pointer">
       <span class="material-symbols-outlined text-[20px]">close</span>
     </button>
@@ -319,7 +317,7 @@
 
 <!-- Create User Account & Credentials Modal -->
 <div id="create-user-modal" class="fixed inset-0 z-50 bg-black/80  hidden flex items-center justify-center p-4">
-  <div class="wm-card w-full max-w-md bg-surface-container rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col gap-4 relative">
+  <div class="wm-card w-full max-w-md bg-surface-container rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col gap-3.5 relative">
     <div class="flex items-center justify-between border-b border-slate-200 pb-3">
       <h3 class="font-display text-lg font-extrabold text-on-surface flex items-center gap-2">
         <span class="material-symbols-outlined text-primary">person_add</span>
@@ -548,14 +546,14 @@
   async function viewUserDetails(userId) {
     const modal = document.getElementById('user-details-modal');
     const content = document.getElementById('user-details-content');
-    content.innerHTML = `<div class="p-8 text-center text-outline">Loading deep account details...</div>`;
+    content.innerHTML = `<div class="p-5 text-center text-outline">Loading user...</div>`;
     modal.classList.remove('hidden');
 
     try {
       const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`);
       const data = await res.json();
       if (!data.success) {
-        content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">${data.message || 'Failed to load user'}</div>`;
+        content.innerHTML = `<div class="p-5 text-center text-rose-400 font-bold">${data.message || 'Failed to load user'}</div>`;
         return;
       }
 
@@ -733,7 +731,7 @@
         </div>
       `;
     } catch (e) {
-      content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">Network error loading user details</div>`;
+      content.innerHTML = `<div class="p-5 text-center text-rose-400 font-bold">Network error loading user</div>`;
     }
   }
 

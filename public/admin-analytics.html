@@ -193,9 +193,7 @@
         <h1 class="wm-page-title">
           <span>Analytics &amp;</span> <span >Growth</span> <span >Insights</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Understand WishMagic's growth, engagement funnels, template conversion performance, and verified revenue.
-        </p>
+        <p class="wm-page-subtitle">Revenue, growth &amp; template performance.</p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="refreshDashboard()" id="btn-refresh" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[18px]" id="refresh-icon">refresh</span>
@@ -312,49 +310,49 @@
     </div>
 
     <!-- Chart Row: Revenue & User Growth Time Series (2 Columns) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       
       <!-- Chart 1: Revenue & Orders Over Time -->
-      <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-6 border border-slate-200 shadow-xl flex flex-col justify-between overflow-hidden min-w-0">
-        <div class="flex items-center justify-between gap-3 mb-4">
+      <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 shadow-xl flex flex-col justify-between overflow-hidden min-w-0">
+        <div class="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h3 class="font-display text-base sm:text-lg font-bold text-on-surface">Revenue &amp; Orders Trajectory</h3>
-            <p class="text-xs text-on-surface-variant">Gross captured revenue (₹) by day in selected period.</p>
+            <h3 class="font-display text-sm sm:text-base font-bold text-on-surface">Revenue &amp; Orders</h3>
+            <p class="text-xs text-on-surface-variant">Daily gross revenue (₹).</p>
           </div>
           <div class="flex items-center gap-2 text-xs">
             <span class="flex items-center gap-1 text-amber-400 font-semibold"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Gross</span>
             <span class="flex items-center gap-1 text-emerald-400 font-semibold"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Net</span>
           </div>
         </div>
-        <div id="chart-revenue-container" class="h-48 w-full flex items-center justify-center text-xs text-outline">
-          Loading revenue trajectory...
+        <div id="chart-revenue-container" class="h-40 w-full flex items-center justify-center text-xs text-outline">
+          Loading revenue...
         </div>
       </div>
 
       <!-- Chart 2: User Growth Trend -->
-      <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-6 border border-slate-200 shadow-xl flex flex-col justify-between overflow-hidden min-w-0">
-        <div class="flex items-center justify-between gap-3 mb-4">
+      <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 shadow-xl flex flex-col justify-between overflow-hidden min-w-0">
+        <div class="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h3 class="font-display text-base sm:text-lg font-bold text-on-surface">Creator Growth Trajectory</h3>
-            <p class="text-xs text-on-surface-variant">New registered creators by day in selected period.</p>
+            <h3 class="font-display text-sm sm:text-base font-bold text-on-surface">Creator Growth</h3>
+            <p class="text-xs text-on-surface-variant">Daily new creators.</p>
           </div>
           <div class="flex items-center gap-2 text-xs">
             <span class="flex items-center gap-1 text-primary font-semibold"><span class="w-2 h-2 rounded-full bg-primary"></span> New Users</span>
           </div>
         </div>
-        <div id="chart-users-container" class="h-48 w-full flex items-center justify-center text-xs text-outline">
-          Loading creator trajectory...
+        <div id="chart-users-container" class="h-40 w-full flex items-center justify-center text-xs text-outline">
+          Loading creators...
         </div>
       </div>
 
     </div>
 
     <!-- Template Marketplace Performance Ranking Table -->
-    <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-6 border border-slate-200 shadow-xl">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+    <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 shadow-xl">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <div>
-          <h3 class="font-display text-lg font-bold text-on-surface">Template Marketplace Performance</h3>
-          <p class="text-xs text-on-surface-variant">Real views, creations, published wishes, purchases, and attributed revenue.</p>
+          <h3 class="font-display text-base font-bold text-on-surface">Template Performance</h3>
+          <p class="text-xs text-on-surface-variant">Views, creations, orders &amp; revenue.</p>
         </div>
       </div>
 

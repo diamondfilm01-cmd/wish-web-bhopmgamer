@@ -191,9 +191,7 @@
         <h1 class="wm-page-title">
           <span>Occasions &amp;</span> <span >Categories</span> <span >Manager</span>
         </h1>
-        <p class="wm-page-subtitle">
-          Organize greeting categories, viral campaign tags, and filter badges displayed on the public WishMagic marketplace.
-        </p>
+        <p class="wm-page-subtitle">Manage categories &amp; storefront tags.</p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="toggleModal('new-occasion-modal')" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">add_circle</span>
@@ -309,11 +307,11 @@
       </div>
     </div>
     <!-- Occasions Catalog Table (Part 10 Section 13) -->
-    <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+    <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 shadow-xl flex flex-col gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <h2 class="font-headline-sm text-lg font-bold text-on-surface">Storefront Categories &amp; Occasions Taxonomy</h2>
-          <p class="text-xs sm:text-sm text-on-surface-variant">Manage categories, icons, reorder navigation priority, and safeguard against broken template references.</p>
+          <h2 class="font-headline-sm text-base font-bold text-on-surface">Occasions &amp; Categories</h2>
+          <p class="text-xs text-on-surface-variant">Order &amp; visibility settings.</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="relative flex items-center">
@@ -339,9 +337,8 @@
           </thead>
           <tbody class="divide-y divide-purple-900/20 text-xs" id="occasions-table-body">
             <tr>
-              <td colspan="7" class="text-center py-10 text-on-surface-variant text-xs">
-                <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
-                <p class="font-semibold text-sm text-on-surface">Loading Occasions Registry...</p>
+              <td colspan="7" class="text-center py-5 text-on-surface-variant text-xs">
+                <p class="font-semibold text-sm text-on-surface">Loading...</p>
               </td>
             </tr>
           </tbody>
@@ -350,11 +347,11 @@
     </div>
 
     <!-- Trending Tags Cloud & Manager -->
-    <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+    <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 shadow-xl flex flex-col gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <h2 class="font-headline-sm text-lg font-bold text-on-surface">Trending Tags Cloud &amp; Filters</h2>
-          <p class="text-xs sm:text-sm text-on-surface-variant">Tags allow customers to search and filter templates by specific magical traits.</p>
+          <h2 class="font-headline-sm text-base font-bold text-on-surface">Trending Tags</h2>
+          <p class="text-xs text-on-surface-variant">Search &amp; filter tags.</p>
         </div>
         <div class="flex items-center gap-2">
           <input id="new-tag-input" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. #HoliColors"/>
@@ -568,10 +565,9 @@
     if (categories.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" class="text-center py-10 text-on-surface-variant text-xs">
-            <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
-            <p class="font-semibold text-sm text-on-surface">No Categories Configured</p>
-            <span class="text-outline">Click "Add New Occasion" above to create your first category.</span>
+          <td colspan="7" class="text-center py-5 text-on-surface-variant text-xs">
+            <p class="font-semibold text-sm text-on-surface">No Categories</p>
+            <span class="text-outline">Click + Add Occasion above.</span>
           </td>
         </tr>
       `;
