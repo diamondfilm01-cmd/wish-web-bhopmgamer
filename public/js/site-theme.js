@@ -3,32 +3,16 @@
   'use strict';
 
   function getSystemTheme() {
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'light';
   }
 
   function getActiveTheme() {
-    const saved = localStorage.getItem('wishmagic_theme') || 'light';
-    if (saved === 'auto') {
-      return getSystemTheme();
-    }
-    return saved;
+    return 'light';
   }
 
-  function updateThemeUI(isDark) {
-    const icons = document.querySelectorAll('.site-theme-icon');
-    const labels = document.querySelectorAll('.site-theme-label');
-
-    icons.forEach(el => {
-      el.textContent = isDark ? 'light_mode' : 'dark_mode';
-    });
-
-    labels.forEach(el => {
-      el.textContent = isDark ? 'Light' : 'Dark';
-    });
-
-    document.querySelectorAll('.wm-theme-pill-btn').forEach(btn => {
-      btn.setAttribute('data-theme-mode', isDark ? 'dark' : 'light');
-      btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
+  function updateThemeUI() {
+    document.querySelectorAll('.wm-theme-pill-btn, .vessa-theme-capsule, #clay-theme-toggle-btn, #theme-toggle-btn, button[onclick*="toggleSiteTheme"], button[onclick*="toggleAdminTheme"], button[onclick*="toggleTheme"]').forEach(btn => {
+      btn.remove();
     });
   }
 
@@ -40,59 +24,30 @@
     document.body.style.removeProperty('background-attachment');
   }
 
-  function applyTheme(targetTheme) {
-    const isDark = targetTheme === 'dark';
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-      if (document.body) {
-        document.body.classList.add('dark');
-      }
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
-      if (document.body) {
-        document.body.classList.remove('dark');
-      }
+  function applyTheme() {
+    document.documentElement.classList.remove('dark');
+    document.documentElement.setAttribute('data-theme', 'light');
+    if (document.body) {
+      document.body.classList.remove('dark');
     }
+    try {
+      localStorage.setItem('wishmagic_theme', 'light');
+      localStorage.setItem('wishmagic_admin_theme_v2', 'light');
+    } catch (_) {}
     updateBodyBackground();
-    if (typeof window !== 'undefined' && typeof window.updateHeroVisualsForTheme === 'function') {
-      window.updateHeroVisualsForTheme();
-    }
-    updateThemeUI(isDark);
+    updateThemeUI();
   }
 
-  // 1. Immediate execution to avoid FOUC
-  applyTheme(getActiveTheme());
+  // 1. Immediate execution to enforce clean light mode
+  applyTheme('light');
 
-  // 2. Listen for Device System Theme changes
-  if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      const saved = localStorage.getItem('wishmagic_theme') || 'light';
-      if (saved === 'auto') {
-        applyTheme(e.matches ? 'dark' : 'light');
-      }
-    });
-  }
-
-  // 3. Global toggle function accessible on all pages
+  // 2. Global toggle functions kept as safe light-mode no-ops for backward compatibility
   window.toggleSiteTheme = function() {
-    const currentIsDark = document.documentElement.classList.contains('dark');
-    const newTheme = currentIsDark ? 'light' : 'dark';
-    localStorage.setItem('wishmagic_theme', newTheme);
-    localStorage.setItem('wishmagic_admin_theme_v2', newTheme);
-    applyTheme(newTheme);
-
-    if (typeof window.showAuthToast === 'function') {
-      window.showAuthToast(newTheme === 'dark' ? '🌙 Cosmic Dark Mode Activated' : '☀️ Fairytale Light Mode Activated');
-    } else if (typeof window.showToast === 'function') {
-      window.showToast(newTheme === 'dark' ? '🌙 Cosmic Dark Mode Activated' : '☀️ Fairytale Light Mode Activated');
-    }
+    applyTheme('light');
   };
 
   window.resetThemeToAuto = function() {
-    localStorage.setItem('wishmagic_theme', 'auto');
-    applyTheme(getSystemTheme());
+    applyTheme('light');
   };
 
   // Single Mutual-Exclusion Dropdown Coordinator (Profile, Notifications, and 3-Line Menu NEVER open together!)
@@ -189,21 +144,7 @@
   }
 
   function getThemePillButtonHTML() {
-    const isDark = document.documentElement.classList.contains('dark');
-    return `
-      <button type="button" onclick="toggleSiteTheme()" class="wm-theme-pill-btn" data-theme-mode="${isDark ? 'dark' : 'light'}" aria-checked="${isDark ? 'true' : 'false'}" title="Switch Light / Dark Mode" aria-label="Toggle Light or Dark Theme">
-        <span class="wm-theme-pill-sun" aria-hidden="true">
-          <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2a1 1 0 100-2H2a1 1 0 100 2zm18 0h2a1 1 0 100-2h-2a1 1 0 100 2zM11 2v2a1 1 0 102 0V2a1 1 0 10-2 0zm0 18v2a1 1 0 102 0v-2a1 1 0 10-2 0zM5.99 4.58a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06z"/>
-          </svg>
-        </span>
-        <span class="wm-theme-pill-knob" aria-hidden="true">
-          <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12.1 22c-5.52 0-10-4.48-10-10 0-4.75 3.31-8.72 7.75-9.74.68-.16 1.24.53.94 1.16A7.96 7.96 0 0010 7c0 4.42 3.58 8 8 8 1.29 0 2.51-.31 3.58-.85.63-.31 1.32.25 1.16.94C21.72 19.53 17.34 22 12.1 22z"/>
-          </svg>
-        </span>
-      </button>
-    `;
+    return '';
   }
 
   // 4. Unified Header Across All Storefront Pages:
@@ -247,10 +188,7 @@
       if (devToggle && devToggle.parentElement) {
         devToggle.parentElement.remove();
       }
-      const oldThemeBtn = document.querySelector('header button[onclick*="toggleSiteTheme"]');
-      if (oldThemeBtn && !oldThemeBtn.classList.contains('wm-theme-pill-btn')) {
-        oldThemeBtn.outerHTML = getThemePillButtonHTML();
-      }
+      document.querySelectorAll('header button[onclick*="toggleSiteTheme"], .wm-theme-pill-btn').forEach(btn => btn.remove());
       const customizerHeader = document.querySelector('header');
       if (customizerHeader) {
         customizerHeader.setAttribute('data-purpose', 'site-navigation');
@@ -402,9 +340,8 @@
   }
 
   function initStorefrontThemeAndHeader() {
-    const isDark = document.documentElement.classList.contains('dark');
     ensureUnifiedStorefrontHeader();
-    updateThemeUI(isDark);
+    updateThemeUI();
   }
 
   if (document.readyState === 'loading') {
@@ -412,26 +349,6 @@
   } else {
     initStorefrontThemeAndHeader();
   }
-})();
-
-(function() {
-  function syncHeroCastleBoundary() {
-    var hero = document.getElementById('hero-desktop-section') || document.querySelector('.hero-desktop-canvas');
-    if (!hero || !document.body) return;
-    var bodyRect = document.body.getBoundingClientRect();
-    var heroRect = hero.getBoundingClientRect();
-    var endY = Math.round(heroRect.bottom - bodyRect.top + 10);
-    if (endY > 180) {
-      document.documentElement.style.setProperty('--wm-hero-end', endY + 'px');
-    }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', syncHeroCastleBoundary);
-  } else {
-    syncHeroCastleBoundary();
-  }
-  window.addEventListener('load', syncHeroCastleBoundary);
-  window.addEventListener('resize', syncHeroCastleBoundary);
 })();
 
 // 5. Universal Storefront Live Settings Synchronizer
@@ -452,14 +369,6 @@
       if (!s) return;
       window._cachedSiteSettings = s;
       try {
-        const bgm = s.pageBgMode === 'diwali-palace' ? 'diwali-palace' : 'cloudy';
-        const bgl = Math.min(50, Math.max(1, Math.round(Number(s.pageBgBlur) || 1)));
-        document.documentElement.setAttribute('data-page-bg-mode', bgm);
-        document.documentElement.setAttribute('data-page-bg-blur', String(bgl));
-        if (document.body) {
-          document.body.setAttribute('data-page-bg-mode', bgm);
-          document.body.setAttribute('data-page-bg-blur', String(bgl));
-        }
         localStorage.setItem('wishmagic_site_settings_v1', JSON.stringify(s));
       } catch (_) {}
 
@@ -577,23 +486,23 @@
         anchorEl.parentNode.insertBefore(spotlightEl, anchorEl);
       }
 
-      spotlightEl.className = 'mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2b1055]/95 via-[#4c1d95]/95 to-[#831843]/95 border border-amber-400/40 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4';
+      spotlightEl.className = 'mb-6 p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-slate-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4';
       spotlightEl.innerHTML = `
         <div class="space-y-1.5">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-sm">${escapeHtmlSafe(badgeLabel)}</span>
-            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/15 text-amber-200 border border-white/20">⏳ ${escapeHtmlSafe(daysAwayText)}</span>
-            <span class="text-xs font-mono text-purple-200">Festival Date: <strong>${escapeHtmlSafe(effDate || '—')}</strong> • Active Window: <strong>${escapeHtmlSafe(winStart || '—')} → ${escapeHtmlSafe(winEnd || '—')}</strong></span>
+            <span class="px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs">${escapeHtmlSafe(badgeLabel)}</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-amber-800 border border-amber-300">⏳ ${escapeHtmlSafe(daysAwayText)}</span>
+            <span class="text-xs font-mono text-slate-600">Date: <strong>${escapeHtmlSafe(effDate || '—')}</strong></span>
           </div>
-          <h3 class="text-base sm:text-lg font-extrabold tracking-tight text-white">🪔 ${escapeHtmlSafe(primaryActive ? primaryActive.title : (festName + ' Celebration Special'))}</h3>
-          <p class="text-xs text-purple-100/90 max-w-2xl">${escapeHtmlSafe(primaryActive && primaryActive.description ? primaryActive.description : 'Create personalized interactive festival wishes with 3D animations, photos & music — your wish link opens immediately!')}</p>
+          <h3 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900">🪔 ${escapeHtmlSafe(primaryActive ? primaryActive.title : (festName + ' Special'))}</h3>
+          <p class="text-xs text-slate-600 max-w-2xl">${escapeHtmlSafe(primaryActive && primaryActive.description ? primaryActive.description : 'Create and share personalized festival wishes with photos and music.')}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button type="button" onclick="if(window.filterTemplates){window.filterTemplates('festive');const g=document.getElementById('templates-grid');if(g)g.scrollIntoView({behavior:'smooth'});}else{window.location.href='/templates.html?category=festival';}" class="px-4 py-2.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/30 text-white text-xs font-extrabold transition cursor-pointer">
-            🎉 View Festival Templates
+          <button type="button" onclick="if(window.filterTemplates){window.filterTemplates('festive');const g=document.getElementById('templates-grid');if(g)g.scrollIntoView({behavior:'smooth'});}else{window.location.href='/templates.html?category=festival';}" class="px-4 py-2.5 rounded-full bg-white hover:bg-amber-100 border border-amber-300 text-slate-900 text-xs font-extrabold transition cursor-pointer">
+            View Festival Templates
           </button>
-          <a href="/customize.html?template=${encodeURIComponent(firstTplId)}${campParam}" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:brightness-110 text-slate-950 text-xs font-extrabold shadow-lg transition">
-            ✨ Create Festival Wish Now
+          <a href="/customize.html?template=${encodeURIComponent(firstTplId)}${campParam}" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-purple-600 hover:brightness-105 text-white text-xs font-extrabold shadow-sm transition">
+            Create Festival Wish
           </a>
         </div>
       `;

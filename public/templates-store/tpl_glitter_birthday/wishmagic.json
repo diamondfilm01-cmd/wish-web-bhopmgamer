@@ -10,11 +10,53 @@
   "capabilities": {
     "photos": true,
     "video": false,
-    "music": true,
-    "voice": true,
-    "countdown": false,
-    "themes": true,
-    "animations": true,
-    "particles": true
-  }
+    "music": false,
+    "voice": false,
+    "countdown": true,
+    "themes": false,
+    "animations": false,
+    "particles": false
+  },
+  "fields": [
+    {
+      "id": "recipient_name",
+      "key": "recipient_name",
+      "label": "Recipient Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g. Priya Sharma"
+    },
+    {
+      "id": "event_date",
+      "key": "event_date",
+      "label": "Birthday Date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "sender_name",
+      "key": "sender_name",
+      "label": "From (Your Name)",
+      "type": "text",
+      "required": false,
+      "placeholder": "e.g. Rohan"
+    },
+    {
+      "id": "custom_message",
+      "key": "custom_message",
+      "label": "Personal Birthday Message",
+      "type": "textarea",
+      "required": false,
+      "defaultValue": "May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!"
+    },
+    {
+      "id": "photo_1",
+      "key": "photo_1",
+      "label": "Cover Memory Photo",
+      "type": "image",
+      "required": false,
+      "defaultValue": "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80"
+    }
+  ],
+  "sections": []
 }

@@ -109,11 +109,11 @@ function mustBypassCache(request, url) {
 
 function buildOfflineAdminResponse() {
   const html = `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="theme-color" content="#111714"/>
+  <meta name="theme-color" content="#ffffff"/>
   <title>WishMagic Admin Studio — Offline</title>
   <style>
     * { box-sizing: border-box; }
@@ -124,26 +124,26 @@ function buildOfflineAdminResponse() {
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: #111714;
-      color: #eff5f1;
+      background: #f5f8f6;
+      color: #111c16;
       font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif;
     }
     .card {
       width: 100%;
       max-width: 420px;
-      background: #1a231e;
-      border: 1px solid #26342c;
+      background: #ffffff;
+      border: 1px solid #d9e2dd;
       border-radius: 22px;
       padding: 28px 24px;
       text-align: center;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 12px 32px rgba(15, 28, 20, 0.08);
     }
     .badge {
       width: 56px;
       height: 56px;
       border-radius: 999px;
-      background: rgba(56, 201, 118, 0.16);
-      color: #38c976;
+      background: rgba(56, 201, 118, 0.14);
+      color: #1f9d57;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -155,11 +155,12 @@ function buildOfflineAdminResponse() {
       font-size: 20px;
       font-weight: 800;
       margin: 0 0 8px 0;
+      color: #111c16;
     }
     p {
       font-size: 13.5px;
       line-height: 1.55;
-      color: #96aba0;
+      color: #4f6257;
       margin: 0 0 20px 0;
     }
     .btn {

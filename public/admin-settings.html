@@ -233,15 +233,6 @@
 
       <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
       <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-        <!-- Sun / Moon Pill Toggle -->
-        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
-          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
-            <span class="material-symbols-outlined text-[16px]">light_mode</span>
-          </span>
-          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
-            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
-          </span>
-        </button>
 
         <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
@@ -359,44 +350,30 @@
       <!-- Instant Search Results Panel -->
       <div id="settings-search-results" class="hidden p-3.5 rounded-xl bg-surface-container border border-purple-500/35 space-y-2 max-h-80 overflow-y-auto custom-scrollbar"></div>
 
-      <!-- 12 Dedicated Category Navigation Pills (Responsive Grid on Mobile & Desktop) -->
-      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2" role="tablist" aria-label="Settings Categories">
+      <!-- Core Category Navigation Pills -->
+      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2" role="tablist" aria-label="Settings Categories">
         <button type="button" role="tab" aria-selected="true" id="admin-settings-tab-storefront" onclick="switchAdminSettingsTab('storefront')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md">
-          <span>🏪</span><span class="truncate">1. Storefront &amp; Homepage</span>
+          <span>🏪</span><span class="truncate">Storefront &amp; Hero</span>
         </button>
         <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-domain-links" onclick="switchAdminSettingsTab('domain-links')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🔗</span><span class="truncate">2. Domain, Slugs &amp; Wish Links</span>
+          <span>🔗</span><span class="truncate">Domain &amp; Wish Links</span>
         </button>
         <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-templates-gallery" onclick="switchAdminSettingsTab('templates-gallery')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🎨</span><span class="truncate">3. Templates &amp; Template Gallery</span>
+          <span>🎨</span><span class="truncate">Templates &amp; Tags</span>
         </button>
         <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-payments-pricing" onclick="switchAdminSettingsTab('payments-pricing')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>💳</span><span class="truncate">4. Payments, Pricing &amp; Free Offers</span>
-        </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-team-rbac" onclick="switchAdminSettingsTab('team-rbac')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>👥</span><span class="truncate">5. Team, Roles &amp; Access</span>
-        </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-security-audit" onclick="switchAdminSettingsTab('security-audit')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🛡️</span><span class="truncate">6. Security, Auth &amp; Audit</span>
-        </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-backup-data" onclick="switchAdminSettingsTab('backup-data')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>💾</span><span class="truncate">7. Backup, Restore &amp; Data</span>
-        </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-notifications-integrations" onclick="switchAdminSettingsTab('notifications-integrations')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🔔</span><span class="truncate">8. Notifications &amp; Integrations</span>
-        </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-storage-performance" onclick="switchAdminSettingsTab('storage-performance')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>⚡</span><span class="truncate">9. Platform, Storage &amp; Performance</span>
-        </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-wish-lifecycle" onclick="switchAdminSettingsTab('wish-lifecycle')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>⏳</span><span class="truncate">10. Wish Lifecycle &amp; Publication</span>
+          <span>💳</span><span class="truncate">Pricing &amp; Free Offers</span>
         </button>
         <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-festivals-scheduling" onclick="switchAdminSettingsTab('festivals-scheduling')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🪔</span><span class="truncate">11. Festivals &amp; Scheduling</span>
+          <span>🪔</span><span class="truncate">Festivals &amp; Campaigns</span>
         </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-advanced-maintenance" onclick="switchAdminSettingsTab('advanced-maintenance')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>⚙️</span><span class="truncate">12. Advanced / Maintenance</span>
-        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-team-rbac" class="hidden"></button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-security-audit" class="hidden"></button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-backup-data" class="hidden"></button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-notifications-integrations" class="hidden"></button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-storage-performance" class="hidden"></button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-wish-lifecycle" class="hidden"></button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-advanced-maintenance" class="hidden"></button>
       </div>
     </div>
 
@@ -427,135 +404,69 @@
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Form Inputs (Left) -->
         <div class="lg:col-span-7 flex flex-col gap-4">
-          <!-- 1-Click 3D Hero Scene Switcher (Gift Box & Balloons vs Royal Diwali Diyas & Crackers) -->
-          <div class="p-3.5 rounded-2xl bg-surface-container-low border border-purple-500/30">
-            <div class="flex items-center justify-between mb-2">
-              <label class="block text-xs font-bold uppercase tracking-wider text-pink-300">🎬 Instant 3D Hero Scene Switcher (Zero Mixing)</label>
-              <span class="text-[10px] text-emerald-300 font-semibold">Switch anytime • Both 3D scenes preserved</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button type="button" id="btn-scene-giftbox" onclick="switchHero3DSceneMode('image')" class="flex items-center gap-3 p-2.5 rounded-xl border border-pink-500/50 bg-pink-500/15 text-left transition hover:brightness-110 cursor-pointer">
-                <span class="text-2xl">🎁</span>
-                <div>
-                  <span class="text-xs font-extrabold text-white block">3D Gift Box &amp; Balloons</span>
-                  <span class="text-[10px] text-purple-200/80 block">Floating 3D gift box, balloons &amp; stars</span>
-                </div>
-              </button>
-              <button type="button" id="btn-scene-diwali" onclick="switchHero3DSceneMode('diwali-3d')" class="flex items-center gap-3 p-2.5 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-amber-400/60 cursor-pointer">
-                <span class="text-2xl">🪔</span>
-                <div>
-                  <span class="text-xs font-extrabold text-amber-300 block">3D Royal Diwali Diyas &amp; Crackers</span>
-                  <span class="text-[10px] text-purple-200/80 block">Real burning CSS diyas, lanterns &amp; crackers</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Top Hero Occasion / Festival Pill Badge ("🪔 This Diwali" / Custom Top Tag) -->
+          <!-- Top Hero Occasion / Festival Pill Badge -->
           <div class="p-3.5 rounded-2xl bg-surface-container-low border border-amber-500/25">
-            <label class="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">🪔 Top Hero Pill Badge (e.g. "🪔 This Diwali" or Custom Top Tag)</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">✨ Top Hero Pill Badge</label>
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
               <div class="sm:col-span-4">
                 <label class="block text-[10px] font-semibold text-outline mb-1">Leading Pill Icon / Emoji</label>
                 <select id="setting-hero-badge-icon" class="w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
-                  <option value="">✨ Default Pulsing Dot</option>
-                  <option value="🪔">🪔 Burning Diya (Diwali)</option>
-                  <option value="🎆">🎆 Fireworks Cracker</option>
-                  <option value="✨">✨ Golden Sparkles</option>
-                  <option value="🎁">🎁 Royal Gift Box</option>
+                  <option value="">✨ Default Dot</option>
+                  <option value="🪔">🪔 Diya (Diwali)</option>
+                  <option value="🎆">🎆 Fireworks</option>
+                  <option value="✨">✨ Sparkles</option>
+                  <option value="🎁">🎁 Gift Box</option>
                   <option value="🎉">🎉 Party Popper</option>
-                  <option value="💖">💖 Glowing Heart</option>
-                  <option value="🌙">🌙 Crescent Moon</option>
+                  <option value="💖">💖 Heart</option>
                 </select>
               </div>
               <div class="sm:col-span-8">
-                <label class="block text-[10px] font-semibold text-outline mb-1">Top Pill Badge Text (Write "This Diwali" or anything you want)</label>
-                <input id="setting-hero-badge" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" placeholder="e.g. This Diwali or Make Every Moment Magical ✨" value="Make Every Moment Magical ✨"/>
+                <label class="block text-[10px] font-semibold text-outline mb-1">Top Pill Badge Text</label>
+                <input id="setting-hero-badge" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" placeholder="e.g. Make Every Moment Magical" value="Make Every Moment Magical"/>
               </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
-              <span class="text-[10px] text-outline font-bold mr-1">1-Click Pill Presets:</span>
-              <button type="button" onclick="applyHeroBadgeQuickPreset('🪔', 'This Diwali')" class="px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[11px] font-bold transition cursor-pointer">🪔 This Diwali</button>
-              <button type="button" onclick="applyHeroBadgeQuickPreset('🪔', 'Happy Diwali')" class="px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-200 text-[11px] font-bold transition cursor-pointer">🪔 Happy Diwali</button>
-              <button type="button" onclick="applyHeroBadgeQuickPreset('🎆', 'Diwali Festival Special')" class="px-2.5 py-1 rounded-full bg-pink-500/15 hover:bg-pink-500/25 border border-pink-400/30 text-pink-200 text-[11px] font-bold transition cursor-pointer">🎆 Diwali Festival Special</button>
-              <button type="button" onclick="applyHeroBadgeQuickPreset('', 'Make Every Moment Magical ✨')" class="px-2.5 py-1 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 text-[11px] font-bold transition cursor-pointer">✨ Make Every Moment Magical</button>
             </div>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Main Display Headline (HTML / Gradient Supported)</label>
-            <input id="setting-hero-headline" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Gift a &lt;span class=&quot;bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent&quot;&gt;Magical&lt;/span&gt; Web-Experience!"/>
+            <input id="setting-hero-headline" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Send Personalized &lt;span class=&quot;hero-gradient-text&quot;&gt;Digital Wishes&lt;/span&gt; in Seconds"/>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Subheadline / Supporting Pitch</label>
-            <textarea id="setting-hero-subheadline" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music &amp; unforgettable celebration magic.</textarea>
+            <textarea id="setting-hero-subheadline" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">Choose a template, add names, photos &amp; music, and share a personalized celebration link with your loved ones.</textarea>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Visual Engine Mode (3D Scene / Photo / Gradient)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Banner Background Mode</label>
               <select id="setting-hero-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
-                <option value="image" selected>🎁 Interactive 3D Gift Box, Balloons &amp; Stars Scene (Default)</option>
-                <option value="diwali-3d">🪔 Interactive 3D Royal Diwali Diyas, Lanterns &amp; Crackers Scene</option>
-                <option value="custom-photo">🖼️ Custom Uploaded Hero Photo (Static Photo + Scrim)</option>
-                <option value="gradient">🎨 Pure Cosmic Gradient (Color Gradient Only)</option>
+                <option value="gradient" selected>🎨 Color Gradient Banner (Default)</option>
+                <option value="custom-photo">🖼️ Custom Uploaded Hero Photo</option>
               </select>
-              <span class="text-[10px] text-pink-300/80 mt-0.5 block">Control whether homepage renders the 3D Floating Gift Box &amp; Balloons scene, custom photo, or pure gradient</span>
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Canvas Gradient Style (When Gradient Mode)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Banner Gradient Style</label>
               <select id="setting-hero-style" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
-                <option value="cosmic-purple" selected>Cosmic Purple &amp; Neon Magenta</option>
-                <option value="midnight-gold">Midnight Starfield &amp; Golden Dust</option>
-                <option value="romantic-rose">Romantic Sunset &amp; Rose Velvet</option>
-                <option value="sunset-amber">Sunset Amber &amp; Warm Glow</option>
-                <option value="emerald-aurora">Emerald Aurora &amp; Mystic Forest</option>
+                <option value="cosmic-purple" selected>Cosmic Purple &amp; Magenta</option>
+                <option value="midnight-gold">Midnight Navy &amp; Gold</option>
+                <option value="romantic-rose">Romantic Rose</option>
+                <option value="sunset-amber">Sunset Amber</option>
+                <option value="emerald-aurora">Emerald Green</option>
               </select>
             </div>
           </div>
 
-          <!-- 3D Hero Interactive Physics & Touch Confetti Controls -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-surface-container-low border border-purple-500/25">
-            <label class="flex items-center justify-between gap-3 cursor-pointer">
-              <div>
-                <span class="font-bold text-xs text-on-surface block">🎈 3D Floating &amp; Parallax Motion</span>
-                <span class="text-[11px] text-on-surface-variant">Animate 3D floating gift box, multi-depth balloons, stars &amp; hover tilt</span>
-              </div>
-              <input type="checkbox" id="setting-hero-3d-floating" checked onchange="updateHeroPreview()" class="w-5 h-5 rounded text-primary focus:ring-primary cursor-pointer"/>
-            </label>
-            <label class="flex items-center justify-between gap-3 cursor-pointer">
-              <div>
-                <span class="font-bold text-xs text-on-surface block">🎉 Touch / Click Confetti &amp; Box Burst</span>
-                <span class="text-[11px] text-on-surface-variant">Spawn 3D confetti ribbons, charms &amp; gift box star burst on touch/click</span>
-              </div>
-              <input type="checkbox" id="setting-hero-touch-burst" checked onchange="updateHeroPreview()" class="w-5 h-5 rounded text-primary focus:ring-primary cursor-pointer"/>
-            </label>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Centerpiece Visual Element</label>
-              <select id="setting-hero-gift-icon" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
-                <option value="🎁" selected>🎁 3D Magic Gift Box (Interactive Unboxing)</option>
-                <option value="🏰">🏰 Floating Dream Castle</option>
-                <option value="💖">💖 Radiant Glowing Heart</option>
-                <option value="🎂">🎂 Celebration Birthday Cake</option>
-                <option value="🎆">🎆 Midnight Fireworks Show</option>
-              </select>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Custom Hero Background Photo (Optional — used when Custom Photo mode is selected)</label>
+            <div class="flex items-center gap-2 mb-1.5">
+              <input id="setting-hero-image-url" class="flex-1 px-3.5 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs font-mono focus:ring-2 focus:ring-primary focus:outline-none" value="/assets/file_ab2082.png" oninput="updateHeroPreview()"/>
+              <a href="/admin-media.html" class="px-2.5 py-2 rounded-xl bg-purple-900/50 hover:bg-purple-800 text-purple-200 text-xs font-bold transition flex items-center gap-1 flex-shrink-0" title="Open Media Vault">
+                <span class="material-symbols-outlined text-sm">perm_media</span>
+                <span>Vault</span>
+              </a>
             </div>
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Background Photo (Upload or URL)</label>
-              <div class="flex items-center gap-2 mb-1.5">
-                <input id="setting-hero-image-url" class="flex-1 px-3.5 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs font-mono focus:ring-2 focus:ring-primary focus:outline-none" value="/assets/file_ab2082.png" oninput="updateHeroPreview()"/>
-                <a href="/admin-media.html" class="px-2.5 py-2 rounded-xl bg-purple-900/50 hover:bg-purple-800 text-purple-200 text-xs font-bold transition flex items-center gap-1 flex-shrink-0" title="Open Media Vault">
-                  <span class="material-symbols-outlined text-sm">perm_media</span>
-                  <span>Vault</span>
-                </a>
-              </div>
-              <input id="setting-hero-file-upload" type="file" accept="image/*" class="w-full text-xs text-purple-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-pink-500/20 file:text-pink-300 hover:file:bg-pink-500/30 cursor-pointer" onchange="uploadHeroImageFromSettings(this)"/>
-              <span class="text-[10px] text-emerald-300/80 mt-1 block">✨ Text contrast scrim is active so words never mix into the background image!</span>
-            </div>
+            <input id="setting-hero-file-upload" type="file" accept="image/*" class="w-full text-xs text-purple-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-pink-500/20 file:text-pink-300 hover:file:bg-pink-500/30 cursor-pointer" onchange="uploadHeroImageFromSettings(this)"/>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -598,125 +509,7 @@
       </div>
     </div>
 
-    <!-- SECTION 1B: GLOBAL PAGE BACKGROUND THEME SWITCHER & 50-LEVEL BLUR INTENSITY STUDIO -->
-    <div id="page-bg-studio-card" data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">wallpaper</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Page Background Switcher &amp; 50-Level Blur Studio</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Switch anytime between the Fairytale Cloudy Castle background and the 4-View Royal Diwali Cloud Palace background, and adjust 1–50 CSS Blur Intensity (applied strictly to the background only).</p>
-          </div>
-        </div>
-        <button type="button" onclick="saveAllSiteSettings('✨ Page Background & 50-Level Blur saved & published!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
-          <span class="material-symbols-outlined text-sm">save</span>
-          <span>Save Background &amp; Blur</span>
-        </button>
-      </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Left Controls (7 cols) -->
-        <div class="lg:col-span-7 flex flex-col gap-4">
-          <!-- 1-Click Page Background Switcher -->
-          <div class="p-4 rounded-2xl bg-surface-container-low border border-purple-500/30">
-            <div class="flex items-center justify-between mb-2.5">
-              <label class="block text-xs font-bold uppercase tracking-wider text-pink-300" for="setting-page-bg-mode">🌌 Active Website Page Background Theme</label>
-              <span class="text-[10px] text-emerald-300 font-semibold">Both backgrounds preserved in CSS • Zero code removed</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <button type="button" id="btn-page-bg-cloudy" onclick="switchPageBgMode('cloudy')" class="flex items-start gap-3 p-3 rounded-xl border-2 border-pink-400 bg-pink-500/20 text-left transition cursor-pointer shadow-md">
-                <span class="text-2xl mt-0.5">☁️</span>
-                <div>
-                  <span class="text-xs font-extrabold text-white block">Fairytale Cloudy Castle (Default)</span>
-                  <span class="text-[10px] text-purple-200/85 block mt-0.5">Original Light &amp; Dark Castle + Repeating Cloud Canyon</span>
-                </div>
-              </button>
-              <button type="button" id="btn-page-bg-diwali" onclick="switchPageBgMode('diwali-palace')" class="flex items-start gap-3 p-3 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-amber-400/60 cursor-pointer">
-                <span class="text-2xl mt-0.5">🪔</span>
-                <div>
-                  <span class="text-xs font-extrabold text-amber-300 block">Royal Diwali Cloud Palace &amp; Diyas</span>
-                  <span class="text-[10px] text-purple-200/85 block mt-0.5">4-View CSS Engine: Desktop Light/Dark + Mobile Light/Dark</span>
-                </div>
-              </button>
-            </div>
-            <select id="setting-page-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updatePageBgPreview()">
-              <option value="cloudy" selected>☁️ Fairytale Cloudy Castle &amp; Cloud Canyon Background (Original)</option>
-              <option value="diwali-palace">🪔 Royal Diwali Cloud Palace, Sky Lanterns, Fireworks &amp; Diyas (4-View Desktop/Mobile Light/Dark)</option>
-            </select>
-          </div>
-
-          <!-- 50-Level Background Blur Intensity Control (1 to 50) -->
-          <div class="p-4 rounded-2xl bg-surface-container-low border border-amber-500/30">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <label class="block text-xs font-bold uppercase tracking-wider text-amber-300" for="setting-page-bg-blur">💧 Background Blur Intensity (50 Levels: 1 = Low to 50 = High)</label>
-              <span id="page-bg-blur-badge" class="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-200 text-[11px] font-extrabold">Level 1 / 50 (0px • Sharp)</span>
-            </div>
-            <p class="text-[11px] text-on-surface-variant mb-3">Applies CSS <code class="text-pink-300">filter: blur(...)</code> strictly to the page background layer only — foreground cards, navbar, hero, and text remain 100% crisp!</p>
-
-            <div class="flex items-center gap-3 mb-3">
-              <span class="text-[11px] font-bold text-purple-300 flex-shrink-0">Low (1)</span>
-              <input type="range" id="setting-page-bg-blur" min="1" max="50" step="1" value="1" oninput="syncPageBgBlurInputs(this.value)" class="flex-1 h-2 bg-purple-950 rounded-lg appearance-none cursor-pointer accent-pink-500"/>
-              <span class="text-[11px] font-bold text-amber-300 flex-shrink-0">High (50)</span>
-              <input type="number" id="setting-page-bg-blur-num" min="1" max="50" step="1" value="1" oninput="syncPageBgBlurInputs(this.value)" class="w-16 px-2.5 py-1.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/40 text-center text-sm font-extrabold focus:ring-2 focus:ring-primary focus:outline-none"/>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-[10px] text-outline font-bold mr-1">Quick Blur Levels:</span>
-              <button type="button" onclick="syncPageBgBlurInputs(1)" class="px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[11px] font-bold transition cursor-pointer">Level 1 (Sharp)</button>
-              <button type="button" onclick="syncPageBgBlurInputs(6)" class="px-2.5 py-1 rounded-full bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-200 text-[11px] font-bold transition cursor-pointer">Level 6 (Subtle)</button>
-              <button type="button" onclick="syncPageBgBlurInputs(15)" class="px-2.5 py-1 rounded-full bg-pink-500/15 hover:bg-pink-500/25 border border-pink-400/30 text-pink-200 text-[11px] font-bold transition cursor-pointer">Level 15 (Soft)</button>
-              <button type="button" onclick="syncPageBgBlurInputs(28)" class="px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-200 text-[11px] font-bold transition cursor-pointer">Level 28 (Dreamy)</button>
-              <button type="button" onclick="syncPageBgBlurInputs(50)" class="px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/30 text-rose-200 text-[11px] font-bold transition cursor-pointer">Level 50 (Max Blur)</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Live 4-View Preview Grid (5 cols) -->
-        <div class="lg:col-span-5 flex flex-col justify-between p-4 rounded-2xl bg-surface-container-low border border-purple-500/30">
-          <div class="flex items-center justify-between mb-2.5">
-            <span class="text-[10px] uppercase font-bold tracking-widest text-pink-300 px-2.5 py-0.5 rounded-full bg-white/10">4-View Live Background + Blur Preview</span>
-            <span id="preview-page-bg-label" class="text-xs font-bold text-amber-300">☁️ Cloudy Castle • Blur Lv 1</span>
-          </div>
-          <div class="grid grid-cols-2 gap-2.5">
-            <!-- View 1: Desktop Light -->
-            <div class="relative rounded-xl overflow-hidden border border-white/15 aspect-video bg-[#f6f0ff]">
-              <div id="prev-bg-desk-light" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-desk-light.webp');"></div>
-              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
-                <span class="px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold w-fit">1. Desktop • Light</span>
-                <span class="px-2 py-0.5 rounded-md bg-white/90 text-purple-950 text-[9px] font-extrabold shadow self-start">Sharp UI Card ✨</span>
-              </div>
-            </div>
-            <!-- View 2: Desktop Dark -->
-            <div class="relative rounded-xl overflow-hidden border border-white/15 aspect-video bg-[#0f0521]">
-              <div id="prev-bg-desk-dark" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-desk-dark.webp');"></div>
-              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
-                <span class="px-1.5 py-0.5 rounded bg-black/65 text-amber-300 text-[9px] font-bold w-fit">2. Desktop • Dark</span>
-                <span class="px-2 py-0.5 rounded-md bg-purple-950/90 border border-pink-400/40 text-white text-[9px] font-extrabold shadow self-start">Sharp UI Card 🌙</span>
-              </div>
-            </div>
-            <!-- View 3: Mobile Light -->
-            <div class="relative rounded-xl overflow-hidden border border-white/15 h-28 bg-[#f6f0ff]">
-              <div id="prev-bg-mob-light" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-mob-light.webp');"></div>
-              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
-                <span class="px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold w-fit">3. Mobile • Light</span>
-                <span class="px-2 py-0.5 rounded-md bg-white/90 text-purple-950 text-[9px] font-extrabold shadow self-start">Sharp Text</span>
-              </div>
-            </div>
-            <!-- View 4: Mobile Dark -->
-            <div class="relative rounded-xl overflow-hidden border border-white/15 h-28 bg-[#0f0521]">
-              <div id="prev-bg-mob-dark" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-mob-dark.webp');"></div>
-              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
-                <span class="px-1.5 py-0.5 rounded bg-black/65 text-amber-300 text-[9px] font-bold w-fit">4. Mobile • Dark</span>
-                <span class="px-2 py-0.5 rounded-md bg-purple-950/90 border border-pink-400/40 text-white text-[9px] font-extrabold shadow self-start">Sharp Text</span>
-              </div>
-            </div>
-          </div>
-          <span class="text-[10px] text-emerald-300/90 mt-2 block">✅ Notice how the "Sharp UI Card" badges stay 100% crisp while only the background blurs!</span>
-        </div>
-      </div>
-    </div>
 
     <!-- SECTION 2: GLOBAL STOREFRONT SETTINGS -->
     <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
@@ -762,18 +555,11 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-        <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-purple-900/20">
-          <div>
-            <span class="font-bold text-sm text-on-surface block">Ambient Cosmic Particle FX</span>
-            <span class="text-xs text-on-surface-variant">Render floating golden star dust and glowing confetti on visitor load.</span>
-          </div>
-          <input type="checkbox" id="setting-particle-fx" checked class="w-5 h-5 rounded text-primary focus:ring-primary bg-surface-container-high border-purple-900/50 cursor-pointer"/>
-        </div>
+      <div class="pt-2">
         <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-purple-900/20">
           <div>
             <span class="font-bold text-sm text-on-surface block">Storefront Maintenance Mode</span>
-            <span class="text-xs text-on-surface-variant">Temporarily redirect public traffic to maintenance countdown.</span>
+            <span class="text-xs text-on-surface-variant">Temporarily redirect public traffic to maintenance notice.</span>
           </div>
           <input type="checkbox" id="setting-maintenance-mode" class="w-5 h-5 rounded text-primary focus:ring-primary bg-surface-container-high border-purple-900/50 cursor-pointer"/>
         </div>
@@ -1185,65 +971,7 @@
       </div>
     </div>
 
-    <!-- CATEGORY 5: TEAM, ROLES & ACCESS CONTROL (RBAC) -->
-    <div id="section-team-rbac" data-settings-tab="team-rbac" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-tertiary-container/30 text-tertiary flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">badge</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Team Magicians &amp; RBAC</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Active platform staff, role assignments, and permissions managed in the Staff Studio.</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 self-start sm:self-auto">
-          <a href="/admin/anktech/anktech/admin/staff" class="px-4 py-2 rounded-xl bg-primary-container hover:brightness-110 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition">
-            <span class="material-symbols-outlined text-sm">shield_person</span>
-            <span>Open Staff &amp; Access Studio</span>
-          </a>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-purple-900/30 text-outline text-xs uppercase font-bold">
-              <th class="py-3 px-3">Team Member</th>
-              <th class="py-3 px-3">Studio Role</th>
-              <th class="py-3 px-3">Contact / ID</th>
-              <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3 text-right">Access Console</th>
-            </tr>
-          </thead>
-          <tbody id="admin-staff-table-body" class="divide-y divide-purple-900/20 text-sm">
-            <tr>
-              <td class="py-3.5 px-3">
-                <div class="flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-bold">A</div>
-                  <div>
-                    <span class="font-bold text-on-surface block">Platform Administrator</span>
-                    <span class="text-xs text-on-surface-variant font-mono">admin@wishmagic.internal</span>
-                  </div>
-                </div>
-              </td>
-              <td class="py-3.5 px-3">
-                <span class="px-2.5 py-0.5 rounded-full bg-primary-container text-white text-xs font-bold">OWNER</span>
-              </td>
-              <td class="py-3.5 px-3 text-on-surface-variant text-xs font-mono">Default Super Admin</td>
-              <td class="py-3.5 px-3">
-                <span class="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-                </span>
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                <a href="/admin/anktech/anktech/admin/staff" class="text-xs text-primary hover:underline font-bold">Manage in RBAC</a>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <div id="section-team-rbac" data-settings-tab="team-rbac" class="hidden"></div>
 
     
     <!-- SECTION 3B: UTP v1.3.0 CENTRAL LINK MANAGER & FUTURE DOMAIN MIGRATION -->
@@ -1374,248 +1102,11 @@
       <div id="central-link-scan-results" class="hidden p-4 rounded-xl bg-surface-container-low border border-purple-800/40 space-y-3 text-xs"></div>
     </div>
 
-    <!-- CATEGORY 6: SECURITY, AUTHENTICATION & AUDIT -->
-    <div id="section-security-audit" data-settings-tab="security-audit" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-emerald-500/40 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-wider text-emerald-400">Authentication, Session &amp; Audit Trail Controls</div>
-          <p class="text-xs text-on-surface-variant mt-0.5">HttpOnly session cookies, CSRF origin validation, RBAC role enforcement, and immutable admin audit logging are active. Secrets and API keys are never exposed in plaintext.</p>
-        </div>
-        <a href="/admin/anktech/anktech/admin/audit-logs" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/30 transition">
-          <span class="material-symbols-outlined text-sm">receipt_long</span>
-          <span>Open Security &amp; Activity Logs →</span>
-        </a>
-      </div>
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">verified_user</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Security, Performance &amp; Production Hardening Matrix</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Automated audit verifying XSS sanitation, URL validation, media policies, memory leak cleanup, and Asia/Kolkata lifecycle rules.</p>
-          </div>
-        </div>
-        <button onclick="runSecurityAudit()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-purple-950 font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
-          <span class="material-symbols-outlined text-sm">play_arrow</span>
-          <span>Run Full Diagnostic Audit</span>
-        </button>
-      </div>
-
-      <!-- Diagnostic Results Dashboard -->
-      <div id="security-audit-summary-container" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
-          <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Passing Checks</span>
-          <span id="audit-pass-count" class="text-xl font-extrabold text-emerald-400 font-mono">0</span>
-        </div>
-        <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
-          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Warnings / Notices</span>
-          <span id="audit-warning-count" class="text-xl font-extrabold text-amber-400 font-mono">0</span>
-        </div>
-        <div class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between">
-          <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">Blockers</span>
-          <span id="audit-blocker-count" class="text-xl font-extrabold text-rose-400 font-mono">0</span>
-        </div>
-      </div>
-
-      <div id="security-audit-details-container" class="space-y-4 pt-2">
-        <div class="wm-card p-4 rounded-xl bg-surface-container-low text-center text-xs text-outline">
-          Click "Run Full Diagnostic Audit" to evaluate runtime security, memory management, and production readiness.
-        </div>
-      </div>
-
-      <!-- Production Notice Banner -->
-      <div class="p-3.5 rounded-xl bg-purple-950/60 border border-purple-800/60 text-xs text-purple-300 flex items-start gap-2.5">
-        <span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">info</span>
-        <div>
-          <strong class="text-white">Architecture Boundary Notice:</strong>
-          Client-side security and sanitization hardened. Full server-side authorization, rate limiting, and Cloudflare edge deployment will be provisioned in <strong>Part 20</strong>.
-        </div>
-      </div>
-    </div>
-
-    <!-- CATEGORY 7: BACKUP, RESTORE & DATA MANAGEMENT -->
-    <div id="section-backup-data" data-settings-tab="backup-data" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">cloud_download</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Backup, Restore &amp; Data Management</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Real-time D1 database backup status, on-demand snapshot creation, and JSON configuration exports.</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button type="button" onclick="triggerManualBackupFromSettings()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-md cursor-pointer">
-            <span class="material-symbols-outlined text-sm">backup</span>
-            <span>Create D1 Backup Snapshot</span>
-          </button>
-          <button type="button" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-purple-500/25 cursor-pointer" onclick="exportDataSnapshot()">
-            <span class="material-symbols-outlined text-sm">download</span>
-            <span>Export JSON Snapshot</span>
-          </button>
-          <a href="/admin/anktech/anktech/admin/storage-health?tab=backups" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/25">
-            <span>Open Backups &amp; Restore Studio →</span>
-          </a>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Total D1 Snapshots</div>
-          <div id="settings-backup-count" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Verified in <code>backup_snapshots</code></div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Last Successful Backup</div>
-          <div id="settings-backup-last-time" class="text-sm font-extrabold text-emerald-400 mt-1.5">Loading...</div>
-          <div id="settings-backup-last-status" class="text-[11px] text-on-surface-variant mt-1">Checking D1 snapshot registry</div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Data Retention &amp; Recovery</div>
-          <div class="text-sm font-extrabold text-on-surface mt-1.5">Point-in-Time Snapshot Ready</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Restore dry-run &amp; verification supported</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CATEGORY 8: NOTIFICATIONS & INTEGRATIONS -->
-    <div id="section-notifications-integrations" data-settings-tab="notifications-integrations" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">notifications_active</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Notifications, Messaging &amp; External Integrations</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Real-time status of transactional notification queues, WhatsApp customer support, ImgBB, Backblaze B2, and Razorpay integrations.</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="/admin/anktech/anktech/admin/notifications" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-sm">mail</span>
-            <span>Open Notification Queue →</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/announcements" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
-            <span>System Announcements →</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/support" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
-            <span>Support Console →</span>
-          </a>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Notification Queue</div>
-          <div id="settings-notif-queue-status" class="text-lg font-extrabold text-on-surface mt-1">Loading...</div>
-          <div id="settings-notif-queue-sub" class="text-[11px] text-on-surface-variant mt-1">D1 <code>notification_queue</code></div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">ImgBB Image CDN</div>
-          <div id="settings-int-imgbb" class="text-lg font-extrabold text-emerald-400 mt-1">Checking...</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Template &amp; customer photo hosting</div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Backblaze B2 Vault</div>
-          <div id="settings-int-b2" class="text-lg font-extrabold text-emerald-400 mt-1">Checking...</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Audio, video &amp; template package storage</div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Razorpay Checkout</div>
-          <div id="settings-int-razorpay" class="text-lg font-extrabold text-emerald-400 mt-1">Checking...</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Order creation &amp; webhook verification</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CATEGORY 9: PLATFORM, STORAGE & PERFORMANCE -->
-    <div id="section-storage-performance" data-settings-tab="storage-performance" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">database</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Platform, Storage &amp; Performance</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Cloudflare D1 database health, media asset storage utilization, upload limits, and edge cache synchronization.</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="/admin/anktech/anktech/admin/storage-health" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-sm">monitoring</span>
-            <span>Open Storage Health Console →</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/media" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
-            <span>Media &amp; Music Vault →</span>
-          </a>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Cloudflare D1 Database</div>
-          <div id="settings-storage-d1-status" class="text-lg font-extrabold text-emerald-400 mt-1">Connected</div>
-          <div id="settings-storage-d1-sub" class="text-[11px] text-on-surface-variant mt-1">Parameterized SQL &amp; WAL durability</div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Upload Package Guardrails</div>
-          <div class="text-lg font-extrabold text-on-surface mt-1">50 MB Max ZIP</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Blocks path traversal &amp; executable files</div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Pricing &amp; CMS Cache Control</div>
-          <div class="text-lg font-extrabold text-pink-400 mt-1">no-store / Instant Sync</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">BroadcastChannel + D1 immediate propagation</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CATEGORY 10: WISH LIFECYCLE & PUBLICATION -->
-    <div id="section-wish-lifecycle" data-settings-tab="wish-lifecycle" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">schedule</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Wish Lifecycle, Expiration &amp; Publication</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Asia/Kolkata (IST) wish lifecycle enforcement, immutable published wish snapshots, and content moderation controls.</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="/admin/anktech/anktech/admin/wishes" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-sm">description</span>
-            <span>Manage All Wishes →</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/wishes?filter=expiring" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
-            <span>Expiring Soon →</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/moderation" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
-            <span>Moderation Queue →</span>
-          </a>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Active Published Wishes</div>
-          <div id="settings-lifecycle-active-wishes" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Live on <code>/w/:slug</code></div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Lifecycle Timezone</div>
-          <div class="text-lg font-extrabold text-emerald-400 mt-1">Asia/Kolkata (IST)</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Grace period &amp; expiry evaluated in IST</div>
-        </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
-          <div class="text-xs font-bold uppercase text-outline">Published Snapshot Integrity</div>
-          <div class="text-lg font-extrabold text-pink-400 mt-1">Immutable v1.4</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Existing wishes preserved across template updates</div>
-        </div>
-      </div>
-    </div>
+    <div id="section-security-audit" data-settings-tab="security-audit" class="hidden"></div>
+    <div id="section-backup-data" data-settings-tab="backup-data" class="hidden"></div>
+    <div id="section-notifications-integrations" data-settings-tab="notifications-integrations" class="hidden"></div>
+    <div id="section-storage-performance" data-settings-tab="storage-performance" class="hidden"></div>
+    <div id="section-wish-lifecycle" data-settings-tab="wish-lifecycle" class="hidden"></div>
 
     <!-- CATEGORY 11: FESTIVALS & SCHEDULING -->
     <div id="section-festivals-scheduling" data-settings-tab="festivals-scheduling" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-amber-500/40 shadow-xl flex flex-col gap-5">
@@ -1662,90 +1153,8 @@
       </div>
     </div>
 
-    <!-- CATEGORY 12: ADVANCED / MAINTENANCE -->
-    <div id="section-advanced-maintenance" data-settings-tab="advanced-maintenance" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-rose-500/35 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
-            <span class="material-symbols-outlined text-2xl">build_circle</span>
-          </div>
-          <div>
-            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Advanced Platform Controls &amp; Maintenance</h2>
-            <p class="text-xs sm:text-sm text-on-surface-variant">High-impact operational controls, legal compliance policies, search index management, and factory configuration reset.</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="/admin/anktech/anktech/admin/legal" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
-            <span>Legal &amp; Compliance →</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/search" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
-            <span>Search &amp; Discovery →</span>
-          </a>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="p-4 rounded-xl bg-surface-container-low border border-amber-500/30 flex flex-col justify-between gap-3">
-          <div>
-            <div class="text-xs font-extrabold uppercase text-amber-300">Storefront Maintenance Mode</div>
-            <p class="text-xs text-on-surface-variant mt-1">When enabled, public visitors see a maintenance screen while administrators retain full studio access.</p>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20">
-            <span id="advanced-maintenance-status-label" class="text-xs font-bold text-emerald-400">Status: Live &amp; Public</span>
-            <button type="button" onclick="toggleMaintenanceModeWithConfirm()" class="px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold cursor-pointer">
-              Toggle Maintenance Mode
-            </button>
-          </div>
-        </div>
-
-        <div class="p-4 rounded-xl bg-surface-container-low border border-rose-500/30 flex flex-col justify-between gap-3">
-          <div>
-            <div class="text-xs font-extrabold uppercase text-rose-400">Factory Default Site Settings Reset</div>
-            <p class="text-xs text-on-surface-variant mt-1">Restores homepage hero copy, brand parameters, and promotional banner settings in D1 back to factory defaults. Requires confirmation.</p>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20">
-            <span class="text-xs text-on-surface-variant">Protected by Admin RBAC &amp; CSRF</span>
-            <button type="button" onclick="resetToDefaults()" class="px-3.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 border border-rose-500/40 text-xs font-bold cursor-pointer">
-              Reset Site Defaults
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="section-advanced-maintenance" data-settings-tab="advanced-maintenance" class="hidden"></div>
   </main>
-</div>
-
-<!-- Invite Team Member Modal -->
-<div id="invite-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-  <div class="wm-card bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <h3 class="font-headline-sm text-lg font-bold text-on-surface">Invite Team Magician</h3>
-      <button onclick="toggleModal('invite-modal')" class="text-on-surface-variant hover:text-on-surface">
-        <span class="material-symbols-outlined">close</span>
-      </button>
-    </div>
-    <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Full Name</label>
-      <input id="invite-name" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="e.g. Priya Sharma"/>
-    </div>
-    <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Email Address</label>
-      <input id="invite-email" type="email" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="priya@wishmagic.co"/>
-    </div>
-    <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Role &amp; Permissions</label>
-      <select id="invite-role" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm">
-        <option>Template Curator (Designer)</option>
-        <option>Moderator (Support Lead)</option>
-        <option>Growth Marketer (Pricing &amp; Coupons)</option>
-        <option>Chief Magician (Super Admin)</option>
-      </select>
-    </div>
-    <div class="flex justify-end gap-2 pt-2">
-      <button onclick="toggleModal('invite-modal')" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold">Cancel</button>
-      <button onclick="sendInvite()" class="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold">Send Invitation</button>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -1879,82 +1288,8 @@
     }
   }
 
-  function switchHero3DSceneMode(mode) {
-    const sel = document.getElementById('setting-hero-bg-mode');
-    if (sel) sel.value = mode;
-    updateHeroPreview();
-    const label = mode === 'diwali-3d'
-      ? '🪔 3D Diwali Diyas & Crackers Hero Scene saved & live on Main Website!'
-      : '🎁 3D Gift Box & Balloons Hero Scene saved & live on Main Website!';
-    scheduleAutoSaveSiteSettings(label, 120);
-  }
+  function updatePageBgPreview() {}
 
-  function switchPageBgMode(mode) {
-    const sel = document.getElementById('setting-page-bg-mode');
-    if (sel) sel.value = mode;
-    updatePageBgPreview();
-    const label = mode === 'diwali-palace'
-      ? '🪔 4-View Royal Diwali Cloud Palace Background saved & live on Main Website!'
-      : '☁️ Fairytale Cloudy Castle Background saved & live on Main Website!';
-    scheduleAutoSaveSiteSettings(label, 120);
-  }
-
-  function syncPageBgBlurInputs(val, shouldAutoSave = true) {
-    const lvl = Math.min(50, Math.max(1, Math.round(Number(val) || 1)));
-    const slider = document.getElementById('setting-page-bg-blur');
-    const num = document.getElementById('setting-page-bg-blur-num');
-    if (slider && Number(slider.value) !== lvl) slider.value = lvl;
-    if (num && Number(num.value) !== lvl) num.value = lvl;
-    updatePageBgPreview();
-    if (shouldAutoSave && !_isInitialSettingsLoad) {
-      const px = Number(((lvl - 1) * 0.5).toFixed(1));
-      scheduleAutoSaveSiteSettings(`✨ Background Blur Level ${lvl}/50 (${px}px) saved & applied to Main Website!`, 400);
-    }
-  }
-
-  function updatePageBgPreview() {
-    const mode = document.getElementById('setting-page-bg-mode')?.value || 'cloudy';
-    const rawLvl = Number(document.getElementById('setting-page-bg-blur')?.value || 1);
-    const lvl = Math.min(50, Math.max(1, Math.round(rawLvl)));
-    const px = Number(((lvl - 1) * 0.5).toFixed(1));
-
-    const badge = document.getElementById('page-bg-blur-badge');
-    if (badge) {
-      badge.textContent = `Level ${lvl} / 50 (${px}px Blur • Background Only)`;
-    }
-
-    const label = document.getElementById('preview-page-bg-label');
-    if (label) {
-      label.textContent = `${mode === 'diwali-palace' ? '🪔 Royal Diwali Palace' : '☁️ Cloudy Castle'} • Blur Lv ${lvl} (${px}px)`;
-    }
-
-    const btnCloudy = document.getElementById('btn-page-bg-cloudy');
-    const btnDiwali = document.getElementById('btn-page-bg-diwali');
-    if (btnCloudy && btnDiwali) {
-      if (mode === 'diwali-palace') {
-        btnDiwali.className = 'flex items-start gap-3 p-3 rounded-xl border-2 border-amber-400 bg-amber-500/20 text-left transition cursor-pointer shadow-md';
-        btnCloudy.className = 'flex items-start gap-3 p-3 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-pink-400/50 cursor-pointer opacity-80';
-      } else {
-        btnCloudy.className = 'flex items-start gap-3 p-3 rounded-xl border-2 border-pink-400 bg-pink-500/20 text-left transition cursor-pointer shadow-md';
-        btnDiwali.className = 'flex items-start gap-3 p-3 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-amber-400/60 cursor-pointer opacity-80';
-      }
-    }
-
-    const views = [
-      { id: 'prev-bg-desk-light', diwali: "url('/assets/page-bg-diwali-desk-light.webp')", cloudy: "radial-gradient(circle at 50% 25%, #e9d5ff 0%, #fbcfe8 48%, #f3e8ff 100%)" },
-      { id: 'prev-bg-desk-dark',  diwali: "url('/assets/page-bg-diwali-desk-dark.webp')",  cloudy: "radial-gradient(circle at 50% 25%, #581c87 0%, #3b0764 52%, #0f0521 100%)" },
-      { id: 'prev-bg-mob-light',  diwali: "url('/assets/page-bg-diwali-mob-light.webp')",  cloudy: "radial-gradient(circle at 50% 30%, #e9d5ff 0%, #fbcfe8 52%, #f3e8ff 100%)" },
-      { id: 'prev-bg-mob-dark',   diwali: "url('/assets/page-bg-diwali-mob-dark.webp')",   cloudy: "radial-gradient(circle at 50% 30%, #581c87 0%, #3b0764 52%, #0f0521 100%)" },
-    ];
-    views.forEach(v => {
-      const el = document.getElementById(v.id);
-      if (el) {
-        el.style.backgroundImage = mode === 'diwali-palace' ? v.diwali : v.cloudy;
-        el.style.filter = `blur(${px}px)`;
-        el.style.transform = `scale(${(1 + (lvl - 1) * 0.003).toFixed(3)})`;
-      }
-    });
-  }
 
   function applyHeroBadgeQuickPreset(iconVal, textVal) {
     const iconEl = document.getElementById('setting-hero-badge-icon');
@@ -2530,123 +1865,8 @@
     }
   }
 
-  // Export Authoritative Configuration Snapshot (No secrets)
-  async function exportDataSnapshot() {
-    try {
-      const siteRes = await fetch('/api/admin/settings/site', { credentials: 'include' });
-      const siteData = await siteRes.json().catch(() => ({}));
-      const linkRes = await fetch('/api/settings/wish-links');
-      const linkData = await linkRes.json().catch(() => ({}));
-
-      const snapshot = {
-        platform: "WishMagic Admin Studio",
-        exportTime: new Date().toISOString(),
-        siteSettings: (siteData.data && siteData.data.settings) || siteData.settings || {},
-        wishLinkSettings: (linkData.data && linkData.data.settings) || linkData.settings || {},
-        occasions: ["Birthday", "Anniversary", "Love", "Funny", "Festivals", "Thank You", "Pets", "Graduation"],
-        pricing: { vipPass: 49, creatorPack: 199 }
-      };
-
-      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `wishmagic-config-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('💾 Authoritative system configuration snapshot exported');
-    } catch (err) {
-      showToast(`❌ Export failed: ${err.message}`);
-    }
-  }
-
-  // Load Real Staff Directory from API
-  async function loadStaffDirectory() {
-    const tbody = document.getElementById('admin-staff-table-body');
-    if (!tbody) return;
-
-    try {
-      const res = await fetch('/api/admin/staff', { credentials: 'include' });
-      const data = await res.json().catch(() => ({}));
-      const staffList = (data.data && data.data.staff) || data.staff || [];
-
-      if (staffList.length > 0) {
-        tbody.innerHTML = staffList.map(s => `
-          <tr>
-            <td class="py-3.5 px-3">
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-                  ${(s.name || 'S').charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <span class="font-bold text-on-surface block">${s.name || 'Staff Member'}</span>
-                  <span class="text-xs text-on-surface-variant font-mono">${s.mobile || s.userId || ''}</span>
-                </div>
-              </div>
-            </td>
-            <td class="py-3.5 px-3">
-              <span class="px-2.5 py-0.5 rounded-full ${s.role === 'OWNER' ? 'bg-primary-container text-white' : 'bg-purple-500/20 text-purple-300'} text-xs font-bold font-mono">
-                ${s.role || 'STAFF'}
-              </span>
-            </td>
-            <td class="py-3.5 px-3 text-on-surface-variant text-xs font-mono">
-              ${s.userId || s.id || 'Active Member'}
-            </td>
-            <td class="py-3.5 px-3">
-              <span class="inline-flex items-center gap-1.5 text-xs ${s.status === 'active' ? 'text-emerald-400' : 'text-amber-400'} font-semibold">
-                <span class="w-2 h-2 rounded-full ${s.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
-                ${s.status === 'active' ? 'Active' : 'Disabled'}
-              </span>
-            </td>
-            <td class="py-3.5 px-3 text-right">
-              <a href="/admin/anktech/anktech/admin/staff" class="text-xs text-primary hover:underline font-bold">Manage in RBAC</a>
-            </td>
-          </tr>
-        `).join('');
-      }
-    } catch (e) {}
-  }
-
-  // Part 18: Security & Production Readiness Audit Runner
-  async function runSecurityAudit() {
-    const detailsContainer = document.getElementById('security-audit-details-container');
-    if (!detailsContainer || !window.WishAuditEngine) return;
-
-    detailsContainer.innerHTML = '<div class="wm-card p-4 rounded-xl bg-surface-container-low text-center text-xs text-primary font-bold animate-pulse">Running security vectors, memory leak tests, and policy evaluations...</div>';
-
-    const report = await window.WishAuditEngine.runFullDiagnostic();
-    
-    document.getElementById('audit-pass-count').textContent = report.scoreSummary.pass;
-    document.getElementById('audit-warning-count').textContent = report.scoreSummary.warning;
-    document.getElementById('audit-blocker-count').textContent = report.scoreSummary.blocker;
-
-    detailsContainer.innerHTML = report.categories.map(cat => `
-      <div class="wm-card p-4 rounded-xl bg-surface-container-low border border-purple-900/30 space-y-2.5">
-        <div class="text-xs font-bold uppercase tracking-wider text-primary">${cat.name} Evaluations</div>
-        <div class="space-y-2">
-          ${cat.checks.map(chk => {
-            let badgeClass = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-            if (chk.status === 'WARNING') badgeClass = 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
-            if (chk.status === 'BLOCKER') badgeClass = 'bg-rose-500/20 text-rose-400 border border-rose-500/30';
-            return `
-              <div class="p-3 rounded-lg bg-surface-container border border-purple-900/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <div>
-                  <div class="font-bold text-on-surface flex items-center gap-1.5">
-                    <span>${chk.name}</span>
-                  </div>
-                  <div class="text-[11px] text-on-surface-variant mt-0.5">${chk.details}</div>
-                  ${chk.recommendation ? `<div class="text-[10px] text-amber-300/90 font-mono mt-1">Action: ${chk.recommendation}</div>` : ''}
-                </div>
-                <span class="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${badgeClass} shrink-0 self-start sm:self-center">
-                  ${chk.status}
-                </span>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `).join('');
-  }
+  async function loadStaffDirectory() {}
+  async function runSecurityAudit() {}
 
 
   async function loadCentralLinkSettings() {
@@ -2819,11 +2039,9 @@
   };
 
   const SETTINGS_SEARCH_INDEX = [
-    { title: 'Page Background Switcher (Cloudy Castle vs Diwali Palace)', desc: 'Switch between Fairytale Cloudy Castle and 4-View Royal Diwali Cloud Palace background', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-page-bg-mode', keywords: 'cloudy background diwali palace desktop mobile light dark switch' },
-    { title: 'Background Blur Intensity (Levels 1 to 50)', desc: 'Adjust 50 levels of CSS blur intensity applied strictly to the page background only', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-page-bg-blur', keywords: 'blur intensity 1 to 50 level background softness bokeh' },
     { title: 'Hero Pill Badge Text', desc: 'Update top hero badge copy on the homepage', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-badge', keywords: 'hero badge pill welcome' },
     { title: 'Main Display Headline & Subheadline', desc: 'Homepage hero title and supporting pitch', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-headline', keywords: 'headline title subheadline hero text' },
-    { title: 'Hero Visual Engine & 3D Physics', desc: '3D gift box, balloons, floating motion, touch confetti, and background photo', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-bg-mode', keywords: '3d gift box balloons gradient background photo' },
+    { title: 'Hero Banner Background & Gradient Style', desc: 'Choose gradient style or custom hero background photo', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-bg-mode', keywords: 'hero gradient background photo' },
     { title: 'Homepage Primary & Secondary CTA Buttons', desc: 'Configure Explore Magic and Create Your Wish CTA labels', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-cta1', keywords: 'cta button explore create wish' },
     { title: 'Platform Brand Name & WhatsApp Support', desc: 'Configure brand title, optional WhatsApp help number, and currency', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-brand-name', keywords: 'brand whatsapp support phone currency particle' },
     { title: 'Personalized Wish Link Availability & Copy', desc: 'Enable/disable custom wish URLs (/w/your-name) and display copy', categoryKey: 'domain-links', categoryLabel: '2. Domain, Slugs & Wish Links', elementId: 'setting-personalized-enabled', keywords: 'personalized custom link slug url' },
@@ -2952,39 +2170,12 @@
     await saveAllSiteSettings(nextState ? '⚠️ Storefront Maintenance Mode enabled!' : '✅ Storefront is now Live & Public!');
   };
 
-  window.triggerManualBackupFromSettings = async function() {
-    try {
-      showStatusBanner('Creating D1 database backup snapshot...', 'info');
-      const res = await fetch('/api/admin/ops/backups/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ notes: 'Manual snapshot from Admin Settings' })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.success === false) {
-        showToast('❌ Failed to create backup snapshot', 'error');
-        return;
-      }
-      showToast('✅ D1 Backup Snapshot created successfully!');
-      showStatusBanner('✅ D1 Backup Snapshot created and verified!', 'success');
-      await loadSettingsCategoryTelemetry();
-    } catch (e) {
-      showToast('❌ Network error creating backup snapshot', 'error');
-    }
-  };
-
   async function loadSettingsCategoryTelemetry() {
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     try {
-      const [tplRes, bkRes, notifRes, stRes, wishRes, festRes, gwRes] = await Promise.all([
+      const [tplRes, festRes] = await Promise.all([
         fetch('/api/admin/templates', { credentials: 'include' }).catch(() => null),
-        fetch('/api/admin/ops/backups', { credentials: 'include' }).catch(() => null),
-        fetch('/api/admin/ops/notifications', { credentials: 'include' }).catch(() => null),
-        fetch('/api/admin/ops/storage-health', { credentials: 'include' }).catch(() => null),
-        fetch('/api/admin/wishes', { credentials: 'include' }).catch(() => null),
-        fetch('/api/admin/festivals', { credentials: 'include' }).catch(() => null),
-        fetch('/api/admin/commerce/health', { credentials: 'include' }).catch(() => null)
+        fetch('/api/admin/festivals', { credentials: 'include' }).catch(() => null)
       ]);
 
       if (tplRes && tplRes.ok) {
@@ -2994,60 +2185,6 @@
         const premCnt = list.length - freeCnt;
         setTxt('settings-tpl-total-count', `${list.length} Templates`);
         setTxt('settings-tpl-tier-breakdown', `${freeCnt} Free / ${premCnt} VIP`);
-      } else {
-        setTxt('settings-tpl-total-count', 'Unavailable');
-        setTxt('settings-tpl-tier-breakdown', 'Unavailable');
-      }
-
-      if (bkRes && bkRes.ok) {
-        const bd = await bkRes.json().catch(() => ({}));
-        const snaps = bd?.data?.snapshots || bd?.snapshots || [];
-        setTxt('settings-backup-count', `${snaps.length} Snapshots`);
-        if (snaps.length > 0) {
-          const latest = snaps[0];
-          setTxt('settings-backup-last-time', latest.created_at || latest.createdAt || 'Verified');
-          setTxt('settings-backup-last-status', `Status: ${latest.status || 'COMPLETED'} (${latest.id})`);
-        } else {
-          setTxt('settings-backup-last-time', 'No snapshots yet');
-          setTxt('settings-backup-last-status', 'Click Create D1 Backup Snapshot above');
-        }
-      } else {
-        setTxt('settings-backup-count', 'Unavailable');
-        setTxt('settings-backup-last-time', 'Unavailable');
-      }
-
-      if (notifRes && notifRes.ok) {
-        const nd = await notifRes.json().catch(() => ({}));
-        const items = nd?.data?.notifications || nd?.notifications || [];
-        const failed = items.filter(n => String(n.status || '').toUpperCase() === 'FAILED').length;
-        setTxt('settings-notif-queue-status', `${items.length} Queued`);
-        setTxt('settings-notif-queue-sub', failed > 0 ? `${failed} failed deliveries` : '0 delivery errors');
-      } else {
-        setTxt('settings-notif-queue-status', 'Unavailable');
-      }
-
-      if (stRes && stRes.ok) {
-        const sd = await stRes.json().catch(() => ({}));
-        const h = sd?.data || sd || {};
-        setTxt('settings-int-imgbb', h.imgbbConfigured ? 'Configured' : 'Env Key Pending');
-        setTxt('settings-int-b2', h.b2Configured ? 'Configured' : 'Env Key Pending');
-        setTxt('settings-storage-d1-status', h.d1Connected !== false ? 'Healthy (D1 Active)' : 'Degraded');
-      }
-
-      if (gwRes && gwRes.ok) {
-        const gd = await gwRes.json().catch(() => ({}));
-        const gw = gd?.data || gd || {};
-        setTxt('settings-int-razorpay', gw.isConfigured ? 'Live Configured' : 'Not Configured');
-      } else {
-        setTxt('settings-int-razorpay', 'Unavailable');
-      }
-
-      if (wishRes && wishRes.ok) {
-        const wd = await wishRes.json().catch(() => ({}));
-        const wishes = wd?.data?.wishes || wd?.wishes || [];
-        setTxt('settings-lifecycle-active-wishes', `${wishes.length} Wishes`);
-      } else {
-        setTxt('settings-lifecycle-active-wishes', 'Unavailable');
       }
 
       if (festRes && festRes.ok) {
@@ -3057,9 +2194,6 @@
         const activeCampaigns = camps.filter(c => c.eligible || c.effectiveState === 'ACTIVE').length;
         setTxt('settings-festivals-total', `${fests.length} Festivals`);
         setTxt('settings-festivals-active', `${activeCampaigns} Active Now`);
-      } else {
-        setTxt('settings-festivals-total', 'Unavailable');
-        setTxt('settings-festivals-active', 'Unavailable');
       }
     } catch (_) {}
   }

@@ -295,34 +295,18 @@
     }, 3800);
   }
 
-  // Theme management
+  // Theme management (Light Mode Only)
   function initTheme() {
-    const savedTheme = localStorage.getItem('clay_theme') || 'light';
-    setTheme(savedTheme);
-
+    setTheme('light');
     if (dom.themeToggleBtn) {
-      dom.themeToggleBtn.addEventListener('click', () => {
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        setTheme(nextTheme);
-      });
+      dom.themeToggleBtn.remove();
     }
   }
 
-  function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      if (dom.themeIcon) {
-        dom.themeIcon.className = 'fa-solid fa-sun text-sm text-amber-400';
-      }
-    } else {
-      document.documentElement.classList.remove('dark');
-      if (dom.themeIcon) {
-        dom.themeIcon.className = 'fa-solid fa-moon text-sm';
-      }
-    }
-    localStorage.setItem('clay_theme', theme);
+  function setTheme() {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem('clay_theme', 'light');
   }
 
   // Mode switching: Native Clay View vs Embedded Full Studio View

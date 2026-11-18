@@ -234,15 +234,6 @@
 
       <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
       <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-        <!-- Sun / Moon Pill Toggle -->
-        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
-          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
-            <span class="material-symbols-outlined text-[16px]">light_mode</span>
-          </span>
-          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
-            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
-          </span>
-        </button>
 
         <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
@@ -549,11 +540,10 @@
 
     </section>
 
-    <!-- 3. WORKSPACE LOWER GRID: Recent Wishes Table (8 Cols) + Top Templates & Activity (4 Cols) -->
+    <!-- 3. WORKSPACE LOWER GRID: Recent Wishes Table + Top Templates -->
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
 
-      <!-- Left 8 Columns: Recent Wishes Table + Top Templates -->
-      <div class="xl:col-span-8 flex flex-col gap-4 min-w-0">
+      <div class="xl:col-span-12 flex flex-col gap-4 min-w-0">
 
         <!-- RECENT WISHES CARD -->
         <section class="wm-card p-5">
@@ -646,45 +636,9 @@
 
       </div>
 
-      <!-- Right 4 Columns: Live Activity Feed -->
-      <div class="xl:col-span-4 flex flex-col gap-4 min-w-0">
-        <section class="wm-card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-[#1e7f4e] dark:text-[#38c976] text-[20px]">history</span>
-              <h2 class="text-[16px] font-extrabold text-on-surface">Recent activity</h2>
-            </div>
-            <a href="/admin/anktech/anktech/admin/audit-logs" class="wm-view-all-pill">
-              <span>All logs</span>
-              <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </a>
-          </div>
-          <div id="activity-feed-container" class="flex flex-col divide-y divide-[#eef3f0] dark:divide-[#24322b]">
-            <div class="py-6 text-center text-xs text-on-surface-variant">Loading real platform activity...</div>
-          </div>
-        </section>
-      </div>
-
     </div>
 
   </main>
-</div>
-
-<!-- Template Health Diagnostic Modal -->
-<div id="health-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden flex items-center justify-center p-4">
-  <div class="w-full max-w-3xl bg-surface-container rounded-3xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto custom-scrollbar relative">
-    <button onclick="closeHealthModal()" class="absolute top-4 right-4 p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition cursor-pointer">
-      <span class="material-symbols-outlined text-[20px]">close</span>
-    </button>
-    <div>
-      <h3 class="font-display text-xl font-extrabold text-on-surface flex items-center gap-2">
-        <span class="material-symbols-outlined text-emerald-500">health_and_safety</span>
-        <span>Template &amp; System Health Diagnostics</span>
-      </h3>
-      <p class="text-xs text-on-surface-variant mt-0.5">Automated validation of template metadata, schema fields, category references, and media disk files.</p>
-    </div>
-    <div id="health-report-content" class="space-y-4 text-xs"></div>
-  </div>
 </div>
 
 <script>
@@ -1145,97 +1099,9 @@
     }).join('');
   }
 
-  function getTimeAgo(dateStr) {
-    if (!dateStr) return 'Recently';
-    const ts = new Date(dateStr).getTime();
-    if (isNaN(ts)) return 'Recently';
-    const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-    return `${Math.floor(diff / 86400)} days ago`;
-  }
-
-  function renderActivityFeed(m) {
-    const container = document.getElementById('activity-feed-container');
-    if (!container) return;
-
-    const feedItems = [];
-
-    // 1. Real wishes created
-    (m?.wishes || []).slice(0, 4).forEach(w => {
-      const rec = w.recipientName || w.recipient_name || w.title || 'Recipient';
-      const tpl = w.templateName || w.template_name || w.templateId || 'Template';
-      feedItems.push({
-        title: `Wish created for ${rec}`,
-        sub: tpl,
-        ts: w.createdAt || w.created_at || new Date().toISOString(),
-        icon: 'send',
-        iconBg: 'bg-pink-100 text-pink-600 dark:bg-pink-950/60 dark:text-pink-300',
-        rot: 'transform: rotate(-25deg);'
-      });
-    });
-
-    // 2. Real D1 Audit Logs
-    (m?.d1AuditLogs || []).slice(0, 4).forEach(log => {
-      feedItems.push({
-        title: String(log.action || log.event_type || 'Admin Action').replace(/_/g, ' '),
-        sub: log.actor_email || log.target_id || 'Admin Studio',
-        ts: log.created_at || log.timestamp || new Date().toISOString(),
-        icon: 'verified_user',
-        iconBg: 'bg-purple-100 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300',
-        rot: ''
-      });
-    });
-
-    // 3. Real Analytics Events
-    (m?.events || []).slice(0, 4).forEach(e => {
-      feedItems.push({
-        title: String(e.eventName || 'Platform Event').replace(/_/g, ' '),
-        sub: e.recipientName ? `For ${e.recipientName}` : (e.templateName || e.templateId || 'Storefront'),
-        ts: e.timestamp || new Date().toISOString(),
-        icon: 'bolt',
-        iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
-        rot: ''
-      });
-    });
-
-    // 4. Real Registered Users
-    (m?.users || []).slice(0, 2).forEach(u => {
-      if (u.email) {
-        feedItems.push({
-          title: 'Registered account',
-          sub: u.email,
-          ts: u.createdAt || u.created_at || new Date(Date.now() - 3600000).toISOString(),
-          icon: 'person',
-          iconBg: 'bg-violet-100 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300',
-          rot: ''
-        });
-      }
-    });
-
-    feedItems.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
-
-    if (feedItems.length === 0) {
-      container.innerHTML = '<div class="py-8 text-center text-xs text-on-surface-variant">No recent activity logged yet.</div>';
-      return;
-    }
-
-    container.innerHTML = feedItems.slice(0, 5).map(item => `
-      <div class="py-3 flex items-center justify-between gap-3">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-9 h-9 rounded-full ${item.iconBg} flex items-center justify-center flex-shrink-0 shadow-xs">
-            <span class="material-symbols-outlined text-[17px]" style="${item.rot}">${item.icon}</span>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[13px] font-bold text-on-surface truncate capitalize">${item.title}</div>
-            <div class="text-[11.5px] text-on-surface-variant truncate">${item.sub}</div>
-          </div>
-        </div>
-        <span class="text-[11px] font-medium text-outline whitespace-nowrap">${getTimeAgo(item.ts)}</span>
-      </div>
-    `).join('');
-  }
+  function renderActivityFeed() {}
+  function openHealthModal() {}
+  function closeHealthModal() {}
 
   // Global Search Handler
   async function handleGlobalSearch(val) {
@@ -1277,57 +1143,6 @@
       }
       resBox.classList.remove('hidden');
     }
-  }
-
-  // Health Diagnostics
-  async function openHealthModal() {
-    const modal = document.getElementById('health-modal');
-    const content = document.getElementById('health-report-content');
-    modal.classList.remove('hidden');
-    content.innerHTML = '<p class="text-xs text-on-surface-variant py-4 text-center">Scanning templates and media integrity...</p>';
-
-    if (window.WishRepositories && window.WishRepositories.adminRepository) {
-      const report = await window.WishRepositories.adminRepository.validateHealth();
-      const s = report.summary;
-
-      content.innerHTML = `
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-          <div class="p-3 rounded-xl bg-surface-container-high border border-purple-200 dark:border-purple-800/40">
-            <div class="text-xs text-on-surface-variant">Total Scanned</div>
-            <div class="font-bold text-lg text-on-surface mt-0.5">${s.totalTemplates}</div>
-          </div>
-          <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-            <div class="text-xs text-emerald-600 dark:text-emerald-400">Passing</div>
-            <div class="font-bold text-lg text-emerald-600 dark:text-emerald-400 mt-0.5">${s.passCount}</div>
-          </div>
-          <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-            <div class="text-xs text-amber-600 dark:text-amber-400">Warnings</div>
-            <div class="font-bold text-lg text-amber-600 dark:text-amber-400 mt-0.5">${s.warningCount}</div>
-          </div>
-          <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30">
-            <div class="text-xs text-rose-600 dark:text-rose-400">Errors</div>
-            <div class="font-bold text-lg text-rose-600 dark:text-rose-400 mt-0.5">${s.errorCount}</div>
-          </div>
-        </div>
-
-        <div class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pt-2">
-          ${report.templates.map(t => `
-            <div class="p-2.5 rounded-xl bg-surface-container-high flex items-center justify-between gap-2">
-              <div>
-                <div class="font-bold text-on-surface">${t.name}</div>
-                <div class="text-[11px] text-on-surface-variant font-mono">${t.id} • ${t.category}</div>
-                ${t.issues.length > 0 ? `<div class="text-[10px] text-amber-600 mt-0.5">${t.issues.map(i => i.message).join('; ')}</div>` : ''}
-              </div>
-              <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${t.status === 'PASS' ? 'bg-emerald-100 text-emerald-700' : (t.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')}">${t.status}</span>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-  }
-
-  function closeHealthModal() {
-    document.getElementById('health-modal').classList.add('hidden');
   }
 
   function exportData(type) {

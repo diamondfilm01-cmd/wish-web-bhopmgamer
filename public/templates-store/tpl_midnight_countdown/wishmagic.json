@@ -10,11 +10,45 @@
   "capabilities": {
     "photos": false,
     "video": false,
-    "music": true,
-    "voice": true,
+    "music": false,
+    "voice": false,
     "countdown": true,
-    "themes": true,
-    "animations": true,
-    "particles": true
-  }
+    "themes": false,
+    "animations": false,
+    "particles": false
+  },
+  "fields": [
+    {
+      "id": "recipient_name",
+      "key": "recipient_name",
+      "label": "Recipient Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g. Aarav"
+    },
+    {
+      "id": "event_date",
+      "key": "event_date",
+      "label": "Celebration Date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "sender_name",
+      "key": "sender_name",
+      "label": "From (Your Name)",
+      "type": "text",
+      "required": false,
+      "placeholder": "e.g. Best Friends"
+    },
+    {
+      "id": "custom_message",
+      "key": "custom_message",
+      "label": "Midnight Unlock Message",
+      "type": "textarea",
+      "required": false,
+      "defaultValue": "When the clock strikes midnight, a brand new chapter of magic begins!"
+    }
+  ],
+  "sections": []
 }

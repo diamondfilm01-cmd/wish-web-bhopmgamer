@@ -5,8 +5,26 @@
     "slug": "glitter-birthday-bash-3d",
     "description": "Interactive 3D celebration with real candle blowing, sparkling confetti bursts, and treasured polaroid memory frames.",
     "category": "Birthday",
-    "relationships": ["Birthday", "Best Friend", "Brother", "Sister", "Male Friend", "Female Friend", "Friendship", "Family", "Girlfriend", "Boyfriend"],
-    "tags": ["birthday", "3d", "interactive", "confetti", "party", "candles"],
+    "relationships": [
+      "Birthday",
+      "Best Friend",
+      "Brother",
+      "Sister",
+      "Male Friend",
+      "Female Friend",
+      "Friendship",
+      "Family",
+      "Girlfriend",
+      "Boyfriend"
+    ],
+    "tags": [
+      "birthday",
+      "3d",
+      "interactive",
+      "confetti",
+      "party",
+      "candles"
+    ],
     "type": "3D Interactive",
     "tier": "free",
     "isPremium": false,
@@ -15,27 +33,27 @@
     "isPublished": true,
     "thumbnail": "/assets/file_ab2082.png",
     "previewImage": "/assets/file_ab2082.png",
-    "previewImages": ["/assets/file_ab2082.png"],
+    "previewImages": [
+      "/assets/file_ab2082.png"
+    ],
     "featured": true,
     "placement": 1,
     "capabilities": {
-      "hero": true,
-      "gallery": true,
-      "message": true,
-      "memories": true,
-      "timeline": false,
-      "music": true,
-      "voiceNote": true,
+      "photos": true,
+      "video": false,
+      "music": false,
+      "voice": false,
       "countdown": true,
-      "openWhen": false,
-      "secretMessage": true,
-      "finalSurprise": true,
-      "galleryLayouts": true,
-      "themeSupport": true,
-      "animationSupport": true,
-      "backgroundSupport": true
+      "themes": false,
+      "animations": false,
+      "particles": false
     },
-    "sections": ["Hero Cake Unboxing", "Memory Polaroid Reel", "Birthday Dedication", "Confetti Finale"],
+    "sections": [
+      "Hero Cake Unboxing",
+      "Memory Polaroid Reel",
+      "Birthday Dedication",
+      "Confetti Finale"
+    ],
     "features": [
       "Interactive 3D Cake with Candle Blow",
       "Celebratory Confetti Physics Shower",
@@ -49,19 +67,94 @@
     },
     "animations": "Web Audio API + Canvas Confetti Physics + 3D Hover Float",
     "supportsGallery": 6,
-    "supportsMusic": "Celebration Acoustic Strings",
-    "supportsVoice": true,
+    "supportsMusic": false,
+    "supportsVoice": false,
     "folder": "tpl_glitter_birthday",
     "entryFile": "index.html",
     "detectedFields": [
-      { "key": "recipient_name", "label": "Birthday Person Name", "type": "text", "defaultValue": "Priya Sharma" },
-      { "key": "sender_name", "label": "Your Name (Sender)", "type": "text", "defaultValue": "Rohan & Friends" },
-      { "key": "custom_message", "label": "Personal Birthday Message", "type": "textarea", "defaultValue": "May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!" },
-      { "key": "event_date", "label": "Birthday Date", "type": "date", "defaultValue": "2026-10-25" },
-      { "key": "photo_1", "label": "Cover Memory Photo", "type": "image", "defaultValue": "/assets/file_ab2082.png" }
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Priya Sharma"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Birthday Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Rohan"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Personal Birthday Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!"
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Cover Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80"
+      }
     ],
     "createdAt": "2026-10-01T10:00:00.000Z",
-    "updatedAt": "2026-10-04T00:00:00.000Z"
+    "updatedAt": "2026-10-04T00:00:00.000Z",
+    "fields": [
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Priya Sharma"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Birthday Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Rohan"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Personal Birthday Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!"
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Cover Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80"
+      }
+    ]
   },
   {
     "id": "tpl_romantic_scrapbook",
@@ -69,8 +162,24 @@
     "slug": "starlit-romance-love-letter",
     "description": "Emotive vintage wax seal envelope unboxing revealing an intimate handwritten love letter and floating starry memories.",
     "category": "Love",
-    "relationships": ["Love", "Anniversary", "Girlfriend", "Boyfriend", "Wife", "Husband", "Crush", "Romance"],
-    "tags": ["love", "romantic", "wax-seal", "letter", "scrapbook", "anniversary"],
+    "relationships": [
+      "Love",
+      "Anniversary",
+      "Girlfriend",
+      "Boyfriend",
+      "Wife",
+      "Husband",
+      "Crush",
+      "Romance"
+    ],
+    "tags": [
+      "love",
+      "romantic",
+      "wax-seal",
+      "letter",
+      "scrapbook",
+      "anniversary"
+    ],
     "type": "Wax Seal Letter",
     "tier": "vip",
     "isPremium": true,
@@ -79,27 +188,27 @@
     "isPublished": true,
     "thumbnail": "/assets/file_f63881.png",
     "previewImage": "/assets/file_f63881.png",
-    "previewImages": ["/assets/file_f63881.png"],
+    "previewImages": [
+      "/assets/file_f63881.png"
+    ],
     "featured": true,
     "placement": 2,
     "capabilities": {
-      "hero": true,
-      "gallery": true,
-      "message": true,
-      "memories": true,
-      "timeline": true,
-      "music": true,
-      "voiceNote": true,
-      "countdown": false,
-      "openWhen": true,
-      "secretMessage": true,
-      "finalSurprise": true,
-      "galleryLayouts": true,
-      "themeSupport": true,
-      "animationSupport": true,
-      "backgroundSupport": true
+      "photos": true,
+      "video": false,
+      "music": false,
+      "voice": false,
+      "countdown": true,
+      "themes": false,
+      "animations": false,
+      "particles": false
     },
-    "sections": ["Wax Seal Envelope", "Flipped Love Letter", "Polaroid Scrapbook", "Eternal Keepsake Note"],
+    "sections": [
+      "Wax Seal Envelope",
+      "Flipped Love Letter",
+      "Polaroid Scrapbook",
+      "Eternal Keepsake Note"
+    ],
     "features": [
       "Interactive 3D Wax Seal Unboxing",
       "Cinematic Love Letter Paper Texture",
@@ -114,19 +223,94 @@
     },
     "animations": "Envelope Flip Interaction + Floating Rose Petals + Ambient Bokeh",
     "supportsGallery": 12,
-    "supportsMusic": "Celestial Waltz Violin & Strings",
-    "supportsVoice": true,
+    "supportsMusic": false,
+    "supportsVoice": false,
     "folder": "tpl_romantic_scrapbook",
     "entryFile": "index.html",
     "detectedFields": [
-      { "key": "recipient_name", "label": "Their Name (Recipient)", "type": "text", "defaultValue": "Ananya" },
-      { "key": "sender_name", "label": "Your Name / Nickname", "type": "text", "defaultValue": "Yours Always" },
-      { "key": "custom_message", "label": "Your Love Letter Message", "type": "textarea", "defaultValue": "In a world of billions, every road led me to you. You are my home, my favorite adventure, and the brightest star in my sky." },
-      { "key": "event_date", "label": "Special Date", "type": "date", "defaultValue": "2026-11-14" },
-      { "key": "photo_1", "label": "Favorite Couple Memory", "type": "image", "defaultValue": "/assets/file_f63881.png" }
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Ananya"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Special Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Kabir"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Love Letter Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Every moment with you feels like a page from my favorite fairytale."
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Scrapbook Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80"
+      }
     ],
     "createdAt": "2026-10-01T10:05:00.000Z",
-    "updatedAt": "2026-10-04T00:00:00.000Z"
+    "updatedAt": "2026-10-04T00:00:00.000Z",
+    "fields": [
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Ananya"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Special Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Kabir"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Love Letter Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Every moment with you feels like a page from my favorite fairytale."
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Scrapbook Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80"
+      }
+    ]
   },
   {
     "id": "tpl_midnight_countdown",
@@ -134,8 +318,23 @@
     "slug": "midnight-celebration-countdown",
     "description": "Real-time countdown clock unlocking a sky of brilliant midnight fireworks and personalized celebration surprises.",
     "category": "Birthday",
-    "relationships": ["Birthday", "Anniversary", "Crush", "Best Friend", "Brother", "Sister", "Friendship"],
-    "tags": ["countdown", "midnight", "fireworks", "birthday", "party", "cosmic"],
+    "relationships": [
+      "Birthday",
+      "Anniversary",
+      "Crush",
+      "Best Friend",
+      "Brother",
+      "Sister",
+      "Friendship"
+    ],
+    "tags": [
+      "countdown",
+      "midnight",
+      "fireworks",
+      "birthday",
+      "party",
+      "cosmic"
+    ],
     "type": "Midnight Countdown",
     "tier": "vip",
     "isPremium": true,
@@ -144,27 +343,27 @@
     "isPublished": true,
     "thumbnail": "/assets/file_ab2082.png",
     "previewImage": "/assets/file_ab2082.png",
-    "previewImages": ["/assets/file_ab2082.png"],
+    "previewImages": [
+      "/assets/file_ab2082.png"
+    ],
     "featured": true,
     "placement": 3,
     "capabilities": {
-      "hero": true,
-      "gallery": true,
-      "message": true,
-      "memories": true,
-      "timeline": false,
-      "music": true,
-      "voiceNote": true,
+      "photos": false,
+      "video": false,
+      "music": false,
+      "voice": false,
       "countdown": true,
-      "openWhen": false,
-      "secretMessage": true,
-      "finalSurprise": true,
-      "galleryLayouts": true,
-      "themeSupport": true,
-      "animationSupport": true,
-      "backgroundSupport": true
+      "themes": false,
+      "animations": false,
+      "particles": false
     },
-    "sections": ["Live Digital Clock", "Midnight Unlock Burst", "Constellation Greeting", "Interactive Soundboard"],
+    "sections": [
+      "Live Digital Clock",
+      "Midnight Unlock Burst",
+      "Constellation Greeting",
+      "Interactive Soundboard"
+    ],
     "features": [
       "Synchronized Midnight Countdown Clock",
       "Automated Midnight Fireworks Finale",
@@ -179,18 +378,78 @@
     },
     "animations": "Live Multi-Stage Fireworks Canvas + Digital Clock Engine",
     "supportsGallery": 8,
-    "supportsMusic": "Midnight Stardust Electronic Chimes",
-    "supportsVoice": true,
+    "supportsMusic": false,
+    "supportsVoice": false,
     "folder": "tpl_midnight_countdown",
     "entryFile": "index.html",
     "detectedFields": [
-      { "key": "recipient_name", "label": "Recipient Name", "type": "text", "defaultValue": "Kabir" },
-      { "key": "sender_name", "label": "Your Name", "type": "text", "defaultValue": "The Squad" },
-      { "key": "custom_message", "label": "Midnight Wish Message", "type": "textarea", "defaultValue": "Wishing you a magnificent year filled with boundless energy, dream conquests, and infectious laughter!" },
-      { "key": "event_date", "label": "Celebration Date", "type": "date", "defaultValue": "2026-12-31" }
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Aarav"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Celebration Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Best Friends"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Midnight Unlock Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "When the clock strikes midnight, a brand new chapter of magic begins!"
+      }
     ],
     "createdAt": "2026-10-01T10:10:00.000Z",
-    "updatedAt": "2026-10-04T00:00:00.000Z"
+    "updatedAt": "2026-10-04T00:00:00.000Z",
+    "fields": [
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Aarav"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Celebration Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Best Friends"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Midnight Unlock Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "When the clock strikes midnight, a brand new chapter of magic begins!"
+      }
+    ]
   },
   {
     "id": "tpl_golden_anniversary",
@@ -198,8 +457,22 @@
     "slug": "golden-memories-keepsake",
     "description": "Luxurious champagne gold floral keepsake crafted for honoring milestone anniversaries, parents, and cherished family milestones.",
     "category": "Anniversary",
-    "relationships": ["Anniversary", "Mother", "Father", "Family", "Wife", "Husband"],
-    "tags": ["anniversary", "gold", "luxury", "keepsake", "family", "parents"],
+    "relationships": [
+      "Anniversary",
+      "Mother",
+      "Father",
+      "Family",
+      "Wife",
+      "Husband"
+    ],
+    "tags": [
+      "anniversary",
+      "gold",
+      "luxury",
+      "keepsake",
+      "family",
+      "parents"
+    ],
     "type": "Golden Keepsake",
     "tier": "free",
     "isPremium": false,
@@ -208,27 +481,27 @@
     "isPublished": true,
     "thumbnail": "/assets/file_f63881.png",
     "previewImage": "/assets/file_f63881.png",
-    "previewImages": ["/assets/file_f63881.png"],
+    "previewImages": [
+      "/assets/file_f63881.png"
+    ],
     "featured": false,
     "placement": 4,
     "capabilities": {
-      "hero": true,
-      "gallery": true,
-      "message": true,
-      "memories": true,
-      "timeline": false,
-      "music": true,
-      "voiceNote": false,
-      "countdown": false,
-      "openWhen": false,
-      "secretMessage": false,
-      "finalSurprise": true,
-      "galleryLayouts": true,
-      "themeSupport": true,
-      "animationSupport": true,
-      "backgroundSupport": true
+      "photos": true,
+      "video": false,
+      "music": false,
+      "voice": false,
+      "countdown": true,
+      "themes": false,
+      "animations": false,
+      "particles": false
     },
-    "sections": ["Gold Foil Header", "Milestone Memory Frame", "Family Tribute Letter", "Keepsake Flourish"],
+    "sections": [
+      "Gold Foil Header",
+      "Milestone Memory Frame",
+      "Family Tribute Letter",
+      "Keepsake Flourish"
+    ],
     "features": [
       "Champagne Gold Luxury Aesthetic",
       "High-Res Family Portrait Frame",
@@ -242,19 +515,94 @@
     },
     "animations": "Gold Leaf Particle Drift + Smooth Fade In",
     "supportsGallery": 6,
-    "supportsMusic": "Acoustic Harmony Guitar",
+    "supportsMusic": false,
     "supportsVoice": false,
     "folder": "tpl_golden_anniversary",
     "entryFile": "index.html",
     "detectedFields": [
-      { "key": "recipient_name", "label": "Celebrants' Names", "type": "text", "defaultValue": "Mom & Dad" },
-      { "key": "sender_name", "label": "From (Family / Children)", "type": "text", "defaultValue": "Aarav, Meera & Family" },
-      { "key": "custom_message", "label": "Tribute Message", "type": "textarea", "defaultValue": "Thank you for showing us what unconditional love and strength truly mean. Wishing you endless health, radiant smiles, and peaceful joy!" },
-      { "key": "event_date", "label": "Anniversary Date", "type": "date", "defaultValue": "2026-11-20" },
-      { "key": "photo_1", "label": "Milestone Family Photo", "type": "image", "defaultValue": "/assets/file_f63881.png" }
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Couple / Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Mom & Dad"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Anniversary Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. With Love, Family"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Anniversary Tribute Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Celebrating years of unwavering love, laughter, and timeless memories together."
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Milestone Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=600&auto=format&fit=crop&q=80"
+      }
     ],
     "createdAt": "2026-10-01T10:15:00.000Z",
-    "updatedAt": "2026-10-04T00:00:00.000Z"
+    "updatedAt": "2026-10-04T00:00:00.000Z",
+    "fields": [
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Couple / Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Mom & Dad"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Anniversary Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. With Love, Family"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Anniversary Tribute Message",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Celebrating years of unwavering love, laughter, and timeless memories together."
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Milestone Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=600&auto=format&fit=crop&q=80"
+      }
+    ]
   },
   {
     "id": "tpl_friendship_chronicles",
@@ -262,8 +610,22 @@
     "slug": "forever-friends-funhouse",
     "description": "Playful retro polaroid stack with celebration sound effects, quirky captions, and vibrant memory stamps.",
     "category": "Friendship",
-    "relationships": ["Friendship", "Best Friend", "Female Friend", "Male Friend", "Brother", "Sister"],
-    "tags": ["friendship", "polaroid", "playful", "bff", "retro", "memories"],
+    "relationships": [
+      "Friendship",
+      "Best Friend",
+      "Female Friend",
+      "Male Friend",
+      "Brother",
+      "Sister"
+    ],
+    "tags": [
+      "friendship",
+      "polaroid",
+      "playful",
+      "bff",
+      "retro",
+      "memories"
+    ],
     "type": "Polaroid Wall",
     "tier": "free",
     "isPremium": false,
@@ -272,27 +634,27 @@
     "isPublished": true,
     "thumbnail": "/assets/file_ab2082.png",
     "previewImage": "/assets/file_ab2082.png",
-    "previewImages": ["/assets/file_ab2082.png"],
+    "previewImages": [
+      "/assets/file_ab2082.png"
+    ],
     "featured": false,
     "placement": 5,
     "capabilities": {
-      "hero": true,
-      "gallery": true,
-      "message": true,
-      "memories": true,
-      "timeline": false,
-      "music": true,
-      "voiceNote": true,
-      "countdown": false,
-      "openWhen": false,
-      "secretMessage": false,
-      "finalSurprise": true,
-      "galleryLayouts": true,
-      "themeSupport": true,
-      "animationSupport": true,
-      "backgroundSupport": true
+      "photos": true,
+      "video": false,
+      "music": false,
+      "voice": false,
+      "countdown": true,
+      "themes": false,
+      "animations": false,
+      "particles": false
     },
-    "sections": ["Interactive Polaroid Deck", "Memory Storyboard", "Candid Note", "Friendship Stamp"],
+    "sections": [
+      "Interactive Polaroid Deck",
+      "Memory Storyboard",
+      "Candid Note",
+      "Friendship Stamp"
+    ],
     "features": [
       "Clickable Stack of Memory Polaroids",
       "Party Confetti Pop Button",
@@ -306,19 +668,94 @@
     },
     "animations": "Interactive Card Fan Shuffle + Soundboard",
     "supportsGallery": 6,
-    "supportsMusic": "Upbeat Acoustic Ukulele Party",
-    "supportsVoice": true,
+    "supportsMusic": false,
+    "supportsVoice": false,
     "folder": "tpl_friendship_chronicles",
     "entryFile": "index.html",
     "detectedFields": [
-      { "key": "recipient_name", "label": "Best Friend Name", "type": "text", "defaultValue": "Sameer" },
-      { "key": "sender_name", "label": "Your Name", "type": "text", "defaultValue": "Arjun" },
-      { "key": "custom_message", "label": "BFF Message", "type": "textarea", "defaultValue": "Thank you for being my constant rock, personal therapist, and favorite human to do nothing with. You deserve the happiest year ahead!" },
-      { "key": "event_date", "label": "Celebration Date", "type": "date", "defaultValue": "2026-10-30" },
-      { "key": "photo_1", "label": "Bestie Memory Photo", "type": "image", "defaultValue": "/assets/file_ab2082.png" }
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Bestie Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Kritika"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Celebration Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Your Partner in Crime"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Friendship Note",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Here is to endless inside jokes, late-night talks, and memories we will never forget!"
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Bestie Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80"
+      }
     ],
     "createdAt": "2026-10-01T10:20:00.000Z",
-    "updatedAt": "2026-10-04T00:00:00.000Z"
+    "updatedAt": "2026-10-04T00:00:00.000Z",
+    "fields": [
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Bestie Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Kritika"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Celebration Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Your Partner in Crime"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Friendship Note",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Here is to endless inside jokes, late-night talks, and memories we will never forget!"
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Bestie Memory Photo",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80"
+      }
+    ]
   },
   {
     "id": "tpl_parents_tribute",
@@ -326,8 +763,21 @@
     "slug": "dearest-parents-tribute",
     "description": "Heartwarming tribute keepsake designed to express deep gratitude and love to mother, father, or beloved elders.",
     "category": "Family",
-    "relationships": ["Mother", "Father", "Family", "Anniversary", "Birthday"],
-    "tags": ["parents", "family", "tribute", "gratitude", "emotional", "watercolor"],
+    "relationships": [
+      "Mother",
+      "Father",
+      "Family",
+      "Anniversary",
+      "Birthday"
+    ],
+    "tags": [
+      "parents",
+      "family",
+      "tribute",
+      "gratitude",
+      "emotional",
+      "watercolor"
+    ],
     "type": "Botanical Tribute",
     "tier": "vip",
     "isPremium": true,
@@ -336,27 +786,27 @@
     "isPublished": true,
     "thumbnail": "/assets/file_f63881.png",
     "previewImage": "/assets/file_f63881.png",
-    "previewImages": ["/assets/file_f63881.png"],
+    "previewImages": [
+      "/assets/file_f63881.png"
+    ],
     "featured": false,
     "placement": 6,
     "capabilities": {
-      "hero": true,
-      "gallery": true,
-      "message": true,
-      "memories": true,
-      "timeline": false,
-      "music": true,
-      "voiceNote": true,
-      "countdown": false,
-      "openWhen": false,
-      "secretMessage": false,
-      "finalSurprise": true,
-      "galleryLayouts": true,
-      "themeSupport": true,
-      "animationSupport": true,
-      "backgroundSupport": true
+      "photos": true,
+      "video": false,
+      "music": false,
+      "voice": false,
+      "countdown": true,
+      "themes": false,
+      "animations": false,
+      "particles": false
     },
-    "sections": ["Heartfelt Dedication", "Treasured Portrait", "Letter of Gratitude", "Blessing Card"],
+    "sections": [
+      "Heartfelt Dedication",
+      "Treasured Portrait",
+      "Letter of Gratitude",
+      "Blessing Card"
+    ],
     "features": [
       "Soft Botanical Watercolor Accents",
       "Audio Voice Dedication Support",
@@ -370,18 +820,93 @@
     },
     "animations": "Gentle Floating Petals + Soft Ambient Glow",
     "supportsGallery": 4,
-    "supportsMusic": "Peaceful Piano & Acoustic Cello",
-    "supportsVoice": true,
+    "supportsMusic": false,
+    "supportsVoice": false,
     "folder": "tpl_parents_tribute",
     "entryFile": "index.html",
     "detectedFields": [
-      { "key": "recipient_name", "label": "Recipient (e.g. Mom & Dad, Mummy)", "type": "text", "defaultValue": "Mummy & Papa" },
-      { "key": "sender_name", "label": "Your Name / Children", "type": "text", "defaultValue": "Your Loving Children" },
-      { "key": "custom_message", "label": "Letter of Gratitude", "type": "textarea", "defaultValue": "Thank you for being our steady harbor in every tide. May your hearts always be filled with joy, radiant health, and gentle peace." },
-      { "key": "event_date", "label": "Special Date", "type": "date", "defaultValue": "2026-10-28" },
-      { "key": "photo_1", "label": "Family Memory Photo", "type": "image", "defaultValue": "/assets/file_f63881.png" }
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Parents / Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Maa & Papa"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Special Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Your Loving Child"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Letter of Gratitude",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Thank you for being our guiding light, our biggest strength, and our forever home."
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Treasured Family Portrait",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&auto=format&fit=crop&q=80"
+      }
     ],
     "createdAt": "2026-10-01T10:25:00.000Z",
-    "updatedAt": "2026-10-04T00:00:00.000Z"
+    "updatedAt": "2026-10-04T00:00:00.000Z",
+    "fields": [
+      {
+        "id": "recipient_name",
+        "key": "recipient_name",
+        "label": "Parents / Recipient Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Maa & Papa"
+      },
+      {
+        "id": "event_date",
+        "key": "event_date",
+        "label": "Special Date",
+        "type": "date",
+        "required": true
+      },
+      {
+        "id": "sender_name",
+        "key": "sender_name",
+        "label": "From (Your Name)",
+        "type": "text",
+        "required": false,
+        "placeholder": "e.g. Your Loving Child"
+      },
+      {
+        "id": "custom_message",
+        "key": "custom_message",
+        "label": "Letter of Gratitude",
+        "type": "textarea",
+        "required": false,
+        "defaultValue": "Thank you for being our guiding light, our biggest strength, and our forever home."
+      },
+      {
+        "id": "photo_1",
+        "key": "photo_1",
+        "label": "Treasured Family Portrait",
+        "type": "image",
+        "required": false,
+        "defaultValue": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&auto=format&fit=crop&q=80"
+      }
+    ]
   }
 ]

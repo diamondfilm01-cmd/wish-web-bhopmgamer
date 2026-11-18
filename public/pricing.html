@@ -8,12 +8,12 @@
   <meta name="description" content="Flexible per-wish pricing: ₹59 Custom Link, ₹59 HD Images & Style, ₹99 All-in-One Combo on Free Templates, or Template Price + ₹70 Combo on Premium Templates."/>
 
   <!-- Site Theme Controller -->
-  <script src="/js/site-theme.js?v=20261027_mobile2col_v1"></script>
+  <script src="/js/site-theme.js?v=20261117_light_v3"></script>
 
   <!-- Tailwind CSS CDN with forms and container queries -->
+  <script src="/js/tailwind-config.js?v=20261117_light_v3"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
-  <script src="/js/tailwind-config.js?v=20261015_wm47944_v7"></script>
 
   <!-- Google Fonts: Outfit, Plus Jakarta Sans, Material Symbols -->
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
@@ -28,15 +28,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="/js/firebase-auth.js?v=20261015_wm47944_v7"></script>
   <script src="/js/auth-service.js?v=20261015_wm47944_v7"></script>
-  <script src="js/repositories.js"></script>
   <script src="js/plan-service.js"></script>
   <script src="js/entitlement-service.js"></script>
   <script src="js/feature-access-service.js"></script>
   <script src="js/payment-service.js"></script>
   <script src="/js/premium-lock-modal.js?v=20261015_wm47944_v7"></script>
-  <script src="js/security-hardening.js"></script>
 
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261027_mobile2col_v1"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261117_light_v3"/>
 </head>
 <body class="w-full min-h-screen antialiased selection:bg-pink-500 selection:text-white flex flex-col justify-between">
 
@@ -47,15 +45,11 @@
     
     <!-- Hero Header -->
     <section class="text-center max-w-3xl mx-auto flex flex-col items-center">
-      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-300 border border-pink-400/40 text-xs font-black tracking-wider uppercase mb-4 shadow-sm">
-        <span>✨</span>
-        <span>Simple Pay-Per-Wish &amp; Value Combo Pricing</span>
-      </div>
-      <h1 class="font-display font-black text-3xl sm:text-5xl tracking-tight text-purple-950 dark:text-white leading-[1.12]">
-        Pay Only for What You Choose — Or Grab the <span class="bg-gradient-to-r from-pink-500 via-purple-600 to-amber-500 bg-clip-text text-transparent">All-in-One Combo Offer</span>
+      <h1 class="font-display font-extrabold text-3xl sm:text-4xl tracking-tight text-slate-900 leading-tight">
+        Simple <span class="bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">Pricing &amp; Combos</span>
       </h1>
-      <p class="text-sm sm:text-base text-purple-800/85 dark:text-purple-200/85 max-w-2xl mx-auto mt-3.5 leading-relaxed font-medium">
-        Templates have their own price (<strong>Free ₹0</strong>, <strong>₹59</strong>, or <strong>₹149</strong>). Customize with a <strong>Custom Link (₹59)</strong>, <strong>HD Images &amp; Style (₹59)</strong>, or unlock everything together with our <strong>₹99 Combo</strong> (on Free templates) or <strong>Template Price + ₹70 Combo</strong> (on Premium templates)!
+      <p class="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto mt-3 leading-relaxed">
+        Pay per wish: <strong>Custom Link (₹59)</strong>, <strong>HD Photos &amp; Style (₹59)</strong>, or save with our <strong>₹99 Combo</strong> on Free templates and <strong>Template + ₹70 Combo</strong> on Premium templates.
       </p>
     </section>
 
@@ -289,29 +283,29 @@
         </div>
 
         <!-- Result Box -->
-        <div class="p-6 rounded-2xl bg-gradient-to-br from-purple-950 to-[#1f103d] text-white flex flex-col justify-between gap-4 shadow-xl border border-pink-500/40">
+        <div class="p-6 rounded-2xl bg-purple-50 text-slate-900 flex flex-col justify-between gap-4 shadow-sm border border-purple-200">
           <div>
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-purple-300">Selected Package</span>
-              <span id="calc-savings-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase">Save ₹19 Combo Applied!</span>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-purple-700">Selected Package</span>
+              <span id="calc-savings-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">Save ₹19 Combo Applied!</span>
             </div>
-            <h3 id="calc-result-title" class="font-display font-extrabold text-lg text-white mt-2">
+            <h3 id="calc-result-title" class="font-display font-extrabold text-lg text-slate-900 mt-2">
               Free Template + All-in-One Combo (₹99)
             </h3>
-            <div class="mt-4 space-y-1.5 text-xs text-purple-200 border-t border-purple-800/80 pt-3" id="calc-breakdown-lines">
+            <div class="mt-4 space-y-1.5 text-xs text-slate-700 border-t border-purple-200 pt-3" id="calc-breakdown-lines">
               <!-- Populated dynamically -->
             </div>
           </div>
 
-          <div class="pt-3 border-t border-purple-800/80 flex items-center justify-between">
+          <div class="pt-3 border-t border-purple-200 flex items-center justify-between">
             <div>
-              <span class="text-[11px] text-purple-300 block">Final Payable Amount</span>
+              <span class="text-[11px] text-slate-600 block">Final Payable Amount</span>
               <div class="flex items-baseline gap-2">
-                <span id="calc-final-price" class="font-display font-black text-3xl text-amber-300">₹99</span>
-                <span id="calc-regular-price" class="text-xs line-through text-purple-400">₹118</span>
+                <span id="calc-final-price" class="font-display font-black text-3xl text-purple-700">₹99</span>
+                <span id="calc-regular-price" class="text-xs line-through text-slate-400">₹118</span>
               </div>
             </div>
-            <a id="calc-cta-link" href="/customize.html?pack=combo_99" class="px-5 py-3 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white font-extrabold text-xs shadow-lg transition">
+            <a id="calc-cta-link" href="/customize.html?pack=combo_99" class="px-5 py-3 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white font-extrabold text-xs shadow-sm transition">
               Start Creating →
             </a>
           </div>
@@ -404,7 +398,7 @@
         lines.push(`<div class="flex justify-between"><span>HD Images + Custom Style:</span><span class="font-bold">₹${rules.hdImageStylePrice}</span></div>`);
       }
       if (quote.savings > 0) {
-        lines.push(`<div class="flex justify-between text-emerald-400 font-bold"><span>Combo / Referral Discount:</span><span>-₹${quote.savings}</span></div>`);
+        lines.push(`<div class="flex justify-between text-emerald-700 font-bold"><span>Combo / Referral Discount:</span><span>-₹${quote.savings}</span></div>`);
       }
       document.getElementById('calc-breakdown-lines').innerHTML = lines.join('');
       document.getElementById('calc-cta-link').href = `/customize.html?pack=${encodeURIComponent(quote.planCode)}&templatePrice=${selectedCalcTplPrice}`;

@@ -10,11 +10,53 @@
   "capabilities": {
     "photos": true,
     "video": false,
-    "music": true,
-    "voice": true,
-    "countdown": false,
-    "themes": true,
-    "animations": true,
-    "particles": true
-  }
+    "music": false,
+    "voice": false,
+    "countdown": true,
+    "themes": false,
+    "animations": false,
+    "particles": false
+  },
+  "fields": [
+    {
+      "id": "recipient_name",
+      "key": "recipient_name",
+      "label": "Bestie Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g. Kritika"
+    },
+    {
+      "id": "event_date",
+      "key": "event_date",
+      "label": "Celebration Date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "sender_name",
+      "key": "sender_name",
+      "label": "From (Your Name)",
+      "type": "text",
+      "required": false,
+      "placeholder": "e.g. Your Partner in Crime"
+    },
+    {
+      "id": "custom_message",
+      "key": "custom_message",
+      "label": "Friendship Note",
+      "type": "textarea",
+      "required": false,
+      "defaultValue": "Here is to endless inside jokes, late-night talks, and memories we will never forget!"
+    },
+    {
+      "id": "photo_1",
+      "key": "photo_1",
+      "label": "Bestie Memory Photo",
+      "type": "image",
+      "required": false,
+      "defaultValue": "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80"
+    }
+  ],
+  "sections": []
 }

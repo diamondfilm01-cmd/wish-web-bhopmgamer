@@ -230,15 +230,6 @@
 
       <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
       <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-        <!-- Sun / Moon Pill Toggle -->
-        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
-          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
-            <span class="material-symbols-outlined text-[16px]">light_mode</span>
-          </span>
-          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
-            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
-          </span>
-        </button>
 
         <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
@@ -967,83 +958,6 @@
 <span class="px-3 py-1 text-on-surface">Page 1 of 1</span>
 </div>
 </footer>
-</div>
-</div>
-<!-- MODAL: Studio Live Preview Drawer -->
-<div class="fixed inset-0 z-50 hidden bg-surface-container-lowest/80 backdrop-blur-xl flex justify-end transition-opacity" id="preview-modal">
-<div class="w-full max-w-2xl bg-surface-container-low h-full shadow-2xl flex flex-col justify-between overflow-hidden">
-<!-- Modal Header -->
-<div class="p-space-lg bg-surface-container flex items-center justify-between">
-<div class="flex items-center gap-space-sm">
-<div class="w-9 h-9 rounded-lg bg-primary-container/20 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-[20px]">preview</span>
-</div>
-<div class="flex flex-col">
-<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface" id="modal-template-title">Experience Inspector</h2>
-<span class="font-label-sm text-label-sm text-primary font-mono" id="modal-template-id">tpl_bday_glitter_3d</span>
-</div>
-</div>
-<div class="flex items-center gap-space-xs">
-<!-- Viewport Mode Toggles -->
-<div class="flex items-center bg-surface-container-lowest p-1 rounded-lg">
-<button class="p-1 rounded text-primary bg-surface-container-high" title="Mobile View">
-<span class="material-symbols-outlined text-[16px]">smartphone</span>
-</button>
-<button class="p-1 rounded text-outline hover:text-on-surface" title="Tablet View">
-<span class="material-symbols-outlined text-[16px]">tablet</span>
-</button>
-<button class="p-1 rounded text-outline hover:text-on-surface" title="Desktop View">
-<span class="material-symbols-outlined text-[16px]">laptop</span>
-</button>
-</div>
-<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high" onclick="toggleModal('preview-modal')">
-<span class="material-symbols-outlined text-[20px]">close</span>
-</button>
-</div>
-</div>
-<!-- Preview Canvas Simulation Area -->
-<div class="flex-1 p-space-lg flex items-center justify-center bg-surface-container-lowest overflow-y-auto">
-<!-- Virtual Smartphone Frame -->
-<div class="w-[320px] h-[580px] rounded-[36px] bg-background p-3.5 shadow-2xl flex flex-col justify-between relative overflow-hidden">
-<!-- Simulated Notch -->
-<div class="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-4 bg-surface-container-high rounded-full z-20"></div>
-<!-- Experience Screen Inner Simulation -->
-<div class="w-full h-full rounded-[28px] overflow-hidden relative flex flex-col justify-between p- space-md" data-alt="Simulated live smartphone viewport showcasing interactive WishMagic celebration canvas with customized birthday name banner and floating golden balloons." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCCLvjF6oXON1bENKhpZMdzB3IQghenPxUWaO_gHv3_E7MP2Jvv4oobB_dSaCsQCu4Spz1tfReSWxKoPjaQ2VlZVFhb327QtfoZlnuN7oUZk7jBY_sdmkhFNUdnz5NCuo-r0z-WKORya1bFMlMN2GjbRHCiv7bVBj9zvR4_h5y5vS22E85Z-7zpczCFVJCQqHZOWOCMChCRLPgv03F-1X9K-jy_-msPC6etqMT3ycoo5m8-5djA2yZa')">
-<div class="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80"></div>
-<div class="relative z-10 pt-6 flex items-center justify-between text-white">
-<span class="font-label-sm text-label-sm bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-md">WishMagic Live</span>
-<span class="material-symbols-outlined text-[18px]">volume_up</span>
-</div>
-<div class="relative z-10 flex flex-col gap-2 text-center text-white">
-<div class="w-16 h-16 rounded-full mx-auto bg-gradient-to-tr from-primary to-secondary p-0.5 shadow-xl">
-<div class="w-full h-full rounded-full bg-surface flex items-center justify-center font-bold text-on-surface">🎂</div>
-</div>
-<h4 class="font-headline-sm text-headline-sm font-black">Happy Birthday, Maya!</h4>
-<p class="font-body-sm text-body-sm text-white/80 line-clamp-3">
-                "May your next orbit around the sun be as dazzling, luminous, and filled with infinite magic as this galaxy!"
-              </p>
-<button class="mt-2 py-2 px-4 rounded-xl bg-white text-black font-label-md text-label-md font-bold shadow-lg">
-                Tap to Blow Candles ✨
-              </button>
-</div>
-</div>
-</div>
-</div>
-<!-- Modal Bottom Actions -->
-<div class="p-space-md bg-surface-container flex items-center justify-between">
-<div class="flex items-center gap-space-xs text-outline font-label-sm text-label-sm">
-<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-<span>WebAudio 48kHz Ready</span>
-</div>
-<div class="flex items-center gap-space-sm">
-<button class="px-space-md py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold" onclick="toggleModal('preview-modal')">
-            Close Viewer
-          </button>
-<button class="px-space-md py-2 rounded-lg bg-primary-container text-on-primary-container font-label-md text-label-md font-bold">
-            Open Editor Suite
-          </button>
-</div>
-</div>
 </div>
 </div>
 <!-- MODAL: + Add New Template (Multi-Step Creation Workflow) -->
@@ -2016,13 +1930,6 @@
       }
     }
 
-    function previewTemplate(slug, title) {
-      const titleElem = document.getElementById('modal-template-title');
-      const idElem = document.getElementById('modal-template-id');
-      if (titleElem) titleElem.textContent = title;
-      if (idElem) idElem.textContent = slug;
-      toggleModal('preview-modal');
-    }
     // Uses unified window.toggleSidebar from admin-theme.js?v=20261025_vessa_mobile_v11
 
     // Keyboard shortcut for Cmd+K search focus

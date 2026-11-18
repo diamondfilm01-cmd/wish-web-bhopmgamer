@@ -405,13 +405,13 @@ window.WishMagicCore = {
     const pills = shown.map(v => {
       const isHighlighted = activeRel && v.relationshipSlug === activeRel;
       const pillStyle = isHighlighted
-        ? 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:0.7rem;font-weight:700;background:rgba(236,72,153,0.22);color:#fbcfe8;border:1px solid rgba(236,72,153,0.55);line-height:1.2;white-space:nowrap;'
-        : 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:0.7rem;font-weight:600;background:rgba(255,255,255,0.07);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);line-height:1.2;white-space:nowrap;';
+        ? 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:0.7rem;font-weight:700;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;line-height:1.2;white-space:nowrap;'
+        : 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:0.7rem;font-weight:600;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;line-height:1.2;white-space:nowrap;';
       return `<span class="wm-relation-tag" data-relation-slug="${escapeHtmlSafe(v.relationshipSlug)}" style="${pillStyle}">${escapeHtmlSafe(v.relationshipLabel)}</span>`;
     }).join('');
 
     const moreBadge = overflowCount > 0
-      ? `<span class="wm-relation-tag-more" style="display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;font-size:0.68rem;font-weight:700;background:rgba(139,92,246,0.16);color:#c4b5fd;border:1px solid rgba(139,92,246,0.3);line-height:1.2;">+${overflowCount} more</span>`
+      ? `<span class="wm-relation-tag-more" style="display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;font-size:0.68rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;line-height:1.2;">+${overflowCount} more</span>`
       : '';
 
     return `<div class="wm-card-relation-tags" aria-label="Supported relationships" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;margin-bottom:4px;">${pills}${moreBadge}</div>`;
@@ -453,17 +453,17 @@ window.WishMagicCore = {
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', 'Relation Unavailable');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(7,5,16,0.85);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.5);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
 
     overlay.innerHTML = `
-      <div style="width:100%;max-width:440px;background:#130f26;border:1px solid rgba(244,63,94,0.35);border-radius:20px;padding:24px;color:#f8fafc;box-shadow:0 24px 60px rgba(0,0,0,0.65);text-align:center;font-family:'Plus Jakarta Sans',sans-serif;">
-        <div style="width:52px;height:52px;border-radius:50%;background:rgba(244,63,94,0.15);border:1px solid rgba(244,63,94,0.35);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:1.5rem;">⚠️</div>
-        <h3 style="margin:0 0 8px;font-size:1.15rem;font-weight:800;color:#fff;">Relation Variant Unavailable</h3>
-        <p style="margin:0 0 14px;font-size:0.88rem;color:#94a3b8;line-height:1.55;">
-          <strong>${escapeHtmlSafe(tplName)}</strong> does not have an active published variant for <strong>${escapeHtmlSafe(relMeta.label)}</strong>.
+      <div style="width:100%;max-width:440px;background:#ffffff;border:1px solid #fecdd3;border-radius:20px;padding:24px;color:#0f172a;box-shadow:0 20px 50px rgba(15,23,42,0.16);text-align:center;font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;border:1px solid #fecdd3;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:1.5rem;">⚠️</div>
+        <h3 style="margin:0 0 8px;font-size:1.15rem;font-weight:800;color:#0f172a;">Relation Not Available</h3>
+        <p style="margin:0 0 14px;font-size:0.88rem;color:#475569;line-height:1.55;">
+          <strong>${escapeHtmlSafe(tplName)}</strong> is not available for <strong>${escapeHtmlSafe(relMeta.label)}</strong>.
         </p>
-        ${availLabels ? `<p style="margin:0 0 18px;font-size:0.8rem;color:#cbd5e1;background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">Available relations for this template: <strong>${escapeHtmlSafe(availLabels)}</strong></p>` : ''}
-        <button type="button" id="wm-rel-unavail-close" style="padding:10px 22px;border-radius:999px;border:none;background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;font-weight:700;font-size:0.88rem;cursor:pointer;">Close</button>
+        ${availLabels ? `<p style="margin:0 0 18px;font-size:0.8rem;color:#334155;background:#f8fafc;padding:10px 12px;border-radius:10px;border:1px solid #e2e8f0;">Available for: <strong>${escapeHtmlSafe(availLabels)}</strong></p>` : ''}
+        <button type="button" id="wm-rel-unavail-close" style="padding:10px 22px;border-radius:999px;border:none;background:linear-gradient(135deg,#ec4899,#7c3aed);color:#fff;font-weight:700;font-size:0.88rem;cursor:pointer;">Close</button>
       </div>
     `;
 
@@ -487,27 +487,27 @@ window.WishMagicCore = {
     if (existing) existing.remove();
 
     const isCustomize = action === 'customize' || action === 'create';
-    const actionTitle = isCustomize ? 'Choose Relation to Customize' : 'Choose Relation to Preview';
+    const actionTitle = isCustomize ? 'Select Relation to Customize' : 'Select Relation to Preview';
     const actionSubtitle = isCustomize
-      ? `Select who this wish is for to open the ${escapeHtmlSafe(family.name || 'template')} customizer with tailored fields and defaults.`
-      : `Select a relationship variant to preview ${escapeHtmlSafe(family.name || 'this template')} with its tailored theme and message.`;
-    const actionBadgeText = isCustomize ? '✨ Customize Variant' : '👁️ Live Variant Preview';
+      ? `Choose who this wish is for to open ${escapeHtmlSafe(family.name || 'the template')} customizer.`
+      : `Choose a relation to preview ${escapeHtmlSafe(family.name || 'this template')}.`;
+    const actionBadgeText = isCustomize ? 'Customize' : 'Preview';
 
     const overlay = document.createElement('div');
     overlay.id = 'wm-relation-selector-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'wm-rel-modal-title');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(7,5,16,0.84);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:16px;animation:wmFadeIn 0.18s ease-out;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.5);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;animation:wmFadeIn 0.18s ease-out;';
 
     const cardsHtml = variants.map((v, idx) => {
       const thumbHtml = v.thumbnail
-        ? `<img src="${escapeHtmlSafe(v.thumbnail)}" data-wm-tpl-id="${escapeHtmlSafe(family.id || family.slug || '')}" alt="${escapeHtmlSafe(v.relationshipLabel)}" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,0.14);flex-shrink:0;" onerror="if(!this.dataset.wmImgHealed){this.dataset.wmImgHealed='1';this.src='/api/media/safe-img?u='+encodeURIComponent(this.src)+'&tpl=${escapeHtmlSafe(encodeURIComponent(family.id || family.slug || ''))}';}else{this.style.display='none';}" />`
-        : `<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,rgba(236,72,153,0.22),rgba(139,92,246,0.22));border:1px solid rgba(236,72,153,0.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">${escapeHtmlSafe(v.icon || '✨')}</div>`;
+        ? `<img src="${escapeHtmlSafe(v.thumbnail)}" data-wm-tpl-id="${escapeHtmlSafe(family.id || family.slug || '')}" alt="${escapeHtmlSafe(v.relationshipLabel)}" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid #e2e8f0;flex-shrink:0;" onerror="if(!this.dataset.wmImgHealed){this.dataset.wmImgHealed='1';this.src='/api/media/safe-img?u='+encodeURIComponent(this.src)+'&tpl=${escapeHtmlSafe(encodeURIComponent(family.id || family.slug || ''))}';}else{this.style.display='none';}" />`
+        : `<div style="width:44px;height:44px;border-radius:12px;background:#f3e8ff;border:1px solid #e9d5ff;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">${escapeHtmlSafe(v.icon || '✨')}</div>`;
 
       const descHtml = v.description
-        ? `<span style="display:block;font-size:0.74rem;color:#94a3b8;margin-top:2px;line-height:1.35;">${escapeHtmlSafe(v.description)}</span>`
-        : `<span style="display:block;font-size:0.73rem;color:#94a3b8;margin-top:2px;">Open ${escapeHtmlSafe(v.relationshipLabel)} edition</span>`;
+        ? `<span style="display:block;font-size:0.74rem;color:#64748b;margin-top:2px;line-height:1.35;">${escapeHtmlSafe(v.description)}</span>`
+        : `<span style="display:block;font-size:0.73rem;color:#64748b;margin-top:2px;">Open ${escapeHtmlSafe(v.relationshipLabel)} version</span>`;
 
       const previewHref = buildActionDestinationUrl(family, "preview", v);
       const useDirectNewTabLink = !isCustomize && typeof context.onSelectVariant !== "function";
@@ -521,18 +521,18 @@ window.WishMagicCore = {
              data-variant-id="${escapeHtmlSafe(v.id)}"
              data-relation-slug="${escapeHtmlSafe(v.relationshipSlug)}"
              data-option-index="${idx}"
-             style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#f8fafc;text-align:left;cursor:pointer;transition:all 0.16s ease;text-decoration:none;">
+             style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;text-align:left;cursor:pointer;transition:all 0.16s ease;text-decoration:none;">
             <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
               ${thumbHtml}
               <div style="min-width:0;flex:1;">
-                <div style="font-size:0.95rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <div style="font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                   <span>${escapeHtmlSafe(v.relationshipLabel)}</span>
-                  ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:rgba(236,72,153,0.18);color:#f472b6;border:1px solid rgba(236,72,153,0.35);font-weight:700;">Default</span>' : ''}
+                  ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;font-weight:700;">Default</span>' : ''}
                 </div>
                 ${descHtml}
               </div>
             </div>
-            <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;font-size:0.75rem;font-weight:700;flex-shrink:0;">
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:linear-gradient(135deg,#ec4899,#7c3aed);color:#fff;font-size:0.75rem;font-weight:700;flex-shrink:0;">
               Preview ↗
             </span>
           </a>
@@ -545,18 +545,18 @@ window.WishMagicCore = {
                 data-variant-id="${escapeHtmlSafe(v.id)}"
                 data-relation-slug="${escapeHtmlSafe(v.relationshipSlug)}"
                 data-option-index="${idx}"
-                style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#f8fafc;text-align:left;cursor:pointer;transition:all 0.16s ease;">
+                style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;text-align:left;cursor:pointer;transition:all 0.16s ease;">
           <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
             ${thumbHtml}
             <div style="min-width:0;flex:1;">
-              <div style="font-size:0.95rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <div style="font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                 <span>${escapeHtmlSafe(v.relationshipLabel)}</span>
-                ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:rgba(236,72,153,0.18);color:#f472b6;border:1px solid rgba(236,72,153,0.35);font-weight:700;">Default</span>' : ''}
+                ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;font-weight:700;">Default</span>' : ''}
               </div>
               ${descHtml}
             </div>
           </div>
-          <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;font-size:0.75rem;font-weight:700;flex-shrink:0;">
+          <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:linear-gradient(135deg,#ec4899,#7c3aed);color:#fff;font-size:0.75rem;font-weight:700;flex-shrink:0;">
             ${isCustomize ? 'Customize →' : 'Preview →'}
           </span>
         </button>
@@ -564,16 +564,16 @@ window.WishMagicCore = {
     }).join('');
 
     overlay.innerHTML = `
-      <div class="wm-relation-modal-card" style="width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;background:#130f26;border:1px solid rgba(255,255,255,0.14);border-radius:22px;padding:20px;color:#f8fafc;box-shadow:0 28px 70px rgba(0,0,0,0.72);font-family:'Plus Jakarta Sans',sans-serif;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <div class="wm-relation-modal-card" style="width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;background:#ffffff;border:1px solid #e2e8f0;border-radius:22px;padding:20px;color:#0f172a;box-shadow:0 20px 50px rgba(15,23,42,0.16);font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;">
           <div>
-            <span style="display:inline-block;font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;padding:3px 10px;border-radius:999px;background:rgba(236,72,153,0.15);color:#f472b6;border:1px solid rgba(236,72,153,0.35);margin-bottom:6px;">${actionBadgeText}</span>
-            <h3 id="wm-rel-modal-title" style="margin:0;font-size:1.15rem;font-weight:800;color:#fff;">${actionTitle}</h3>
+            <span style="display:inline-block;font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;padding:3px 10px;border-radius:999px;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;margin-bottom:6px;">${actionBadgeText}</span>
+            <h3 id="wm-rel-modal-title" style="margin:0;font-size:1.15rem;font-weight:800;color:#0f172a;">${actionTitle}</h3>
           </div>
-          <button type="button" id="wm-rel-modal-close" aria-label="Close relation selector" style="width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#cbd5e1;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+          <button type="button" id="wm-rel-modal-close" aria-label="Close relation selector" style="width:34px;height:34px;border-radius:50%;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
         </div>
-        <p style="margin:0 0 14px;font-size:0.82rem;color:#94a3b8;line-height:1.45;">${actionSubtitle}</p>
-        <div class="wm-relation-options-list" style="display:flex;flex-direction:column;gap:9px;overflow-y:auto;padding-right:4px;max-height:56vh;">
+        <p style="margin:0 0 14px;font-size:0.84rem;color:#475569;line-height:1.45;">${actionSubtitle}</p>
+        <div class="wm-relation-options-list" style="display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding-right:4px;max-height:56vh;">
           ${cardsHtml}
         </div>
       </div>
@@ -606,12 +606,12 @@ window.WishMagicCore = {
     const optionBtns = overlay.querySelectorAll('.wm-relation-option-btn');
     optionBtns.forEach((btn) => {
       btn.addEventListener('mouseenter', () => {
-        btn.style.background = 'rgba(236,72,153,0.12)';
-        btn.style.borderColor = 'rgba(236,72,153,0.45)';
+        btn.style.background = '#faf5ff';
+        btn.style.borderColor = '#c084fc';
       });
       btn.addEventListener('mouseleave', () => {
-        btn.style.background = 'rgba(255,255,255,0.04)';
-        btn.style.borderColor = 'rgba(255,255,255,0.1)';
+        btn.style.background = '#f8fafc';
+        btn.style.borderColor = '#e2e8f0';
       });
       btn.addEventListener('click', () => {
         const varId = btn.getAttribute('data-variant-id');

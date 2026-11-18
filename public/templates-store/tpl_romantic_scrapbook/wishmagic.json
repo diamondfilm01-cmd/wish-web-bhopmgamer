@@ -10,11 +10,53 @@
   "capabilities": {
     "photos": true,
     "video": false,
-    "music": true,
-    "voice": true,
-    "countdown": false,
-    "themes": true,
-    "animations": true,
-    "particles": true
-  }
+    "music": false,
+    "voice": false,
+    "countdown": true,
+    "themes": false,
+    "animations": false,
+    "particles": false
+  },
+  "fields": [
+    {
+      "id": "recipient_name",
+      "key": "recipient_name",
+      "label": "Recipient Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g. Ananya"
+    },
+    {
+      "id": "event_date",
+      "key": "event_date",
+      "label": "Special Date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "sender_name",
+      "key": "sender_name",
+      "label": "From (Your Name)",
+      "type": "text",
+      "required": false,
+      "placeholder": "e.g. Kabir"
+    },
+    {
+      "id": "custom_message",
+      "key": "custom_message",
+      "label": "Love Letter Message",
+      "type": "textarea",
+      "required": false,
+      "defaultValue": "Every moment with you feels like a page from my favorite fairytale."
+    },
+    {
+      "id": "photo_1",
+      "key": "photo_1",
+      "label": "Scrapbook Memory Photo",
+      "type": "image",
+      "required": false,
+      "defaultValue": "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80"
+    }
+  ],
+  "sections": []
 }

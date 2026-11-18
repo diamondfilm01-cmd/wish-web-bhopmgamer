@@ -1,5 +1,5 @@
 const sharedTailwindConfig = {
-  darkMode: 'class',
+  darkMode: ['selector', '[data-never-dark-mode]'],
   theme: {
     extend: {
       fontFamily: {
@@ -12,38 +12,40 @@ const sharedTailwindConfig = {
         magic: {
           50: '#faf5ff', 100: '#f3e8ff', 200: '#e9d5ff', 300: '#d8b4fe',
           400: '#c084fc', 500: '#a855f7', 600: '#9333ea', 700: '#7e22ce',
-          800: '#6b21a8', 900: '#581c87', deep: '#1D0B36', midnight: '#140628', royal: '#2E0854'
+          800: '#6b21a8', 900: '#581c87', deep: '#0f172a', midnight: '#0f172a', royal: '#1e293b'
         },
         accent: {
           pink: '#ec4899', hotpink: '#ff1493', glow: '#ff0080',
           gold: '#F4C542', amber: '#f59e0b', emerald: '#16A34A'
         },
-        background: 'rgb(var(--c-background, 246 240 255) / <alpha-value>)',
+        background: 'rgb(var(--c-background, 248 250 252) / <alpha-value>)',
         surface: 'rgb(var(--c-surface, 255 255 255) / <alpha-value>)',
-        'surface-variant': 'rgb(var(--c-surface-variant, 245 240 253) / <alpha-value>)',
+        'surface-dim': 'rgb(var(--c-surface-dim, 241 245 249) / <alpha-value>)',
+        'surface-variant': 'rgb(var(--c-surface-variant, 241 245 249) / <alpha-value>)',
         'surface-bright': 'rgb(var(--c-surface-bright, 255 255 255) / <alpha-value>)',
         'surface-container-lowest': 'rgb(var(--c-surface-container-lowest, 255 255 255) / <alpha-value>)',
-        'surface-container-low': 'rgb(var(--c-surface-container-low, 250 247 255) / <alpha-value>)',
+        'surface-container-low': 'rgb(var(--c-surface-container-low, 248 250 252) / <alpha-value>)',
         'surface-container': 'rgb(var(--c-surface-container, 255 255 255) / <alpha-value>)',
-        'surface-container-high': 'rgb(var(--c-surface-container-high, 243 237 253) / <alpha-value>)',
-        'surface-container-highest': 'rgb(var(--c-surface-container-highest, 233 224 250) / <alpha-value>)',
-        'on-surface': 'rgb(var(--c-on-surface, 26 15 48) / <alpha-value>)',
-        'on-surface-variant': 'rgb(var(--c-on-surface-variant, 83 63 120) / <alpha-value>)',
-        outline: 'rgb(var(--c-outline, 110 93 143) / <alpha-value>)',
-        'outline-variant': 'rgb(var(--c-outline-variant, 214 200 242) / <alpha-value>)',
+        'surface-container-high': 'rgb(var(--c-surface-container-high, 241 245 249) / <alpha-value>)',
+        'surface-container-highest': 'rgb(var(--c-surface-container-highest, 226 232 240) / <alpha-value>)',
+        'on-surface': 'rgb(var(--c-on-surface, 15 23 42) / <alpha-value>)',
+        'on-surface-variant': 'rgb(var(--c-on-surface-variant, 71 85 105) / <alpha-value>)',
+        outline: 'rgb(var(--c-outline, 100 116 139) / <alpha-value>)',
+        'outline-variant': 'rgb(var(--c-outline-variant, 226 232 240) / <alpha-value>)',
         primary: '#7c3aed',
-        'primary-fixed': '#c084fc',
+        'primary-fixed': '#6d28d9',
         'primary-container': '#7c3aed',
         'on-primary': '#ffffff',
         'on-primary-container': '#ffffff',
-        secondary: '#ec4899',
+        secondary: '#db2777',
+        'secondary-fixed': '#be185d',
         'secondary-container': '#db2777',
         'on-secondary': '#ffffff',
-        'on-secondary-container': '#fce7f3',
-        tertiary: '#10b981',
-        'tertiary-fixed': '#34d399',
+        'on-secondary-container': '#ffffff',
+        tertiary: '#059669',
+        'tertiary-fixed': '#047857',
         'tertiary-container': '#059669',
-        'on-tertiary-container': '#d1fae5',
+        'on-tertiary-container': '#ffffff',
         error: '#ef4444',
         'error-container': '#dc2626',
         'on-error': '#ffffff',
@@ -92,7 +94,11 @@ const sharedTailwindConfig = {
   }
 };
 
-// Ensure tailwind.config is always set whether tailwind-config.js loads before or after cdn.tailwindcss.com
+if (typeof document !== 'undefined' && document.documentElement) {
+  document.documentElement.classList.remove('dark');
+  document.documentElement.setAttribute('data-theme', 'light');
+}
+
 if (typeof window !== 'undefined') {
   window.sharedTailwindConfig = sharedTailwindConfig;
   window.tailwind = window.tailwind || {};

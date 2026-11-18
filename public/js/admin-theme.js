@@ -899,27 +899,27 @@ window.AdminAuthController = AdminAuthController;
       if (!authOverlay) {
         authOverlay = document.createElement('div');
         authOverlay.id = 'admin-pwa-signin-screen';
-        authOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#111714;color:#eff5f1;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Plus Jakarta Sans",sans-serif;overflow-y:auto;';
+        authOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#f5f8f6;color:#111c16;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Plus Jakarta Sans",sans-serif;overflow-y:auto;';
         authOverlay.innerHTML = `
-          <div style="width:100%;max-width:410px;background:#1a231e;border:1px solid #26342c;border-radius:24px;padding:28px 24px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.55);">
-            <div style="width:54px;height:54px;border-radius:999px;background:#38c976;color:#0b1911;display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin-bottom:12px;">W</div>
-            <h2 style="font-size:20px;font-weight:800;margin:0 0 6px 0;color:#eff5f1;">WishMagic Admin Studio</h2>
-            <p style="font-size:12.5px;line-height:1.5;color:#96aba0;margin:0 0 18px 0;">Sign in to sync live Cloudflare D1 data, wishes, templates, and media in real time.</p>
-            <button type="button" id="wm-pwa-google-signin-btn" style="width:100%;min-height:46px;border-radius:999px;background:#38c976;color:#0b1911;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <div style="width:100%;max-width:410px;background:#ffffff;border:1px solid #e3ebe6;border-radius:24px;padding:28px 24px;text-align:center;box-shadow:0 16px 40px rgba(17,28,22,0.08);">
+            <div style="width:54px;height:54px;border-radius:999px;background:#1e7f4e;color:#ffffff;display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin-bottom:12px;">W</div>
+            <h2 style="font-size:20px;font-weight:800;margin:0 0 6px 0;color:#111c16;">WishMagic Admin Studio</h2>
+            <p style="font-size:12.5px;line-height:1.5;color:#526358;margin:0 0 18px 0;">Sign in to sync live Cloudflare D1 data, wishes, templates, and media in real time.</p>
+            <button type="button" id="wm-pwa-google-signin-btn" style="width:100%;min-height:46px;border-radius:999px;background:#1e7f4e;color:#ffffff;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
               <span>Sign In with Owner Google Account</span>
             </button>
             <div style="display:flex;align-items:center;gap:10px;margin:12px 0;">
-              <div style="flex:1;height:1px;background:#26342c;"></div>
-              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6c8276;">Or Admin Credentials</span>
-              <div style="flex:1;height:1px;background:#26342c;"></div>
+              <div style="flex:1;height:1px;background:#e3ebe6;"></div>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#788a7f;">Or Admin Credentials</span>
+              <div style="flex:1;height:1px;background:#e3ebe6;"></div>
             </div>
             <form id="wm-pwa-cred-form" style="display:flex;flex-direction:column;gap:10px;text-align:left;margin-bottom:14px;">
-              <input type="text" id="wm-pwa-cred-user" placeholder="Admin Username (anktech.ankit.babusaini)" autocomplete="username" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #2b3b32;background:#111714;color:#eff5f1;font-size:13px;outline:none;" />
-              <input type="password" id="wm-pwa-cred-pass" placeholder="Admin Password" autocomplete="current-password" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #2b3b32;background:#111714;color:#eff5f1;font-size:13px;outline:none;" />
-              <button type="submit" id="wm-pwa-cred-submit" style="width:100%;min-height:42px;border-radius:12px;background:#24332b;color:#eff5f1;border:1px solid #33483d;font-size:13px;font-weight:800;cursor:pointer;">Connect &amp; Sync Live Studio</button>
+              <input type="text" id="wm-pwa-cred-user" placeholder="Admin Username (anktech.ankit.babusaini)" autocomplete="username" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #d5e0d9;background:#f7faf8;color:#111c16;font-size:13px;outline:none;" />
+              <input type="password" id="wm-pwa-cred-pass" placeholder="Admin Password" autocomplete="current-password" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #d5e0d9;background:#f7faf8;color:#111c16;font-size:13px;outline:none;" />
+              <button type="submit" id="wm-pwa-cred-submit" style="width:100%;min-height:42px;border-radius:12px;background:#141e18;color:#ffffff;border:1px solid #141e18;font-size:13px;font-weight:800;cursor:pointer;">Connect &amp; Sync Live Studio</button>
             </form>
-            <a href="/" style="display:inline-block;font-size:12px;font-weight:700;color:#96aba0;text-decoration:none;">← Open Public Storefront</a>
-            <div id="wm-pwa-signin-error" style="margin-top:12px;font-size:12px;color:#fb7185;display:none;"></div>
+            <a href="/" style="display:inline-block;font-size:12px;font-weight:700;color:#526358;text-decoration:none;">← Open Public Storefront</a>
+            <div id="wm-pwa-signin-error" style="margin-top:12px;font-size:12px;color:#e11d48;display:none;"></div>
           </div>
         `;
         document.body.appendChild(authOverlay);
@@ -1359,22 +1359,12 @@ const ADMIN_COMMAND_DESTINATIONS = [
   { title: 'Add & Upload Template', sub: 'Upload ZIP/folder & Smart Recognition Studio', href: `${SECRET_ADMIN_PREFIX}/add-template`, icon: 'upload_file', keywords: 'add upload template zip studio import', perm: 'MANAGE_TEMPLATES' },
   { title: 'Festival Scheduler', sub: 'Annual festival calendar, date overrides, campaigns & template windows', href: `${SECRET_ADMIN_PREFIX}/festivals`, icon: 'event_available', keywords: 'festival scheduler calendar campaigns diwali holi overrides publication window utp 1.4.0', perm: 'MANAGE_TEMPLATES' },
   { title: 'Occasions & Categories', sub: 'Categories, ordering & popular tags', href: `${SECRET_ADMIN_PREFIX}/occasions`, icon: 'category', keywords: 'occasions categories tags birthday anniversary', perm: 'MANAGE_CATEGORIES' },
-  { title: 'All Wishes Management', sub: 'Inspect, moderate, extend expiry & transfer wishes', href: `${SECRET_ADMIN_PREFIX}/wishes`, icon: 'celebration', keywords: 'wishes links expiring published drafts', perm: 'MANAGE_WISHES' },
-  { title: 'User Uploads & Creations', sub: 'Customer photos, voice notes & wish gallery', href: `${SECRET_ADMIN_PREFIX}/user-creations`, icon: 'perm_media', keywords: 'user creations uploads photos voice gallery', perm: 'MANAGE_WISHES' },
-  { title: 'Users & Account Lifecycle', sub: 'User directory, VIP status, sessions & security', href: `${SECRET_ADMIN_PREFIX}/users`, icon: 'group', keywords: 'users accounts vip suspend ban sessions', perm: 'MANAGE_USERS' },
+  { title: 'All Wishes Management', sub: 'Inspect, extend expiry & manage wishes', href: `${SECRET_ADMIN_PREFIX}/wishes`, icon: 'celebration', keywords: 'wishes links expiring published drafts', perm: 'MANAGE_WISHES' },
+  { title: 'Users & Account Lifecycle', sub: 'User directory, VIP status & accounts', href: `${SECRET_ADMIN_PREFIX}/users`, icon: 'group', keywords: 'users accounts vip suspend ban', perm: 'MANAGE_USERS' },
   { title: 'Orders & Commerce', sub: 'Payments, refunds, comp passes & reconciliation', href: `${SECRET_ADMIN_PREFIX}/orders`, icon: 'receipt_long', keywords: 'orders payments razorpay refunds vip pass commerce', perm: 'MANAGE_SETTINGS' },
   { title: 'Media, Music & Hero Banner', sub: 'ImgBB/B2 assets, background tracks & hero banner', href: `${SECRET_ADMIN_PREFIX}/media`, icon: 'library_music', keywords: 'media music audio hero banner imgbb b2 upload', perm: 'MANAGE_TEMPLATES' },
   { title: 'Pricing, Plans & Coupons', sub: 'Monetization tiers, link pricing & promo codes', href: `${SECRET_ADMIN_PREFIX}/pricing`, icon: 'sell', keywords: 'pricing plans coupons discounts monetization vip', perm: 'MANAGE_SETTINGS' },
-  { title: 'Referral Program & Fraud', sub: 'Attributions, credit ledger & fraud logs', href: `${SECRET_ADMIN_PREFIX}/referrals`, icon: 'redeem', keywords: 'referrals rewards credits ledger fraud', perm: 'MANAGE_USERS' },
-  { title: 'Content Moderation Queue', sub: 'Flagged wishes, safety scanner & appeals', href: `${SECRET_ADMIN_PREFIX}/moderation`, icon: 'shield', keywords: 'moderation queue flagged reports appeals safety', perm: 'MODERATE_CONTENT' },
-  { title: 'Customer Support & Diagnostics', sub: 'Tickets, universal lookup & wish link auto-repair', href: `${SECRET_ADMIN_PREFIX}/support`, icon: 'support_agent', keywords: 'support tickets help lookup diagnose repair', perm: 'SUPPORT_CONSOLE' },
-  { title: 'Search & Synonym Diagnostics', sub: 'Top queries, zero-result analytics & synonyms', href: `${SECRET_ADMIN_PREFIX}/search`, icon: 'manage_search', keywords: 'search synonyms reindex discovery queries', perm: 'MANAGE_TEMPLATES' },
-  { title: 'Cloud Storage Health & Orphans', sub: 'B2/ImgBB verification, orphans & quarantine', href: `${SECRET_ADMIN_PREFIX}/storage-health`, icon: 'cloud_done', keywords: 'storage health orphans quarantine backups b2 imgbb', perm: 'SYSTEM_ADMIN' },
-  { title: 'Notification Delivery Queue', sub: 'Email/push jobs, retries & event reminders', href: `${SECRET_ADMIN_PREFIX}/notifications`, icon: 'notifications_active', keywords: 'notifications delivery queue reminders jobs retry', perm: 'SYSTEM_ADMIN' },
-  { title: 'Platform Announcements', sub: 'Broadcast banners & maintenance notices', href: `${SECRET_ADMIN_PREFIX}/announcements`, icon: 'campaign', keywords: 'announcements broadcast banner notice', perm: 'MANAGE_SETTINGS' },
-  { title: 'Staff & Access Control (RBAC)', sub: 'Team roles, permissions & 2FA sessions', href: `${SECRET_ADMIN_PREFIX}/staff`, icon: 'badge', keywords: 'staff roles permissions rbac team', perm: 'MANAGE_STAFF' },
-  { title: 'Legal & Compliance Center', sub: 'Terms, Privacy Policy versions & acceptances', href: `${SECRET_ADMIN_PREFIX}/legal`, icon: 'gavel', keywords: 'legal compliance terms privacy refund cookies', perm: 'MANAGE_SETTINGS' },
-  { title: 'Administrative Audit Trail', sub: 'Immutable security & operation logs', href: `${SECRET_ADMIN_PREFIX}/audit-logs`, icon: 'history_edu', keywords: 'audit logs security history export', perm: 'VIEW_AUDIT_LOGS' },
+  { title: 'Referral Program & Credits', sub: 'Attributions & free custom link rewards', href: `${SECRET_ADMIN_PREFIX}/referrals`, icon: 'redeem', keywords: 'referrals rewards credits ledger', perm: 'MANAGE_USERS' },
   { title: 'Site Settings & Central Links', sub: 'Brand CMS, maintenance & UTP v1.3.0 Link Manager', href: `${SECRET_ADMIN_PREFIX}/settings`, icon: 'settings', keywords: 'settings cms domain central links maintenance', perm: 'MANAGE_SETTINGS' }
 ];
 
@@ -1911,34 +1901,26 @@ function getVessaCenterTabsForPath(pathname) {
       { label: 'Overview', href: `${SECRET_ADMIN_PREFIX}/overview`, match: ['overview'] },
       { label: 'Sales', href: `${SECRET_ADMIN_PREFIX}/orders`, match: ['orders'] },
       { label: 'Reports', href: `${SECRET_ADMIN_PREFIX}/analytics`, match: ['analytics'] },
-      { label: 'VIP Plans', href: `${SECRET_ADMIN_PREFIX}/pricing`, match: ['pricing'] },
-      { label: 'Stock health', href: `${SECRET_ADMIN_PREFIX}/storage-health`, match: ['storage-health'] }
+      { label: 'VIP Plans', href: `${SECRET_ADMIN_PREFIX}/pricing`, match: ['pricing'] }
     ];
   }
-  if (p.includes('wish') || p.includes('creation') || p.includes('user') || p.includes('moderation')) {
+  if (p.includes('wish') || p.includes('user')) {
     return [
       { label: 'All Wishes', href: `${SECRET_ADMIN_PREFIX}/wishes`, match: ['wishes'] },
-      { label: 'User Creations', href: `${SECRET_ADMIN_PREFIX}/user-creations`, match: ['user-creations'] },
-      { label: 'Users', href: `${SECRET_ADMIN_PREFIX}/users`, match: ['users'] },
-      { label: 'Moderation', href: `${SECRET_ADMIN_PREFIX}/moderation`, match: ['moderation'] }
+      { label: 'Users', href: `${SECRET_ADMIN_PREFIX}/users`, match: ['users'] }
     ];
   }
-  if (p.includes('setting') || p.includes('staff') || p.includes('legal') || p.includes('announcement') || p.includes('support') || p.includes('search')) {
+  if (p.includes('setting')) {
     return [
-      { label: 'Storefront CMS', href: `${SECRET_ADMIN_PREFIX}/settings`, match: ['settings'] },
-      { label: 'Search', href: `${SECRET_ADMIN_PREFIX}/search`, match: ['search'] },
-      { label: 'Announcements', href: `${SECRET_ADMIN_PREFIX}/announcements`, match: ['announcements'] },
-      { label: 'Staff & RBAC', href: `${SECRET_ADMIN_PREFIX}/staff`, match: ['staff'] },
-      { label: 'Support', href: `${SECRET_ADMIN_PREFIX}/support`, match: ['support'] }
+      { label: 'Storefront CMS', href: `${SECRET_ADMIN_PREFIX}/settings`, match: ['settings'] }
     ];
   }
-  // Default Overview / Activity / Alerts / Stock health (Matches Video Top Center Pill 1:1)
   return [
     { label: 'Overview', href: `${SECRET_ADMIN_PREFIX}/overview`, match: ['overview', 'admin.html'] },
-    { label: 'Activity', href: `${SECRET_ADMIN_PREFIX}/audit-logs`, match: ['audit-logs'] },
-    { label: 'Alerts', href: `${SECRET_ADMIN_PREFIX}/notifications`, match: ['notifications'] },
+    { label: 'Catalog', href: `${SECRET_ADMIN_PREFIX}/templates`, match: ['templates'] },
     { label: 'Sales', href: `${SECRET_ADMIN_PREFIX}/orders`, match: ['orders'] },
-    { label: 'Stock health', href: `${SECRET_ADMIN_PREFIX}/storage-health`, match: ['storage-health'] }
+    { label: 'Wishes', href: `${SECRET_ADMIN_PREFIX}/wishes`, match: ['wishes'] },
+    { label: 'Settings', href: `${SECRET_ADMIN_PREFIX}/settings`, match: ['settings'] }
   ];
 }
 
@@ -2013,15 +1995,6 @@ function mountVessaAdminShell() {
     settingsLink.title = 'Storefront CMS & Settings';
     settingsLink.innerHTML = `<span class="material-symbols-outlined text-[18px]">settings</span>`;
     rightDiv.appendChild(settingsLink);
-
-    // Mobile Quick Theme Wipe Button (1-Tap Sun/Moon in Top Header on <768px)
-    const mobileThemeBtn = document.createElement('button');
-    mobileThemeBtn.type = 'button';
-    mobileThemeBtn.className = 'vessa-icon-circle-btn md:hidden';
-    mobileThemeBtn.title = 'Switch Light / Dark Theme';
-    mobileThemeBtn.setAttribute('onclick', 'toggleAdminTheme(event)');
-    mobileThemeBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]" id="vessa-mobile-top-theme-icon">${document.documentElement.classList.contains('dark') ? 'light_mode' : 'dark_mode'}</span>`;
-    rightDiv.appendChild(mobileThemeBtn);
 
     // Notification Bell wrapper
     const notifWrap = document.createElement('div');
@@ -2142,22 +2115,25 @@ function mountVessaAdminShell() {
         wrapperDiv.remove();
       }
 
-      // Hide legacy "More Studio Sections" button and replace with clean section label
+      // Hide legacy "More Studio Sections" button and unused enterprise governance group
       const moreBtn = existingNav.querySelector('button[onclick*="toggleMoreSidebarSections"]');
       if (moreBtn) {
-        const govLabel = document.createElement('div');
-        govLabel.className = 'wm-nav-section-label';
-        govLabel.textContent = 'STUDIO & GOVERNANCE';
-        existingNav.insertBefore(govLabel, moreBtn);
         moreBtn.style.display = 'none';
       }
 
-      // Normalize #wm-sidebar-more-group so its 9 links sit flush inside <nav>
       const moreGroup = existingNav.querySelector('#wm-sidebar-more-group');
       if (moreGroup) {
-        moreGroup.className = 'vessa-more-group';
-        moreGroup.removeAttribute('style');
+        moreGroup.style.display = 'none';
       }
+
+      // Hide any standalone links to unused enterprise pages
+      const unusedPaths = ['/user-creations', '/search', '/moderation', '/staff', '/support', '/announcements', '/audit-logs', '/legal', '/storage-health', '/notifications'];
+      existingNav.querySelectorAll('a[href]').forEach((link) => {
+        const href = String(link.getAttribute('href') || '').toLowerCase();
+        if (unusedPaths.some((p) => href.includes(p))) {
+          link.style.display = 'none';
+        }
+      });
     }
 
     // Drawer Header (Visible on Mobile <768px and Desktop Expanded Mode)
@@ -2178,20 +2154,6 @@ function mountVessaAdminShell() {
       </button>
       <button type="button" class="vessa-icon-circle-btn !w-8 !h-8 hidden md:inline-flex" onclick="window.toggleDesktopSidebarRail()" title="Collapse Sidebar" aria-label="Collapse Sidebar">
         <span class="material-symbols-outlined text-[18px]">keyboard_double_arrow_left</span>
-      </button>
-    `;
-
-    // Sun / Moon Theme Wipe Capsule (Vertical in 72px rail, Horizontal labeled switcher in Mobile Drawer & Expanded Sidebar)
-    const capsule = document.createElement('div');
-    capsule.className = 'vessa-theme-capsule';
-    capsule.innerHTML = `
-      <button type="button" class="vessa-theme-circle-btn" data-theme-target="light" onclick="window.setTheme('light', this)" title="Light Mode (Circular Wipe)" aria-label="Switch to Light Mode">
-        <span class="material-symbols-outlined text-[17px]">light_mode</span>
-        <span class="vessa-theme-btn-label">Light</span>
-      </button>
-      <button type="button" class="vessa-theme-circle-btn" data-theme-target="dark" onclick="window.setTheme('dark', this)" title="Dark Mode (Circular Wipe)" aria-label="Switch to Dark Mode">
-        <span class="material-symbols-outlined text-[16px]">dark_mode</span>
-        <span class="vessa-theme-btn-label">Dark</span>
       </button>
     `;
 
@@ -2232,7 +2194,6 @@ function mountVessaAdminShell() {
     // Replace inner sidebar DOM cleanly
     sidebar.innerHTML = '';
     sidebar.appendChild(mobileDrawerHeader);
-    sidebar.appendChild(capsule);
     sidebar.appendChild(scroller);
     sidebar.appendChild(expandBtn);
 
@@ -2314,70 +2275,18 @@ if (document.readyState === 'loading') {
   initAdminNavigationAndNotifications();
 }
 
-function updateThemeIcons(isDark) {
-  document.querySelectorAll('.wm-theme-pill-btn').forEach(btn => {
-    btn.setAttribute('data-theme-mode', isDark ? 'dark' : 'light');
-    btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
+function updateThemeIcons() {
+  document.querySelectorAll('.wm-theme-pill-btn, .vessa-theme-capsule, #clay-theme-toggle-btn, #theme-toggle-btn, button[onclick*="toggleAdminTheme"], button[onclick*="toggleSiteTheme"], button[onclick*="toggleTheme"]').forEach(btn => {
+    btn.remove();
   });
-  document.querySelectorAll('.vessa-theme-circle-btn').forEach(btn => {
-    const target = btn.getAttribute('data-theme-target');
-    const active = (target === 'dark' && isDark) || (target === 'light' && !isDark);
-    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-  });
-  const mobIcon = document.getElementById('vessa-mobile-top-theme-icon');
-  if (mobIcon) {
-    mobIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
-  }
 }
 
-// Exact Circular View-Transition Theme Wipe from Video (src > ui.ts > wipe)
-function wipe(origin, change) {
-  const r = origin && typeof origin.getBoundingClientRect === 'function'
-    ? origin.getBoundingClientRect()
-    : null;
-  const x = r ? r.left + r.width / 2 : window.innerWidth / 2;
-  const y = r ? r.top + r.height / 2 : window.innerHeight / 2;
-  const end = Math.hypot(
-    Math.max(x, window.innerWidth - x),
-    Math.max(y, window.innerHeight - y)
-  );
-  if (typeof document.startViewTransition !== 'function') {
-    change();
-    return;
-  }
+function applyThemePreference() {
+  document.documentElement.classList.remove('dark');
+  if (document.body) document.body.classList.remove('dark');
   try {
-    const transition = document.startViewTransition(change);
-    transition.ready.then(() => {
-      document.documentElement.animate(
-        {
-          clipPath: [
-            `circle(0px at ${x}px ${y}px)`,
-            `circle(${end}px at ${x}px ${y}px)`
-          ]
-        },
-        {
-          duration: 560,
-          easing: 'cubic-bezier(.65,0,.35,1)',
-          pseudoElement: '::view-transition-new(root)'
-        }
-      );
-    }).catch(() => {});
-  } catch (_) {
-    change();
-  }
-}
-window.wipe = wipe;
-
-function applyThemePreference(pref) {
-  const isDark = pref === 'dark';
-  if (isDark) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
-  localStorage.setItem('wishmagic_admin_theme_v2', isDark ? 'dark' : 'light');
-  localStorage.setItem('wishmagic_admin_theme', isDark ? 'dark' : 'light');
-  try {
+    localStorage.setItem('wishmagic_admin_theme_v2', 'light');
+    localStorage.setItem('wishmagic_admin_theme', 'light');
     let metaTheme = document.querySelector('meta[name="theme-color"]');
     if (!metaTheme && document.head) {
       metaTheme = document.createElement('meta');
@@ -2385,46 +2294,32 @@ function applyThemePreference(pref) {
       document.head.appendChild(metaTheme);
     }
     if (metaTheme) {
-      metaTheme.setAttribute('content', isDark ? '#111714' : '#1e7f4e');
+      metaTheme.setAttribute('content', '#1e7f4e');
     }
   } catch (_) {}
-  updateThemeIcons(isDark);
+  updateThemeIcons();
 }
 
-function setTheme(pref, origin) {
-  const targetDark = pref === 'dark';
-  const isCurrentlyDark = document.documentElement.classList.contains('dark');
-  if (targetDark === isCurrentlyDark) return;
-  const originEl = origin || document.querySelector(`.vessa-theme-circle-btn[data-theme-target="${pref}"]`);
-  wipe(originEl, () => {
-    applyThemePreference(pref);
-  });
+function setTheme() {
+  applyThemePreference('light');
 }
 window.setTheme = setTheme;
 
 (function initTheme() {
-  const savedTheme = localStorage.getItem('wishmagic_admin_theme_v2') || 'light';
-  const isDark = savedTheme === 'dark';
-  if (isDark) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
-
+  document.documentElement.classList.remove('dark');
+  try {
+    localStorage.setItem('wishmagic_admin_theme_v2', 'light');
+    localStorage.setItem('wishmagic_admin_theme', 'light');
+  } catch (_) {}
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => updateThemeIcons(isDark));
+    document.addEventListener('DOMContentLoaded', () => updateThemeIcons());
   } else {
-    updateThemeIcons(isDark);
+    updateThemeIcons();
   }
 })();
 
-function toggleAdminTheme(event) {
-  const isCurrentlyDark = document.documentElement.classList.contains('dark');
-  const nextPref = isCurrentlyDark ? 'light' : 'dark';
-  const originEl = (event && event.currentTarget) ||
-    document.querySelector(`.vessa-theme-circle-btn[data-theme-target="${nextPref}"]`) ||
-    document.querySelector('.wm-theme-pill-btn');
-  setTheme(nextPref, originEl);
+function toggleAdminTheme() {
+  applyThemePreference('light');
 }
 window.toggleAdminTheme = toggleAdminTheme;
 window.toggleTheme = toggleAdminTheme;

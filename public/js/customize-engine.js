@@ -748,6 +748,9 @@ async function loadTemplateData(templateId) {
 
     applyUtpTemplateCapabilityGating(activeTemplate);
     renderDynamicTemplateFields(activeTemplate);
+    if (typeof window.switchStep1SubTab === 'function') {
+      window.switchStep1SubTab('all');
+    }
     populateFormValuesFromState();
     validateDraftEntitlements(currentCustomData);
     updateDevEntitlementUI();
@@ -945,46 +948,78 @@ function applyUtpTemplateCapabilityGating(template) {
           currentCustomData[key] = declared.defaultValue;
         }
       }
-    } else if (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0) {
+    } else if (rawFields.length > 0) {
       if (key === "sender_name") {
         if (wrapper) wrapper.classList.add("hidden");
-      } else if (key === "custom_message" && rawFields.some(f => f.type === "textarea")) {
+      } else if (key === "custom_message" && !fieldByKey.has("main_message") && !fieldByKey.has("defaultWish")) {
         if (wrapper) wrapper.classList.add("hidden");
       }
     }
   });
 
+  // 1b. Gate Contact, Occasion, and Relationship inputs strictly to template fields/variants
+  const contactInput = document.getElementById("input-contact");
+  const contactWrap = document.getElementById("wrapper-input-contact") || (contactInput ? contactInput.closest("div") : null);
+  if (contactWrap) {
+    if (fieldByKey.has("sender_contact")) contactWrap.classList.remove("hidden");
+    else contactWrap.classList.add("hidden");
+  }
+
+  const occasionInput = document.getElementById("input-occasion");
+  const occasionWrap = document.getElementById("wrapper-input-occasion") || (occasionInput ? occasionInput.closest("div") : null);
+  if (occasionWrap) {
+    if (fieldByKey.has("occasion")) occasionWrap.classList.remove("hidden");
+    else occasionWrap.classList.add("hidden");
+  }
+
+  const relInput = document.getElementById("input-relationship");
+  const relWrap = document.getElementById("wrapper-input-relationship") || (relInput ? relInput.closest("div") : null);
+  const availVariants = Array.isArray(template.variants)
+    ? template.variants.filter(v => v && v.enabled !== false && v.status !== "disabled" && v.status !== "archived")
+    : [];
+  if (relWrap) {
+    if (availVariants.length > 0 || fieldByKey.has("relationship")) {
+      relWrap.classList.remove("hidden");
+      if (relInput && availVariants.length > 0 && typeof relInput.innerHTML === "string") {
+        const currentRel = currentCustomData.relationship || (template.selectedVariant && (template.selectedVariant.relationshipSlug || template.selectedVariant.relationship)) || "";
+        relInput.innerHTML = availVariants.map(v => {
+          const slug = String(v.relationshipSlug || v.relationship || v.slug || v.id || "").trim();
+          const label = String(v.relationshipLabel || v.name || slug).trim();
+          const sel = slug === currentRel ? " selected" : "";
+          return `<option value="${escapeHtml(slug)}"${sel}>${escapeHtml(label)}</option>`;
+        }).join("");
+        if (currentRel) relInput.value = currentRel;
+      }
+    } else {
+      relWrap.classList.add("hidden");
+    }
+  }
+
   // 2. Gate Photo / Gallery Section
-  const imageFields = rawFields.filter(f => f.type === "image" || f.type === "image-multiple");
-  const supportsMultiGallery = rawFields.some(f => f.type === "image-multiple") || imageFields.length > 1 || hasCap("gallery") || hasCap("multiplePhotos");
+  const imageFields = rawFields.filter(f => f && (f.type === "image" || f.type === "image-multiple" || /^photo_\d+$/i.test(String(f.id || f.key || "")) || String(f.id || f.key || "") === "cover_photo" || String(f.id || f.key || "") === "hero_photo"));
+  const supportsMultiGallery = rawFields.some(f => f && f.type === "image-multiple") || imageFields.length > 1 || hasCap("gallery") || hasCap("multiplePhotos");
   const supportsAnyPhoto = imageFields.length > 0 || hasCap("photos") || supportsMultiGallery;
 
-  const photoDropzone = document.getElementById("photo-dropzone");
-  const photoCard = photoDropzone ? photoDropzone.closest(".glass-surface") : null;
-  const galleryLayoutBox = document.getElementById("gallery-layout-selector")?.parentElement;
+  const photoCard = document.getElementById("step1-card-photos") || (document.getElementById("photo-dropzone") ? document.getElementById("photo-dropzone").closest(".glass-surface") : null);
 
   if (photoCard) {
     if (!supportsAnyPhoto) {
       photoCard.classList.add("hidden");
     } else {
       photoCard.classList.remove("hidden");
-      if (galleryLayoutBox) {
-        if (!supportsMultiGallery) galleryLayoutBox.classList.add("hidden");
-        else galleryLayoutBox.classList.remove("hidden");
-      }
     }
   }
 
-  // 3. Gate Voice Note Section
-  const supportsVoice = rawFields.some(f => f.type === "voice" || f.id === "voice_note" || f.key === "voice_note") || hasCap("voice") || hasCap("voiceNote");
+  // 3. Gate Voice Note Section strictly on whether the template has a voice field
+  const supportsVoice = rawFields.some(f => f && (f.type === "voice" || f.id === "voice_note" || f.key === "voice_note"));
   const voiceWrapper = document.getElementById("voice-note-section-wrapper");
   if (voiceWrapper) {
     if (!supportsVoice) voiceWrapper.classList.add("hidden");
     else voiceWrapper.classList.remove("hidden");
   }
 
-  // 4. Gate Background Music Section
-  const supportsMusic = rawFields.some(f => f.type === "audio" || f.id === "background_music" || f.key === "background_music") || hasCap("music") || hasCap("audio");
+  // 4. Gate Background Music Section strictly on whether the template has an audio/music field
+  const supportsMusic = rawFields.some(f => f && (f.type === "audio" || f.id === "background_music" || f.key === "background_music" || f.id === "music" || f.key === "music"));
   const musicWrapper = document.getElementById("music-section-wrapper");
   if (musicWrapper) {
     if (!supportsMusic) musicWrapper.classList.add("hidden");
@@ -1092,6 +1127,9 @@ function renderDynamicTemplateFields(template) {
     if (!f || f.disabled === true || f.enabled === false) return false;
     const k = (f.id || f.key || '').trim();
     if (!k || STANDARD_BUILTIN_KEYS.has(k) || excludedFieldIdsSet.has(k)) return false;
+    const fType = String(f.type || '').toLowerCase();
+    // Image/photo fields are handled in the Template Photo Slots Manager so they are never duplicated
+    if (fType === 'image' || /^photo_\d+$/i.test(k) || k === 'hero_photo') return false;
     if ((f.sectionId && disabledIdsSet.has(f.sectionId)) || (f.subsectionId && disabledIdsSet.has(f.subsectionId)) || (f.section && disabledIdsSet.has(f.section))) {
       return false;
     }
@@ -1100,157 +1138,44 @@ function renderDynamicTemplateFields(template) {
 
   window._customizerCapabilities = {
     ...(window._customizerCapabilities || {}),
-    hasDynamicFields: dynamicFields.length > 0 || ((currentCustomData.sections || []).length > 0)
+    hasDynamicFields: dynamicFields.length > 0
   };
 
   if (dynamicFields.length === 0) {
     if (countBadge) countBadge.textContent = `${(currentCustomData.sections || []).length} Sections`;
     const navBoxEmpty = document.getElementById('dynamic-fields-section-navigator');
-    const hiddenSecsEmpty = new Set(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []);
-    if (navBoxEmpty && Array.isArray(currentCustomData.sections) && currentCustomData.sections.length > 0) {
-      navBoxEmpty.innerHTML = `
-        <div class="space-y-2">
-          <p class="text-[11px] text-purple-700 dark:text-purple-300 font-medium">Toggle any optional template section ON or OFF below:</p>
-          ${currentCustomData.sections.map(sec => {
-            const isReq = sec.id === 'hero' || sec.required === true || sec.isRequired === true || sec.toggleable === false;
-            const isOff = !isReq && (hiddenSecsEmpty.has(sec.id) || sec.enabled === false);
-            return `
-              <div class="p-2.5 rounded-2xl bg-white/80 dark:bg-purple-950/50 border border-purple-200/70 dark:border-purple-800/50 flex items-center justify-between gap-2 text-xs">
-                <div class="flex items-center gap-2 min-w-0">
-                  <span>${escapeHtml(sec.icon || '✨')}</span>
-                  <span class="font-bold text-purple-950 dark:text-white truncate">${escapeHtml(sec.name || sec.label || sec.id)}</span>
-                </div>
-                ${isReq
-                  ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-200/70 dark:bg-purple-800/60 text-purple-800 dark:text-purple-200">Required</span>'
-                  : `<button type="button" onclick="toggleCustomerSectionQuick('${sec.id}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold transition cursor-pointer ${
-                      isOff
-                        ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40'
-                        : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
-                    }">${isOff ? '🙈 Hidden (Tap to Show)' : '👁️ Visible (Tap to Hide)'}</button>`
-                }
-              </div>
-            `;
-          }).join('')}
-        </div>
-      `;
-    }
+    if (navBoxEmpty) navBoxEmpty.innerHTML = '';
     container.innerHTML = '';
-    if (window._activeStep1SubTab === 'template' || window._activeStep1SubTab === 'all') {
-      card.classList.remove('hidden');
-    } else {
-      card.classList.add('hidden');
+    card.classList.add('hidden');
+    if (typeof renderTemplatePhotoSlotsManager === 'function') {
+      renderTemplatePhotoSlotsManager();
+    }
+    if (typeof window.syncStep1SubTabCapabilitiesUI === 'function') {
+      window.syncStep1SubTabCapabilitiesUI();
+    }
+    if (typeof window.updateCustomizationProgressUI === 'function') {
+      window.updateCustomizationProgressUI();
     }
     return;
   }
 
-  if (window._activeStep1SubTab === 'template' || window._activeStep1SubTab === 'all') {
-    card.classList.remove('hidden');
-  } else {
-    card.classList.add('hidden');
-  }
+  card.classList.remove('hidden');
   if (countBadge) {
     countBadge.textContent = `${dynamicFields.length} Field${dynamicFields.length === 1 ? '' : 's'}`;
   }
   container.innerHTML = '';
 
-  // Build section groups for dynamic fields so the user never has to scroll a giant wall of fields
-  const secLabelMap = new Map();
-  if (Array.isArray(currentCustomData.sections)) {
-    currentCustomData.sections.forEach(s => {
-      if (s && s.id) secLabelMap.set(s.id, s.name || s.label || s.id);
-    });
-  }
-  const sectionGroupsOrder = [];
-  const sectionGroupsMap = new Map();
-  dynamicFields.forEach(field => {
-    const fieldKey = field.id || field.key;
-    field.key = fieldKey;
-    field.id = fieldKey;
-    const secKey = String(field.section || field.sectionId || field.group || 'general').trim() || 'general';
-    if (!sectionGroupsMap.has(secKey)) {
-      const friendlyLabel = secLabelMap.get(secKey) || secKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      sectionGroupsMap.set(secKey, { id: secKey, label: friendlyLabel, fields: [] });
-      sectionGroupsOrder.push(secKey);
-    }
-    sectionGroupsMap.get(secKey).fields.push(field);
-  });
-
-  if (!window._activeDynamicFieldSection || (window._activeDynamicFieldSection !== 'all' && !sectionGroupsMap.has(window._activeDynamicFieldSection))) {
-    window._activeDynamicFieldSection = (dynamicFields.length > 4 && sectionGroupsOrder.length > 1)
-      ? sectionGroupsOrder[0]
-      : 'all';
-  }
-
   const navBox = document.getElementById('dynamic-fields-section-navigator');
-  const hiddenSecsSet = new Set(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []);
+  if (navBox) navBox.innerHTML = '';
+
   const hiddenFieldsSet = new Set(Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : []);
 
-  if (navBox) {
-    if (sectionGroupsOrder.length > 1) {
-      const activeSecId = window._activeDynamicFieldSection;
-      const activeIdx = sectionGroupsOrder.indexOf(activeSecId);
-      const activeSecObj = activeSecId !== 'all' ? (currentCustomData.sections || []).find(s => s.id === activeSecId) : null;
-      const isActiveSecHidden = activeSecId !== 'all' && (hiddenSecsSet.has(activeSecId) || (activeSecObj && activeSecObj.enabled === false));
-      const canToggleActiveSec = activeSecId !== 'all' && activeSecId !== 'hero' && (!activeSecObj || !activeSecObj.required);
-
-      navBox.innerHTML = `
-        <div class="flex flex-wrap items-center gap-1.5 pb-1">
-          ${sectionGroupsOrder.map((sId, idx) => {
-            const grp = sectionGroupsMap.get(sId);
-            const isSel = activeSecId === sId;
-            const secObj = (currentCustomData.sections || []).find(s => s.id === sId);
-            const isSecOff = hiddenSecsSet.has(sId) || (secObj && secObj.enabled === false);
-            return `<button type="button" onclick="selectDynamicFieldSection('${sId}')" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-              isSel
-                ? 'bg-purple-700 text-white shadow-sm'
-                : 'bg-purple-100/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 hover:bg-purple-200'
-            } ${isSecOff ? 'opacity-60 line-through' : ''}">
-              <span>${idx + 1}. ${escapeHtml(grp.label)}</span>
-              <span class="px-1.5 py-0.2 rounded-full text-[9px] ${isSel ? 'bg-white/20 text-white' : 'bg-purple-200/80 dark:bg-purple-800 text-purple-800 dark:text-purple-200'}">${grp.fields.length}</span>
-              ${isSecOff ? '<span title="Hidden on website">🙈</span>' : ''}
-            </button>`;
-          }).join('')}
-          <button type="button" onclick="selectDynamicFieldSection('all')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeSecId === 'all'
-              ? 'bg-pink-600 text-white shadow-sm'
-              : 'bg-white/70 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60'
-          }">
-            📋 All (${dynamicFields.length})
-          </button>
-        </div>
-        ${activeSecId !== 'all' ? `
-          <div class="p-2.5 rounded-2xl bg-purple-100/70 dark:bg-purple-900/40 border border-purple-200/70 dark:border-purple-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div class="flex items-center gap-2">
-              <span class="font-extrabold text-purple-950 dark:text-white">Section: ${escapeHtml(sectionGroupsMap.get(activeSecId)?.label || activeSecId)}</span>
-              ${canToggleActiveSec ? `
-                <button type="button" onclick="toggleCustomerSectionQuick('${activeSecId}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold transition cursor-pointer ${
-                  isActiveSecHidden
-                    ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40'
-                    : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
-                }">
-                  ${isActiveSecHidden ? '🙈 Hidden on Site (Tap to Show)' : '👁️ Showing on Site (Tap to Hide Section)'}
-                </button>
-              ` : '<span class="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200">Core Section</span>'}
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button type="button" onclick="stepDynamicFieldSection(-1)" ${activeIdx <= 0 ? 'disabled class="opacity-30 pointer-events-none px-2 py-1 rounded-lg bg-white/60 text-[10px] font-bold"' : 'class="px-2.5 py-1 rounded-lg bg-white dark:bg-purple-950 text-purple-900 dark:text-purple-200 text-[10px] font-bold shadow-xs cursor-pointer"'}>← Prev</button>
-              <button type="button" onclick="stepDynamicFieldSection(1)" ${activeIdx >= sectionGroupsOrder.length - 1 ? 'disabled class="opacity-30 pointer-events-none px-2 py-1 rounded-lg bg-white/60 text-[10px] font-bold"' : 'class="px-2.5 py-1 rounded-lg bg-pink-600 text-white text-[10px] font-bold shadow-xs cursor-pointer"'}>Next Section →</button>
-            </div>
-          </div>
-        ` : ''}
-      `;
-    } else {
-      navBox.innerHTML = '';
-    }
-  }
-
   dynamicFields.forEach(field => {
     const fieldKey = field.id || field.key;
     field.key = fieldKey;
     field.id = fieldKey;
     const secKey = String(field.section || field.sectionId || field.group || 'general').trim() || 'general';
 
-    // Only Name and DOB are mandatory; all other template messages/texts are optional and keep their normal default text
     if (!isMandatoryIdentityField(fieldKey)) {
       field.required = false;
       field.isRequired = false;
@@ -1261,7 +1186,6 @@ function renderDynamicTemplateFields(template) {
       }
     }
 
-    // Initialize state with variant/template default value if not present or empty
     if (currentCustomData[fieldKey] === undefined || currentCustomData[fieldKey] === '') {
       currentCustomData[fieldKey] = (templateDefaultValues[fieldKey] !== undefined && templateDefaultValues[fieldKey] !== '')
         ? templateDefaultValues[fieldKey]
@@ -1269,11 +1193,10 @@ function renderDynamicTemplateFields(template) {
     }
 
     const isVisibleByRule = evaluateFieldVisibility(field, currentCustomData);
-    const isMatchedSectionTab = window._activeDynamicFieldSection === 'all' || window._activeDynamicFieldSection === secKey;
     const isFieldHiddenByCustomer = hiddenFieldsSet.has(fieldKey);
     const fieldState = {
       value: currentCustomData[fieldKey],
-      visible: isVisibleByRule && isMatchedSectionTab,
+      visible: isVisibleByRule,
       disabled: isFieldHiddenByCustomer
     };
 
@@ -1295,28 +1218,6 @@ function renderDynamicTemplateFields(template) {
       }
       if (elNode) {
         elNode.setAttribute('data-field-section', secKey);
-        if (!isMatchedSectionTab) {
-          elNode.style.display = 'none';
-        }
-        // Add a "Show / Hide this item on website" toggle pill for optional fields/photos
-        if (!isMandatoryIdentityField(fieldKey)) {
-          const ctrlBar = document.createElement('div');
-          ctrlBar.className = 'flex items-center justify-between pt-1.5 mt-1.5 border-t border-purple-200/40 dark:border-purple-800/40 text-[10px]';
-          ctrlBar.innerHTML = `
-            <span class="text-purple-600/80 dark:text-purple-300/80 font-medium">${isFieldHiddenByCustomer ? '🙈 Hidden on your customized website' : '👁️ Visible on your customized website'}</span>
-            <button type="button" onclick="toggleCustomerFieldVisibility('${fieldKey}')" class="px-2 py-0.5 rounded-full font-bold transition cursor-pointer ${
-              isFieldHiddenByCustomer
-                ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40'
-                : 'bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 hover:bg-pink-500/20'
-            }">
-              ${isFieldHiddenByCustomer ? '👁️ Show Again' : '🙈 Hide This Item'}
-            </button>
-          `;
-          if (isFieldHiddenByCustomer) {
-            elNode.classList.add('opacity-60');
-          }
-          elNode.appendChild(ctrlBar);
-        }
         container.appendChild(elNode);
       }
     }
@@ -1590,8 +1491,8 @@ function renderCustomizerHeader() {
   const btnFinal = document.getElementById('btn-header-continue');
   if (btnFinal) {
     btnFinal.innerHTML = isVip
-      ? `<span class="hidden sm:inline">Proceed to Gift • ₹${activeTemplate.price || 49}</span><span class="sm:hidden">Gift • ₹${activeTemplate.price || 49}</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`
-      : `<span class="hidden sm:inline">Finalize Free Wish</span><span class="sm:hidden">Finalize</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`;
+      ? `<span class="hidden sm:inline">Create Link • ₹${activeTemplate.price || 49}</span><span class="sm:hidden">Create • ₹${activeTemplate.price || 49}</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`
+      : `<span class="hidden sm:inline">Create Wish Link</span><span class="sm:hidden">Create Link</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`;
   }
 
   // Update back to preview link (Rule E: preserve selected variant & relation on back navigation)
@@ -1706,14 +1607,10 @@ function populateFormValuesFromState() {
     });
   }
 
-  // Update variant reset button visibility
+  // Keep variant reset button hidden for clean template-only UI
   const resetBtn = document.getElementById('btn-reset-variant-defaults');
   if (resetBtn) {
-    if (currentCustomData.relationship && findRelationshipVariantConfig(currentCustomData.relationship)) {
-      resetBtn.classList.remove('hidden');
-    } else {
-      resetBtn.classList.add('hidden');
-    }
+    resetBtn.classList.add('hidden');
   }
 
   // Part 5 Advanced Media System Initialization
@@ -1819,16 +1716,11 @@ function updateStepVisibility() {
 
   const btnNext = document.getElementById('btn-step-next');
   if (btnNext) {
-    if (currentStep === TOTAL_STEPS) {
-      const isVip = activeTemplate && (activeTemplate.tier === 'vip' || (activeTemplate.price && Number(activeTemplate.price) > 0));
-      btnNext.innerHTML = isVip
-        ? `<span>Proceed to Gift (₹${activeTemplate.price || 49})</span><span class="text-amber-300">✨</span>`
-        : `<span>Create Free Wish Link</span><span class="text-amber-300">✨</span>`;
-      btnNext.className = 'py-2.5 sm:py-3 px-6 sm:px-8 rounded-full bg-gradient-to-r from-emerald-500 via-teal-600 to-purple-600 hover:brightness-110 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-xl flex items-center gap-2 transition-all cursor-pointer';
-    } else {
-      btnNext.innerHTML = `<span>Continue to Step ${currentStep + 1}</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`;
-      btnNext.className = 'py-2.5 sm:py-3 px-6 sm:px-8 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/20 flex items-center gap-2 transition-all cursor-pointer';
-    }
+    const isVip = activeTemplate && (activeTemplate.tier === 'vip' || (activeTemplate.price && Number(activeTemplate.price) > 0));
+    btnNext.innerHTML = isVip
+      ? `<span>✨ Create Wish Link (₹${activeTemplate.price || 49})</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`
+      : `<span>✨ Create Wish Link</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`;
+    btnNext.className = 'w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 active:scale-95 text-white font-extrabold text-sm shadow-xl shadow-pink-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer';
   }
 
   // If entering Step 4 Preview, update the summary card
@@ -2845,11 +2737,7 @@ function renderPhotosUI() {
   const photos = (currentCustomData.media && currentCustomData.media.photos) ? currentCustomData.media.photos : [];
 
   if (emptyState) {
-    if (photos.length === 0) {
-      emptyState.classList.remove('hidden');
-    } else {
-      emptyState.classList.add('hidden');
-    }
+    emptyState.classList.add('hidden');
   }
 
   photos.forEach((photo, idx) => {
@@ -6426,13 +6314,6 @@ window.publishWishAndGetLink = async function() {
     return;
   }
 
-  // Navigate to Step 4 if user clicked from earlier steps
-  if (currentStep < 4) {
-    window.goToStep(4);
-    showToast('✨ Review your personalization and choose your link below');
-    return;
-  }
-
   if (!activeTemplate) {
     showToast('Please select a template');
     return;
@@ -7181,7 +7062,7 @@ window.switchStep1SubTab = function(tabKey) {
 
       // Respect capability gating strictly: never un-hide unsupported cards!
       if (cardEl.id === 'dynamic-template-fields-card') {
-        const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0 || ((currentCustomData.sections || []).length > 0);
+        const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0;
         if (!hasDynFields) {
           cardEl.classList.add('hidden');
           cardEl.setAttribute('aria-hidden', 'true');
@@ -7534,39 +7415,30 @@ window.renderTemplatePhotoSlotsManager = function() {
 
     return `
       <div class="p-3 rounded-2xl border transition flex items-center justify-between gap-2.5 ${
-        isHidden
-          ? 'bg-rose-500/10 border-rose-500/30 opacity-70'
-          : (hasCustomUpload
-              ? 'bg-emerald-500/10 border-emerald-500/35'
-              : 'bg-white/80 dark:bg-purple-950/50 border-purple-200/70 dark:border-purple-800/60')
+        hasCustomUpload
+          ? 'bg-emerald-500/10 border-emerald-500/35'
+          : 'bg-white/80 border-purple-200/70'
       }">
         <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-12 h-12 rounded-xl overflow-hidden border border-purple-300/50 shrink-0 bg-purple-950/30 relative">
-            <img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(slot.label)}" class="w-full h-full object-cover ${isHidden ? 'grayscale opacity-40' : ''}" onerror="this.src='/assets/file_ab2082.png'"/>
+          <div class="w-12 h-12 rounded-xl overflow-hidden border border-purple-300/50 shrink-0 bg-purple-100 relative">
+            <img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(slot.label)}" class="w-full h-full object-cover" onerror="this.src='/assets/file_ab2082.png'"/>
             <span class="absolute bottom-0 right-0 px-1 bg-black/75 text-white font-mono text-[8px] font-bold">#${slotNum}</span>
           </div>
           <div class="min-w-0">
-            <div class="text-xs font-extrabold text-purple-950 dark:text-white truncate flex items-center gap-1">
+            <div class="text-xs font-extrabold text-purple-950 truncate flex items-center gap-1">
               <span>${escapeHtml(slot.label)}</span>
-              ${isPrimary ? '<span class="px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-600 dark:text-pink-300 text-[9px] font-bold">Main</span>' : ''}
+              ${isPrimary ? '<span class="px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-600 text-[9px] font-bold">Main</span>' : ''}
             </div>
             <div class="text-[10px] font-semibold ${
-              isHidden ? 'text-rose-600 dark:text-rose-300' : (hasCustomUpload ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300')
+              hasCustomUpload ? 'text-emerald-600' : 'text-purple-600'
             }">
-              ${isHidden ? '🙈 Hidden on Website' : (hasCustomUpload ? '🟢 Custom Photo Configured' : '⚪ Template Default Photo')}
+              ${hasCustomUpload ? '🟢 Custom Photo Uploaded' : '⚪ Default Photo'}
             </div>
           </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          <button type="button" onclick="triggerSlotSpecificPhotoUpload('${slot.key}')" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-900/70 hover:bg-purple-200 text-purple-950 dark:text-purple-100 text-[11px] font-bold transition cursor-pointer" title="Upload photo for this slot">
+          <button type="button" onclick="triggerSlotSpecificPhotoUpload('${slot.key}')" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-950 text-[11px] font-bold transition cursor-pointer" title="Upload photo for this slot">
             📁 Upload
-          </button>
-          <button type="button" onclick="toggleCustomerFieldVisibility('${slot.key}')" class="min-h-[36px] px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer ${
-            isHidden
-              ? 'bg-emerald-500 text-white shadow-xs'
-              : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30'
-          }" title="${isHidden ? 'Show this photo slot on website' : 'Hide this photo slot from website'}">
-            ${isHidden ? '👁️ Show' : '🙈 Hide'}
           </button>
         </div>
       </div>
@@ -7574,34 +7446,12 @@ window.renderTemplatePhotoSlotsManager = function() {
   }).join('');
 
   managerEl.innerHTML = `
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <h4 class="text-xs font-extrabold text-purple-950 dark:text-white flex items-center gap-1.5">
-          <span>🖼️ Template Photo Slots (${slots.length - hiddenSlotsCount} of ${slots.length} Active)</span>
-        </h4>
-        <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80">
-          Supports JPG, PNG, WebP (up to 10MB). Tap <strong>🙈 Hide</strong> on any unused slot so it won't appear on your site.
-        </p>
-      </div>
-      <div class="flex flex-wrap items-center gap-1.5">
-        ${unuploadedVisibleSlotsCount > 0 ? `
-          <button type="button" onclick="autoHideUnusedPhotoSlots()" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[11px] font-extrabold shadow-sm hover:brightness-110 transition cursor-pointer">
-            ✨ Hide ${unuploadedVisibleSlotsCount} Unused Default Slot${unuploadedVisibleSlotsCount === 1 ? '' : 's'}
-          </button>
-        ` : ''}
-        ${hiddenSlotsCount > 0 ? `
-          <button type="button" onclick="restoreAllHiddenPhotoSlots()" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[11px] font-bold hover:bg-emerald-500/30 transition cursor-pointer">
-            👁️ Show All (${slots.length})
-          </button>
-        ` : ''}
-      </div>
-    </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
       ${slotCardsHtml}
     </div>
     ${hasMoreSlots ? `
       <div class="pt-1 flex justify-center">
-        <button type="button" id="btn-toggle-more-photo-slots" onclick="window.toggleExpandExtraPhotoSlots()" class="min-h-[38px] px-4 py-2 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-800/70 text-purple-900 dark:text-purple-100 text-xs font-extrabold border border-purple-300/60 dark:border-purple-700/60 transition cursor-pointer">
+        <button type="button" id="btn-toggle-more-photo-slots" onclick="window.toggleExpandExtraPhotoSlots()" class="min-h-[38px] px-4 py-2 rounded-xl bg-purple-100/80 hover:bg-purple-200 text-purple-900 text-xs font-extrabold border border-purple-300/60 transition cursor-pointer">
           ${window._showAllPhotoSlots ? '🔼 Show Fewer Photo Slots' : `➕ Add More Photos (${slots.length - primaryVisibleLimit} More Slot${slots.length - primaryVisibleLimit === 1 ? '' : 's'})`}
         </button>
       </div>
@@ -7694,6 +7544,28 @@ window.handleSlotSpecificPhotoFile = async function(input) {
       }
       window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
     }
+    if (slotKey === 'photo_1' || slotKey === 'cover_photo' || slotKey === 'hero_photo') {
+      currentCustomData.photo_1 = optimized.src;
+      currentCustomData.cover_photo = optimized.src;
+      if (currentCustomData.media) {
+        currentCustomData.media.coverPhoto = optimized.src;
+        if (!Array.isArray(currentCustomData.media.photos)) currentCustomData.media.photos = [];
+        if (currentCustomData.media.photos.length === 0) {
+          currentCustomData.media.photos.push({
+            id: 'photo_' + Date.now().toString(36),
+            name: file.name.replace(/\.[^/.]+$/, ''),
+            src: optimized.src,
+            url: optimized.src,
+            isCover: true,
+            order: 0
+          });
+        } else {
+          currentCustomData.media.photos[0].src = optimized.src;
+          currentCustomData.media.photos[0].url = optimized.src;
+        }
+        window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
+      }
+    }
     if (Array.isArray(currentCustomData._hiddenFields) && currentCustomData._hiddenFields.includes(slotKey)) {
       window.toggleCustomerFieldVisibility(slotKey, true);
     } else {
@@ -7740,7 +7612,7 @@ function initAccessibleTabKeyboardNavigation() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initAccessibleTabKeyboardNavigation();
-  if (typeof window.switchStep1SubTab === 'function') window.switchStep1SubTab(window._activeStep1SubTab || 'basic');
+  if (typeof window.switchStep1SubTab === 'function') window.switchStep1SubTab(window._activeStep1SubTab || 'all');
   if (typeof window.switchStep2SubTab === 'function') window.switchStep2SubTab(window._activeStep2SubTab || 'colors');
   if (typeof window.renderTemplatePhotoSlotsManager === 'function') window.renderTemplatePhotoSlotsManager();
   if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
