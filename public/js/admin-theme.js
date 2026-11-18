@@ -899,27 +899,27 @@ window.AdminAuthController = AdminAuthController;
       if (!authOverlay) {
         authOverlay = document.createElement('div');
         authOverlay.id = 'admin-pwa-signin-screen';
-        authOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#f5f8f6;color:#111c16;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Plus Jakarta Sans",sans-serif;overflow-y:auto;';
+        authOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#f8fafc;color:#0f172a;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Plus Jakarta Sans",sans-serif;overflow-y:auto;';
         authOverlay.innerHTML = `
-          <div style="width:100%;max-width:410px;background:#ffffff;border:1px solid #e3ebe6;border-radius:24px;padding:28px 24px;text-align:center;box-shadow:0 16px 40px rgba(17,28,22,0.08);">
-            <div style="width:54px;height:54px;border-radius:999px;background:#1e7f4e;color:#ffffff;display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin-bottom:12px;">W</div>
-            <h2 style="font-size:20px;font-weight:800;margin:0 0 6px 0;color:#111c16;">WishMagic Admin Studio</h2>
-            <p style="font-size:12.5px;line-height:1.5;color:#526358;margin:0 0 18px 0;">Sign in to sync live Cloudflare D1 data, wishes, templates, and media in real time.</p>
-            <button type="button" id="wm-pwa-google-signin-btn" style="width:100%;min-height:46px;border-radius:999px;background:#1e7f4e;color:#ffffff;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <div style="width:100%;max-width:400px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:28px 24px;text-align:center;">
+            <div style="width:42px;height:42px;border-radius:8px;background:#0f172a;color:#ffffff;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;margin-bottom:12px;">W</div>
+            <h2 style="font-size:18px;font-weight:700;margin:0 0 6px 0;color:#0f172a;">WishMagic Admin</h2>
+            <p style="font-size:12.5px;line-height:1.5;color:#475569;margin:0 0 18px 0;">Sign in to manage templates, wishes, orders, and live settings.</p>
+            <button type="button" id="wm-pwa-google-signin-btn" style="width:100%;min-height:42px;border-radius:8px;background:#2563eb;color:#ffffff;font-size:13.5px;font-weight:600;border:none;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
               <span>Sign In with Owner Google Account</span>
             </button>
             <div style="display:flex;align-items:center;gap:10px;margin:12px 0;">
-              <div style="flex:1;height:1px;background:#e3ebe6;"></div>
-              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#788a7f;">Or Admin Credentials</span>
-              <div style="flex:1;height:1px;background:#e3ebe6;"></div>
+              <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+              <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">Or Admin Credentials</span>
+              <div style="flex:1;height:1px;background:#e2e8f0;"></div>
             </div>
             <form id="wm-pwa-cred-form" style="display:flex;flex-direction:column;gap:10px;text-align:left;margin-bottom:14px;">
-              <input type="text" id="wm-pwa-cred-user" placeholder="Admin Username (anktech.ankit.babusaini)" autocomplete="username" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #d5e0d9;background:#f7faf8;color:#111c16;font-size:13px;outline:none;" />
-              <input type="password" id="wm-pwa-cred-pass" placeholder="Admin Password" autocomplete="current-password" style="width:100%;height:42px;padding:0 14px;border-radius:12px;border:1px solid #d5e0d9;background:#f7faf8;color:#111c16;font-size:13px;outline:none;" />
-              <button type="submit" id="wm-pwa-cred-submit" style="width:100%;min-height:42px;border-radius:12px;background:#141e18;color:#ffffff;border:1px solid #141e18;font-size:13px;font-weight:800;cursor:pointer;">Connect &amp; Sync Live Studio</button>
+              <input type="text" id="wm-pwa-cred-user" placeholder="Admin Username" autocomplete="username" style="width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:13px;outline:none;" />
+              <input type="password" id="wm-pwa-cred-pass" placeholder="Admin Password" autocomplete="current-password" style="width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:13px;outline:none;" />
+              <button type="submit" id="wm-pwa-cred-submit" style="width:100%;min-height:40px;border-radius:8px;background:#0f172a;color:#ffffff;border:none;font-size:13px;font-weight:600;cursor:pointer;">Sign In</button>
             </form>
-            <a href="/" style="display:inline-block;font-size:12px;font-weight:700;color:#526358;text-decoration:none;">← Open Public Storefront</a>
-            <div id="wm-pwa-signin-error" style="margin-top:12px;font-size:12px;color:#e11d48;display:none;"></div>
+            <a href="/" style="display:inline-block;font-size:12px;font-weight:600;color:#475569;text-decoration:none;">← Open Public Storefront</a>
+            <div id="wm-pwa-signin-error" style="margin-top:12px;font-size:12px;color:#b91c1c;display:none;"></div>
           </div>
         `;
         document.body.appendChild(authOverlay);
@@ -1273,7 +1273,7 @@ function initGlobalAdminCommandSearch() {
     dropdown.id = 'wm-global-command-dropdown';
     dropdown.setAttribute('role', 'listbox');
     dropdown.setAttribute('aria-label', 'Admin Studio Search Results');
-    dropdown.className = 'hidden absolute left-0 right-0 top-full mt-2 rounded-2xl border border-purple-200 dark:border-purple-800/60 bg-white/98 dark:bg-[#190e36]/98 shadow-2xl backdrop-blur-xl z-[120] max-h-[420px] overflow-y-auto p-2 text-xs';
+    dropdown.className = 'hidden absolute left-0 right-0 top-full mt-1.5 rounded-lg border border-slate-200 bg-white shadow-lg z-[120] max-h-[400px] overflow-y-auto p-1.5 text-xs';
     wrap.appendChild(dropdown);
   }
 
@@ -1296,7 +1296,7 @@ function initGlobalAdminCommandSearch() {
     const q = String(query || '').trim();
     const matchedDests = getPermittedDestinations(q).slice(0, q ? 6 : 8);
 
-    let html = `<div class="px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-300 flex items-center justify-between">
+    let html = `<div class="px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center justify-between">
       <span>${q ? 'Matching Admin Screens' : 'Quick Jump (Ctrl/Cmd + K)'}</span>
       <span class="text-[10px] font-normal opacity-75">Esc to close</span>
     </div>`;
@@ -1305,8 +1305,8 @@ function initGlobalAdminCommandSearch() {
       html += `<div class="px-3 py-2 text-on-surface-variant">No matching admin destinations.</div>`;
     } else {
       html += matchedDests.map((d, idx) => `
-        <a href="${d.href}" data-cmd-item="true" data-cmd-idx="${idx}" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/40 transition">
-          <span class="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
+        <a href="${d.href}" data-cmd-item="true" data-cmd-idx="${idx}" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition">
+          <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
             <span class="material-symbols-outlined text-[18px]">${d.icon}</span>
           </span>
           <div class="min-w-0 flex-1">
@@ -1319,7 +1319,7 @@ function initGlobalAdminCommandSearch() {
     }
 
     if (q.length >= 2) {
-      html += `<div class="mt-2 pt-2 border-t border-purple-100 dark:border-purple-800/40 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-pink-600 dark:text-pink-300">Live Platform Records</div>`;
+      html += `<div class="mt-2 pt-2 border-t border-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Live Platform Records</div>`;
       if (isLoading) {
         html += `<div class="px-3 py-3 text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Searching templates, wishes & users...</div>`;
       } else if (liveData) {
@@ -1329,8 +1329,8 @@ function initGlobalAdminCommandSearch() {
         } else {
           templates.slice(0, 3).forEach(t => {
             html += `
-              <a href="${SECRET_ADMIN_PREFIX}/templates?search=${encodeURIComponent(t.name || t.id)}" data-cmd-item="true" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/40 transition">
-                <span class="w-7 h-7 rounded-lg bg-pink-100 dark:bg-pink-950/60 text-pink-600 dark:text-pink-300 flex items-center justify-center shrink-0">
+              <a href="${SECRET_ADMIN_PREFIX}/templates?search=${encodeURIComponent(t.name || t.id)}" data-cmd-item="true" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition">
+                <span class="w-7 h-7 rounded-lg bg-pink-100 dark:bg-pink-950/60 text-slate-500 flex items-center justify-center shrink-0">
                   <span class="material-symbols-outlined text-[15px]">web</span>
                 </span>
                 <div class="min-w-0 flex-1">
@@ -1342,7 +1342,7 @@ function initGlobalAdminCommandSearch() {
           wishes.slice(0, 3).forEach(w => {
             const rec = w.recipientName || w.recipient_name || w.slug || w.id;
             html += `
-              <a href="${SECRET_ADMIN_PREFIX}/wishes?search=${encodeURIComponent(rec)}" data-cmd-item="true" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/40 transition">
+              <a href="${SECRET_ADMIN_PREFIX}/wishes?search=${encodeURIComponent(rec)}" data-cmd-item="true" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition">
                 <span class="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
                   <span class="material-symbols-outlined text-[15px]">celebration</span>
                 </span>
@@ -1355,7 +1355,7 @@ function initGlobalAdminCommandSearch() {
           users.slice(0, 3).forEach(u => {
             const label = u.displayName || u.display_name || u.email || u.id;
             html += `
-              <a href="${SECRET_ADMIN_PREFIX}/users?search=${encodeURIComponent(u.email || label)}" data-cmd-item="true" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/40 transition">
+              <a href="${SECRET_ADMIN_PREFIX}/users?search=${encodeURIComponent(u.email || label)}" data-cmd-item="true" class="wm-cmd-result-item flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition">
                 <span class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
                   <span class="material-symbols-outlined text-[15px]">person</span>
                 </span>
@@ -1649,267 +1649,6 @@ function initAdminNavigationAndNotifications() {
   }
 }
 
-function getGreetingByHour() {
-  const hr = new Date().getHours();
-  if (hr < 12) return 'Good morning';
-  if (hr < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function mountVessaAdminShell() {
-  // 1. Mount Vessa Top Bar inside <header class="wm-top-header">
-  const header = document.querySelector('header.wm-top-header');
-  if (header && !header.dataset.vessaMounted) {
-    header.dataset.vessaMounted = 'true';
-
-    const searchWrap = header.querySelector('.wm-header-search-wrap');
-    const searchInput = header.querySelector('.wm-header-search-input');
-    if (searchInput) {
-      searchInput.setAttribute('placeholder', 'Search...');
-    }
-    const ctrlK = header.querySelector('.wm-ctrl-k-badge');
-    if (ctrlK) {
-      ctrlK.textContent = '⌘K';
-    }
-
-    const profileDropdown = document.getElementById('wm-admin-profile-dropdown');
-    const existingEmail = document.getElementById('wm-admin-header-email')?.textContent || 'ankit.babusaini@gmail.com';
-
-    const inner = document.createElement('div');
-    inner.className = 'vessa-top-header-inner';
-
-    // Left Zone: Mobile Menu + Brand Emblem + WishMagic
-    const leftDiv = document.createElement('div');
-    leftDiv.className = 'flex items-center gap-2.5 sm:gap-3 flex-shrink-0';
-    leftDiv.innerHTML = `
-      <button type="button" class="md:hidden vessa-icon-circle-btn" onclick="toggleSidebar()" aria-label="Open Navigation">
-        <span class="material-symbols-outlined text-[20px]">menu</span>
-      </button>
-      <a href="${SECRET_ADMIN_PREFIX}/overview" class="vessa-brand-block">
-        <div class="vessa-brand-logo-circle">
-          <span class="material-symbols-outlined text-[20px]">experiment</span>
-        </div>
-        <div class="flex flex-col">
-          <span class="vessa-brand-title">WishMagic</span>
-          <span class="vessa-brand-sub">Admin &amp; Studio</span>
-        </div>
-      </a>
-    `;
-
-    // Right Zone: Search + Settings + Live Sync + "+ New" + Greeting Profile
-    const rightDiv = document.createElement('div');
-    rightDiv.className = 'vessa-header-right';
-
-    if (searchWrap) {
-      rightDiv.appendChild(searchWrap);
-    }
-
-    // Settings quick button
-    const settingsLink = document.createElement('a');
-    settingsLink.href = `${SECRET_ADMIN_PREFIX}/settings`;
-    settingsLink.className = 'vessa-icon-circle-btn hidden sm:inline-flex';
-    settingsLink.title = 'Storefront CMS & Settings';
-    settingsLink.innerHTML = `<span class="material-symbols-outlined text-[18px]">settings</span>`;
-    rightDiv.appendChild(settingsLink);
-
-    // Live Sync Now Button (1-Tap Real-Time Server Refresh)
-    const liveSyncBtn = document.createElement('button');
-    liveSyncBtn.type = 'button';
-    liveSyncBtn.id = 'wm-header-live-sync-btn';
-    liveSyncBtn.className = 'vessa-icon-circle-btn';
-    liveSyncBtn.title = 'Sync Live Data Now';
-    liveSyncBtn.setAttribute('aria-label', 'Sync Live Data Now');
-    liveSyncBtn.setAttribute('onclick', 'window.triggerAdminLiveSync && window.triggerAdminLiveSync(true, { showToastFeedback: true })');
-    liveSyncBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]" id="wm-header-live-sync-icon">sync</span>`;
-    rightDiv.appendChild(liveSyncBtn);
-
-    // Primary "+ New" Emerald Pill Button
-    const newBtn = document.createElement('a');
-    newBtn.href = `${SECRET_ADMIN_PREFIX}/add-template`;
-    newBtn.className = 'vessa-new-btn';
-    newBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">add</span><span>New</span>`;
-    rightDiv.appendChild(newBtn);
-
-    // Profile Greeting Pill ("Good morning / Ankit Saini")
-    const profWrap = document.createElement('div');
-    profWrap.className = 'relative';
-    const profPill = document.createElement('div');
-    profPill.className = 'wm-admin-profile-pill';
-    profPill.setAttribute('onclick', 'toggleAdminProfileMenu(event)');
-    profPill.innerHTML = `
-      <div class="vessa-avatar-circle">AS</div>
-      <div class="hidden sm:flex flex-col text-left leading-tight">
-        <span class="text-[10px] font-medium text-on-surface-variant">${getGreetingByHour()}</span>
-        <span class="text-[12px] font-bold text-on-surface">Ankit Saini</span>
-        <span id="wm-admin-header-email" class="hidden">${escapeAdminHtml(existingEmail)}</span>
-      </div>
-      <span class="material-symbols-outlined text-[16px] text-on-surface-variant">expand_more</span>
-    `;
-    profWrap.appendChild(profPill);
-    if (profileDropdown) {
-      profWrap.appendChild(profileDropdown);
-    }
-    rightDiv.appendChild(profWrap);
-
-    header.innerHTML = '';
-    inner.appendChild(leftDiv);
-    inner.appendChild(rightDiv);
-    header.appendChild(inner);
-  }
-
-  // 2. Ensure #sidebar-backdrop exists for Mobile Drawer
-  let backdrop = document.getElementById('sidebar-backdrop');
-  if (!backdrop && document.body) {
-    backdrop = document.createElement('div');
-    backdrop.id = 'sidebar-backdrop';
-    backdrop.className = 'fixed inset-0 bg-black/60 z-40 hidden md:hidden transition-opacity';
-    backdrop.setAttribute('onclick', 'toggleSidebar(false)');
-    document.body.appendChild(backdrop);
-  } else if (backdrop) {
-    backdrop.onclick = () => toggleSidebar(false);
-  }
-
-  // 3. Cleanly Rebuild & Normalize <aside id="admin-sidebar"> (Zero Nested Scrollbars, Perfect Mobile Drawer & Desktop Rail)
-  const sidebar = document.getElementById('admin-sidebar');
-  if (sidebar && !sidebar.dataset.vessaMounted) {
-    sidebar.dataset.vessaMounted = 'true';
-
-    const existingNav = sidebar.querySelector('nav');
-    if (existingNav) {
-      existingNav.className = 'vessa-sidebar-nav';
-
-      // Unwrap Dashboard <div class="mb-1 pt-1"> wrapper so Dashboard <a> is a direct child of <nav>
-      const dashLink = existingNav.querySelector('a[data-nav-role="dashboard"], a[href*="/overview"], a[href*="admin-overview"]');
-      if (dashLink && dashLink.parentElement && dashLink.parentElement !== existingNav) {
-        const wrapperDiv = dashLink.parentElement;
-        const mainLabel = document.createElement('div');
-        mainLabel.className = 'wm-nav-section-label';
-        mainLabel.textContent = 'MAIN';
-        existingNav.insertBefore(mainLabel, wrapperDiv);
-        existingNav.insertBefore(dashLink, wrapperDiv);
-        wrapperDiv.remove();
-      }
-    }
-
-    // Drawer Header (Visible on Mobile <768px and Desktop Expanded Mode)
-    const mobileDrawerHeader = document.createElement('div');
-    mobileDrawerHeader.className = 'vessa-mobile-drawer-header';
-    mobileDrawerHeader.innerHTML = `
-      <a href="${SECRET_ADMIN_PREFIX}/overview" class="vessa-brand-block">
-        <div class="vessa-brand-logo-circle !w-8 !h-8">
-          <span class="material-symbols-outlined text-[18px]">experiment</span>
-        </div>
-        <div class="flex flex-col">
-          <span class="text-[13px] font-extrabold text-on-surface leading-tight">WishMagic</span>
-          <span class="text-[9.5px] font-semibold text-on-surface-variant leading-tight">Studio Menu</span>
-        </div>
-      </a>
-      <button type="button" class="vessa-icon-circle-btn !w-8 !h-8 md:hidden" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
-        <span class="material-symbols-outlined text-[18px]">close</span>
-      </button>
-      <button type="button" class="vessa-icon-circle-btn !w-8 !h-8 hidden md:inline-flex" onclick="window.toggleDesktopSidebarRail()" title="Collapse Sidebar" aria-label="Collapse Sidebar">
-        <span class="material-symbols-outlined text-[18px]">keyboard_double_arrow_left</span>
-      </button>
-    `;
-
-    // Single Unified Scroll Container for Navigation
-    const scroller = document.createElement('div');
-    scroller.className = 'vessa-sidebar-scroll custom-scrollbar';
-    if (existingNav) {
-      scroller.appendChild(existingNav);
-    }
-
-    // Bottom Desktop Expand/Collapse Button
-    const expandBtn = document.createElement('button');
-    expandBtn.type = 'button';
-    expandBtn.className = 'vessa-rail-expand-btn';
-    expandBtn.title = 'Expand / Collapse All 23 Studio Sections';
-    expandBtn.innerHTML = `
-      <span class="material-symbols-outlined text-[19px]" id="vessa-rail-expand-icon">dock_to_right</span>
-      <span class="vessa-rail-expand-label">Collapse Sidebar</span>
-    `;
-
-    window.toggleDesktopSidebarRail = function(forceState) {
-      const isExp = typeof forceState === 'boolean'
-        ? forceState
-        : !sidebar.classList.contains('vessa-rail-expanded');
-      sidebar.classList.toggle('vessa-rail-expanded', isExp);
-      document.body.classList.toggle('vessa-sidebar-expanded', isExp);
-      const ic = document.getElementById('vessa-rail-expand-icon');
-      if (ic) ic.textContent = isExp ? 'keyboard_double_arrow_left' : 'dock_to_right';
-      const tip = document.getElementById('vessa-rail-floating-tooltip');
-      if (tip) tip.classList.remove('visible');
-      try {
-        localStorage.setItem('wm_vessa_rail_expanded', isExp ? '1' : '0');
-      } catch (_) {}
-    };
-
-    expandBtn.addEventListener('click', () => window.toggleDesktopSidebarRail());
-
-    // Replace inner sidebar DOM cleanly
-    sidebar.innerHTML = '';
-    sidebar.appendChild(mobileDrawerHeader);
-    sidebar.appendChild(scroller);
-    sidebar.appendChild(expandBtn);
-
-    // Ensure every nav link has a visible label span and set expanded class on mobile (<768px)
-    if (existingNav) {
-      existingNav.querySelectorAll("a").forEach(a => {
-        const spans = a.querySelectorAll("span:not(.material-symbols-outlined):not(.vessa-rail-badge)");
-        spans.forEach(s => {
-          s.classList.remove("hidden", "md:inline", "lg:inline", "sr-only");
-          s.style.removeProperty("display");
-        });
-      });
-    }
-    try {
-      if (window.innerWidth < 768) {
-        sidebar.classList.add("vessa-rail-expanded");
-      } else if (localStorage.getItem('wm_vessa_rail_expanded') === '1') {
-        window.toggleDesktopSidebarRail(true);
-      }
-    } catch (_) {}
-
-    // Floating Tooltip for Desktop Collapsed 72px Icon Rail (Never clipped by scroll container)
-    let railTooltip = document.getElementById('vessa-rail-floating-tooltip');
-    if (!railTooltip && document.body) {
-      railTooltip = document.createElement('div');
-      railTooltip.id = 'vessa-rail-floating-tooltip';
-      railTooltip.className = 'vessa-rail-floating-tooltip';
-      document.body.appendChild(railTooltip);
-    }
-
-    if (railTooltip && existingNav) {
-      existingNav.addEventListener('mouseover', (e) => {
-        if (window.innerWidth < 768 || sidebar.classList.contains('vessa-rail-expanded')) {
-          railTooltip.classList.remove('visible');
-          return;
-        }
-        const link = e.target.closest('a');
-        if (!link) {
-          railTooltip.classList.remove('visible');
-          return;
-        }
-        const labelSpan = link.querySelector('span:not(.material-symbols-outlined):not(.vessa-rail-badge)');
-        const text = labelSpan ? labelSpan.textContent.trim() : (link.title || '');
-        if (!text) return;
-        const rect = link.getBoundingClientRect();
-        railTooltip.textContent = text;
-        railTooltip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
-        railTooltip.style.left = `${Math.round(rect.right + 10)}px`;
-        railTooltip.classList.add('visible');
-      });
-
-      existingNav.addEventListener('mouseleave', () => {
-        railTooltip.classList.remove('visible');
-      });
-
-      scroller.addEventListener('scroll', () => {
-        railTooltip.classList.remove('visible');
-      }, { passive: true });
-    }
-  }
-}
 
 window.addEventListener('popstate', () => {
   rewriteAdminSidebarLinks();
@@ -1922,16 +1661,14 @@ window.addEventListener('hashchange', () => {
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    mountVessaAdminShell();
     initAdminNavigationAndNotifications();
   });
 } else {
-  mountVessaAdminShell();
   initAdminNavigationAndNotifications();
 }
 
 function updateThemeIcons() {
-  document.querySelectorAll('.wm-theme-pill-btn, .vessa-theme-capsule, #clay-theme-toggle-btn, #theme-toggle-btn, button[onclick*="toggleAdminTheme"], button[onclick*="toggleSiteTheme"], button[onclick*="toggleTheme"]').forEach(btn => {
+  document.querySelectorAll('.wm-theme-pill-btn, #clay-theme-toggle-btn, #theme-toggle-btn, button[onclick*="toggleAdminTheme"], button[onclick*="toggleSiteTheme"], button[onclick*="toggleTheme"]').forEach(btn => {
     btn.remove();
   });
 }
@@ -1949,7 +1686,7 @@ function applyThemePreference() {
       document.head.appendChild(metaTheme);
     }
     if (metaTheme) {
-      metaTheme.setAttribute('content', '#1e7f4e');
+      metaTheme.setAttribute('content', '#0f172a');
     }
   } catch (_) {}
   updateThemeIcons();
@@ -1987,9 +1724,6 @@ function toggleSidebar(forceOpen) {
   const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : isCurrentlyClosed;
 
   if (shouldOpen) {
-    if (window.innerWidth < 768) {
-      sidebar.classList.add('vessa-rail-expanded');
-    }
     sidebar.classList.remove('-translate-x-full');
     sidebar.setAttribute('aria-hidden', 'false');
     if (backdrop) backdrop.classList.remove('hidden');
@@ -1997,7 +1731,7 @@ function toggleSidebar(forceOpen) {
       document.body.style.overflow = 'hidden';
       setTimeout(() => {
         const activeLink = sidebar.querySelector('nav a.wm-nav-active, nav a.active');
-        const scroller = sidebar.querySelector('.vessa-sidebar-scroll');
+        const scroller = sidebar.querySelector(".wm-sidebar-scroll, .custom-scrollbar");
         if (activeLink && scroller) {
           const topOffset = activeLink.offsetTop - Math.max(60, scroller.clientHeight / 3);
           scroller.scrollTo({ top: Math.max(0, topOffset), behavior: 'smooth' });
@@ -2038,15 +1772,15 @@ var showToast = function(msg, type) {
   }
 
   let icon = 'check_circle';
-  let bgHex = 'rgba(20, 30, 24, 0.96)';
-  let borderHex = 'rgba(56, 201, 118, 0.45)';
-  let iconHex = '#38c976';
+  let bgHex = '#0f172a';
+  let borderHex = '#334155';
+  let iconHex = '#22c55e';
 
   if (resolvedType === 'success') {
     icon = 'check_circle';
-    bgHex = 'rgba(17, 42, 29, 0.96)';
-    borderHex = 'rgba(56, 201, 118, 0.55)';
-    iconHex = '#38c976';
+    bgHex = '#0f172a';
+    borderHex = '#334155';
+    iconHex = '#22c55e';
   } else if (resolvedType === 'error' || resolvedType === 'danger') {
     icon = 'error';
     bgHex = 'rgba(136, 19, 55, 0.96)';
@@ -2164,7 +1898,7 @@ window.AdminStudio = AdminStudio;
       banner.id = 'wm-pwa-update-banner';
       banner.setAttribute('role', 'status');
       banner.innerHTML = `
-        <span class="material-symbols-outlined text-[18px]" style="color:#38c976;">system_update</span>
+        <span class="material-symbols-outlined text-[18px]" style="color:#22c55e;">system_update</span>
         <span>New Admin Studio version ready</span>
         <button type="button" class="wm-pwa-update-now" id="wm-pwa-apply-update-btn">Update Now</button>
         <button type="button" style="background:transparent;border:none;color:#96aba0;cursor:pointer;padding:2px;" onclick="this.parentElement.remove()" aria-label="Dismiss">✕</button>
@@ -2358,7 +2092,6 @@ window.AdminStudio = AdminStudio;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      syncStandaloneClass();
       registerAdminServiceWorker();
       initNetworkStatusMonitor();
       initMobileKeyboardViewportHelper();
@@ -2366,7 +2099,6 @@ window.AdminStudio = AdminStudio;
       initAdminDoubleSubmitProtection();
     });
   } else {
-    syncStandaloneClass();
     registerAdminServiceWorker();
     initNetworkStatusMonitor();
     initMobileKeyboardViewportHelper();

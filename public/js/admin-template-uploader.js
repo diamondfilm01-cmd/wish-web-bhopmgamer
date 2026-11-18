@@ -5018,28 +5018,28 @@ function renderQuickSetTemplatesList(templates) {
   listEl.innerHTML = templates.slice(0, 12).map(tpl => {
     const isPub = tpl.status === 'published' || (tpl.isPublished !== false && tpl.status !== 'draft');
     const isVip = tpl.tier === 'vip' || tpl.isPremium === true || Number(tpl.price) > 0;
-    const thumb = tpl.thumbnail || '/assets/admin-tpl-thumb-1.png';
+    const thumb = tpl.thumbnail || '/assets/icons/admin-icon-192.png';
     return `
-      <div class="p-3 rounded-2xl bg-surface-container-low border border-purple-200/70 dark:border-purple-500/25 flex items-center justify-between gap-3">
+      <div class="p-3 rounded-lg bg-white border border-slate-200 flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
-          <img src="${thumb}" alt="${tpl.name}" class="w-14 h-10 rounded-xl object-cover border border-purple-200/60 shrink-0" onerror="this.src='/assets/file_ab2082.png'"/>
+          <img src="${thumb}" alt="${tpl.name}" class="w-12 h-9 rounded-md object-cover border border-slate-200 shrink-0" onerror="this.src='/assets/icons/admin-icon-192.png'"/>
           <div class="min-w-0">
-            <div class="font-bold text-xs sm:text-sm text-on-surface truncate">${tpl.name}</div>
-            <div class="flex items-center gap-1.5 text-[11px] text-on-surface-variant mt-0.5">
+            <div class="font-semibold text-xs sm:text-sm text-slate-900 truncate">${tpl.name}</div>
+            <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
               <span>${tpl.category || 'General'}</span>
               <span>•</span>
-              <span class="font-bold ${isVip ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">${isVip ? '₹' + (tpl.price || 49) + ' VIP' : 'Free'}</span>
+              <span class="font-semibold ${isVip ? 'text-amber-700' : 'text-emerald-700'}">${isVip ? '₹' + (tpl.price || 49) + ' VIP' : 'Free'}</span>
             </div>
           </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          <button type="button" onclick="togglePublishTemplate('${tpl.id}', '${tpl.status || (tpl.isPublished ? 'published' : 'draft')}')" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${isPub ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
-            ${isPub ? '● Live on Site' : 'Set Live'}
+          <button type="button" onclick="togglePublishTemplate('${tpl.id}', '${tpl.status || (tpl.isPublished ? 'published' : 'draft')}')" class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${isPub ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+            ${isPub ? 'Live' : 'Set Live'}
           </button>
           <a href="/template/${encodeURIComponent(tpl.id)}" target="_blank" class="wm-table-action-btn" title="Preview Template">
             <span class="material-symbols-outlined text-[16px]">visibility</span>
           </a>
-          <button type="button" onclick="deleteTemplate('${tpl.id}', '${escapeQuotes(tpl.name)}')" class="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 transition cursor-pointer" title="Delete Template">
+          <button type="button" onclick="deleteTemplate('${tpl.id}', '${escapeQuotes(tpl.name)}')" class="wm-table-action-btn hover:text-rose-600" title="Delete Template">
             <span class="material-symbols-outlined text-[16px]">delete</span>
           </button>
         </div>

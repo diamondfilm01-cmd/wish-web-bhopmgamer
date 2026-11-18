@@ -12,7 +12,7 @@
  * 3. Supports instant version upgrades via `SKIP_WAITING` and full cache purge on `WM_ADMIN_LOGOUT`.
  */
 
-const SW_VERSION = 'wm-admin-pwa-v1.6.0-20261028';
+const SW_VERSION = 'wm-admin-pwa-v2.0.0-20261118';
 const STATIC_CACHE_NAME = `wishmagic-admin-static-${SW_VERSION}`;
 
 // Safe static assets allowlist (strictly public CSS, JS shell, icons, and webmanifest)

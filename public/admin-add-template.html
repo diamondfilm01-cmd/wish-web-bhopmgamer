@@ -6,7 +6,7 @@
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
   <title>WishMagic | Add &amp; Upload New Template Studio</title>
-  <meta name="theme-color" content="#1e7f4e"/>
+  <meta name="theme-color" content="#0f172a"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -16,193 +16,169 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Outfit:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261025_vessa_mobile_v10"></script>
+  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
+  <script src="js/template-section-system.js"></script>
+  <script src="js/admin-template-uploader.js?v=20261025_vessa_mobile_v10"></script>
   <script>
-    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+    if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261028_pwa_v1"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261028_pwa_v1"></script>
-  <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
-  <script src="js/template-section-system.js"></script>
-  <script src="js/admin-template-uploader.js?v=20261025_vessa_mobile_v10"></script>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
-<!-- Mobile Sidebar Backdrop Overlay -->
-<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+<div id="sidebar-backdrop" class="fixed inset-0 bg-slate-950/40 z-40 hidden md:hidden" onclick="toggleSidebar(false)"></div>
 
-<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
-  <div class="flex flex-col min-h-0 flex-1">
-    <!-- Brand Logo Header -->
-    <div class="px-5 pt-5 pb-3 flex-shrink-0">
-      <div class="flex items-center justify-between">
-        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
-              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
-              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
-              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
-              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
-              <defs>
-                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#C084FC"/>
-                  <stop offset="0.55" stop-color="#F472B6"/>
-                  <stop offset="1" stop-color="#FBBF24"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div class="flex flex-col">
-            <div class="text-[22px] leading-none tracking-tight">
-              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
-            </div>
-            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
-          </div>
-        </a>
-        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
-          <span class="material-symbols-outlined text-[20px]">close</span>
-        </button>
+<aside id="admin-sidebar" class="-translate-x-full md:translate-x-0 select-none">
+  <div class="h-14 px-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+    <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-2.5 text-decoration-none">
+      <div class="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs font-bold">WM</div>
+      <div class="flex flex-col leading-none">
+        <span class="text-sm font-bold text-slate-900 tracking-tight">WishMagic</span>
+        <span class="text-[10px] font-medium text-slate-500 mt-0.5">Admin Console</span>
       </div>
-    </div>
+    </a>
+    <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
+      <span class="material-symbols-outlined text-[18px]">close</span>
+    </button>
+  </div>
 
-    <!-- Navigation Menu -->
-    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
-      <nav class="flex flex-col gap-0.5">
-        <div class="mb-1 pt-1">
-          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
-            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
-            <span>Dashboard</span>
-          </a>
-        </div>
+  <div class="wm-sidebar-scroll custom-scrollbar">
+    <nav class="flex flex-col" aria-label="Admin Navigation">
+      <div class="wm-nav-section-label">MAIN</div>
+      <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+        <span class="material-symbols-outlined">home</span>
+        <span>Dashboard</span>
+      </a>
 
-        <!-- TEMPLATES -->
-        <div class="wm-nav-section-label">TEMPLATES</div>
-        <a href="/admin/anktech/anktech/admin/templates">
-          <span class="material-symbols-outlined">grid_view</span>
-          <span>All Templates</span>
-        </a>
-        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/add-template">
-          <span class="material-symbols-outlined">add_circle</span>
-          <span>Add Template</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/festivals">
-          <span class="material-symbols-outlined">event_available</span>
-          <span>Festival Scheduler</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/occasions">
-          <span class="material-symbols-outlined">category</span>
-          <span>Categories</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media">
-          <span class="material-symbols-outlined">image</span>
-          <span>Media Library</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media?tab=audio">
-          <span class="material-symbols-outlined">music_note</span>
-          <span>Music Library</span>
-        </a>
+      <div class="wm-nav-section-label">TEMPLATES</div>
+      <a href="/admin/anktech/anktech/admin/templates">
+        <span class="material-symbols-outlined">grid_view</span>
+        <span>All Templates</span>
+      </a>
+      <a class="wm-nav-active" href="/admin/anktech/anktech/admin/add-template">
+        <span class="material-symbols-outlined">add_circle</span>
+        <span>Add Template</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/festivals">
+        <span class="material-symbols-outlined">event_available</span>
+        <span>Festival Scheduler</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/occasions">
+        <span class="material-symbols-outlined">category</span>
+        <span>Categories</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media">
+        <span class="material-symbols-outlined">image</span>
+        <span>Media Library</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media?tab=audio">
+        <span class="material-symbols-outlined">music_note</span>
+        <span>Music Library</span>
+      </a>
 
-        <!-- WISHES -->
-        <div class="wm-nav-section-label">WISHES</div>
-        <a href="/admin/anktech/anktech/admin/wishes">
-          <span class="material-symbols-outlined">description</span>
-          <span>All Wishes</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
-          <span class="material-symbols-outlined">schedule</span>
-          <span>Expiring Soon</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/analytics">
-          <span class="material-symbols-outlined">trending_up</span>
-          <span>Analytics</span>
-        </a>
+      <div class="wm-nav-section-label">WISHES</div>
+      <a href="/admin/anktech/anktech/admin/wishes">
+        <span class="material-symbols-outlined">description</span>
+        <span>All Wishes</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Expiring Soon</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/analytics">
+        <span class="material-symbols-outlined">trending_up</span>
+        <span>Analytics</span>
+      </a>
 
-        <!-- USERS -->
-        <div class="wm-nav-section-label">USERS</div>
-        <a href="/admin/anktech/anktech/admin/users">
-          <span class="material-symbols-outlined">group</span>
-          <span>All Users</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/pricing">
-          <span class="material-symbols-outlined">workspace_premium</span>
-          <span>Subscriptions</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/orders">
-          <span class="material-symbols-outlined">credit_card</span>
-          <span>Payments</span>
-        </a>
+      <div class="wm-nav-section-label">USERS</div>
+      <a href="/admin/anktech/anktech/admin/users">
+        <span class="material-symbols-outlined">group</span>
+        <span>All Users</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/pricing">
+        <span class="material-symbols-outlined">workspace_premium</span>
+        <span>Subscriptions</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/orders">
+        <span class="material-symbols-outlined">credit_card</span>
+        <span>Payments</span>
+      </a>
 
-        <!-- SYSTEM -->
-        <div class="wm-nav-section-label">SYSTEM</div>
-        <a href="/admin/anktech/anktech/admin/settings">
-          <span class="material-symbols-outlined">settings</span>
-          <span>Settings</span>
-        </a>
-            </nav>
-    </div>
+      <div class="wm-nav-section-label">SYSTEM</div>
+      <a href="/admin/anktech/anktech/admin/settings">
+        <span class="material-symbols-outlined">settings</span>
+        <span>Settings</span>
+      </a>
+    </nav>
   </div>
 </aside>
 
-<!-- Main Viewport Wrapper -->
-<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
-
-  <!-- Universal Top Cloud Header -->
-  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
-    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
-      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
-          <span class="material-symbols-outlined text-[22px]">menu</span>
+<div class="w-full md:pl-[220px] min-h-screen flex flex-col">
+  <header class="wm-top-header">
+    <div class="w-full h-full px-3 sm:px-5 flex items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar()" aria-label="Open Navigation">
+          <span class="material-symbols-outlined text-[20px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-2.5 text-slate-400 text-[18px] pointer-events-none">search</span>
           <input id="global-admin-search-input" class="wm-header-search-input" placeholder="Search templates, categories, dynamic tokens..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button type="button" id="wm-header-live-sync-btn" onclick="window.triggerAdminLiveSync && window.triggerAdminLiveSync(true, { showToastFeedback: true })" class="wm-icon-btn" title="Sync Live Data" aria-label="Sync Live Data">
+          <span class="material-symbols-outlined text-[18px]" id="wm-header-live-sync-icon">sync</span>
+        </button>
+        <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-primary hidden sm:inline-flex">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>New Template</span>
+        </a>
         <div class="relative">
-          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
-            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-              <span class="material-symbols-outlined text-[19px]">person</span>
+          <button type="button" onclick="toggleAdminProfileMenu(event)" class="flex items-center gap-2 h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
+            <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center">AS</span>
+            <div class="hidden sm:flex flex-col text-left leading-none">
+              <span class="text-xs font-semibold text-slate-900">Admin</span>
+              <span id="wm-admin-header-email" class="text-[10px] text-slate-500 max-w-[140px] truncate">ankit.babusaini@gmail.com</span>
             </div>
-            <div class="hidden sm:flex flex-col text-left leading-tight">
-              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
-              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
-            </div>
-            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
-          </div>
+            <span class="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
+          </button>
 
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="px-3 py-2 border-b border-purple-100 mb-1">
-              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
-              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-1.5 w-56 bg-white rounded-lg border border-slate-200 shadow-lg p-1.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-2.5 py-2 border-b border-slate-100 mb-1">
+              <div class="font-semibold text-slate-900">WishMagic Admin</div>
+              <div class="text-[11px] text-slate-500 truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
-              <span>Main Website &amp; Site Settings</span>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">settings</span>
+              <span>Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/templates" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-pink-500">grid_view</span>
-              <span>All Templates Library</span>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">add_circle</span>
+              <span>Upload Template</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
-              <span>View Live Website</span>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">perm_media</span>
+              <span>Media Vault</span>
             </a>
-            <div class="border-t border-purple-100 my-1"></div>
-            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition text-left cursor-pointer">
-              <span class="material-symbols-outlined text-[17px]">logout</span>
+            <a href="/" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">open_in_new</span>
+              <span>View Storefront</span>
+            </a>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-rose-50 text-rose-600 font-semibold text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">logout</span>
               <span>Sign Out</span>
             </button>
           </div>
@@ -211,32 +187,27 @@
     </div>
   </header>
 
-  <!-- Main Workspace Content (100% Dedicated Inline Add Template Section — NO Popup!) -->
   <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
 
     <!-- 1. HERO BANNER -->
-    <section class="wm-hero-banner">
+    <section class="wm-page-head block">
       <div class="relative z-10 flex flex-col items-start max-w-2xl">
-        <div class="wm-hero-welcome-pill">
-          <span>Dedicated Inline Template Studio • No Popup Required</span>
-          <span>🪄</span>
-        </div>
-        <h1 class="wm-hero-title">
-          <span>Add &amp; Upload</span> <span class="wm-pink-word">New Template</span> <span class="wm-lavender-word">Studio</span>
+        <h1 class="wm-page-title">
+          <span>Add &amp; Upload</span> <span >New Template</span> <span >Studio</span>
         </h1>
-        <p class="wm-hero-subtitle">
-          Upload any complete HTML/CSS/JS website folder or <code class="font-mono text-pink-200">.ZIP</code> archive, preview live in the browser sandbox, and publish directly to the main WishMagic storefront!
+        <p class="wm-page-subtitle">
+          Upload any complete HTML/CSS/JS website folder or <code class="font-mono text-slate-600">.ZIP</code> archive, preview live in the browser sandbox, and publish directly to the main WishMagic storefront!
         </p>
         <div class="flex flex-wrap items-center gap-3">
-          <button type="button" onclick="document.getElementById('folder-input').click()" class="wm-btn-pink-pill">
+          <button type="button" onclick="document.getElementById('folder-input').click()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' 1;">folder</span>
             <span>Select Website Folder</span>
           </button>
-          <button type="button" onclick="document.getElementById('zip-input').click()" class="wm-btn-glass-pill">
+          <button type="button" onclick="document.getElementById('zip-input').click()" class="wm-btn-secondary">
             <span class="material-symbols-outlined text-[18px]">archive</span>
             <span>Select .ZIP Archive</span>
           </button>
-          <a href="/admin/anktech/anktech/admin/templates" class="wm-btn-glass-pill">
+          <a href="/admin/anktech/anktech/admin/templates" class="wm-btn-secondary">
             <span class="material-symbols-outlined text-[18px]">grid_view</span>
             <span>All Templates Library</span>
           </a>
@@ -247,7 +218,7 @@
     <!-- 2. LIVE TEMPLATE REGISTRY KPI STRIP (Real Database Counts) -->
     <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
       <div class="wm-card p-4 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#a855f7] to-[#7c3aed] flex items-center justify-center text-white shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
           <span class="material-symbols-outlined text-[20px]">space_dashboard</span>
         </div>
         <div>
@@ -256,7 +227,7 @@
         </div>
       </div>
       <div class="wm-card p-4 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#10b981] to-[#059669] flex items-center justify-center text-white shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
           <span class="material-symbols-outlined text-[20px]">verified</span>
         </div>
         <div>
@@ -265,7 +236,7 @@
         </div>
       </div>
       <div class="wm-card p-4 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] flex items-center justify-center text-white shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
           <span class="material-symbols-outlined text-[20px]">edit_note</span>
         </div>
         <div>
@@ -274,7 +245,7 @@
         </div>
       </div>
       <div class="wm-card p-4 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff2a85] to-[#ec4899] flex items-center justify-center text-white shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
           <span class="material-symbols-outlined text-[20px]">diamond</span>
         </div>
         <div>
@@ -283,7 +254,7 @@
         </div>
       </div>
       <div class="wm-card p-4 flex items-center gap-3 col-span-2 sm:col-span-1">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#4f46e5] flex items-center justify-center text-white shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
           <span class="material-symbols-outlined text-[20px]">rocket_launch</span>
         </div>
         <div>
@@ -301,9 +272,9 @@
 
         <!-- STEP 1: DRAG & DROP FOLDER OR ZIP ARCHIVE -->
         <section class="wm-card p-5 sm:p-6 flex flex-col gap-5">
-          <div class="flex items-center justify-between border-b border-purple-100 pb-3.5">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-3.5">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#7c3aed] flex items-center justify-center text-white shadow-md">
+              <div class="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md">
                 <span class="material-symbols-outlined text-[22px]">folder_zip</span>
               </div>
               <div>
@@ -311,11 +282,11 @@
                 <p class="text-xs text-on-surface-variant">Supports complete multi-file HTML, CSS, JS, images, and background audio packages</p>
               </div>
             </div>
-            <span class="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold">Auto-Ingest v4.9</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-900 text-[11px] font-bold">Auto-Ingest v4.9</span>
           </div>
 
           <!-- 2-Option Template Upload / Update Mode Selector -->
-          <div id="template-upload-update-mode-bar" class="p-3.5 rounded-2xl bg-surface-container-high border border-purple-300 flex flex-col gap-2.5">
+          <div id="template-upload-update-mode-bar" class="p-3.5 rounded-lg bg-surface-container-high border border-slate-200 flex flex-col gap-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-extrabold text-on-surface flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-primary text-[18px]">system_update_alt</span>
@@ -331,7 +302,7 @@
                   <div class="text-[10px] text-on-surface-variant mt-0.5">Poora template ZIP ya folder upload karein.</div>
                 </div>
               </button>
-              <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-3 rounded-xl border border-purple-500/30 bg-surface-container text-left flex items-start gap-2.5 transition cursor-pointer">
+              <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-3 rounded-xl border border-slate-200 bg-surface-container text-left flex items-start gap-2.5 transition cursor-pointer">
                 <span class="material-symbols-outlined text-emerald-400 text-[20px] mt-0.5">bolt</span>
                 <div>
                   <div class="text-xs font-extrabold text-on-surface">2. Only Changed &amp; New Files Update</div>
@@ -339,7 +310,7 @@
                 </div>
               </button>
             </div>
-            <div id="delta-target-template-bar" class="hidden pt-2 border-t border-purple-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div id="delta-target-template-bar" class="hidden pt-2 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <label for="delta-target-template-select" class="font-bold text-emerald-400">Target Template:</label>
               <select id="delta-target-template-select" onchange="handleDeltaTargetTemplateSelect(this.value)" class="flex-1 px-3 py-1.5 rounded-xl bg-surface-container-lowest text-on-surface border border-emerald-500/40 text-xs font-semibold">
                 <option value="">Auto-Detect from wishmagic.json / Select Template...</option>
@@ -347,13 +318,13 @@
             </div>
           </div>
 
-          <div id="code-drop-zone" class="border-2 border-dashed border-purple-400/50 rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center gap-4 text-center bg-surface-container-high/50 hover:bg-surface-container-high transition-all cursor-pointer">
+          <div id="code-drop-zone" class="border-2 border-dashed border-slate-200 rounded-lg p-6 sm:p-8 flex flex-col items-center justify-center gap-4 text-center bg-surface-container-high/50 hover:bg-surface-container-high transition-all cursor-pointer">
             <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)"/>
             <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="handleZipFile(this.files[0])"/>
             <input type="file" id="delta-files-input" multiple class="hidden" onchange="handleDeltaFilesSelection(this.files)"/>
             <input type="file" id="custom-thumb-input" accept="image/*" class="hidden" onchange="handleCustomCoverThumb(this)"/>
 
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-primary flex items-center justify-center shadow-inner">
+            <div class="w-16 h-16 rounded-lg bg-slate-900 text-primary flex items-center justify-center shadow-inner">
               <span class="material-symbols-outlined text-[36px]">drive_folder_upload</span>
             </div>
 
@@ -365,12 +336,12 @@
             </div>
 
             <div class="flex flex-wrap items-center justify-center gap-3 mt-1">
-              <button type="button" onclick="document.getElementById('folder-input').click()" class="wm-btn-pink-pill">
+              <button type="button" onclick="document.getElementById('folder-input').click()" class="wm-btn-primary">
                 <span class="material-symbols-outlined text-[18px]">folder</span>
                 <span>Select Website Folder</span>
               </button>
               <span class="text-outline text-xs font-bold uppercase">OR</span>
-              <button type="button" onclick="document.getElementById('zip-input').click()" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs sm:text-sm border border-purple-300 flex items-center gap-2 transition cursor-pointer">
+              <button type="button" onclick="document.getElementById('zip-input').click()" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs sm:text-sm border border-slate-200 flex items-center gap-2 transition cursor-pointer">
                 <span class="material-symbols-outlined text-[18px] text-primary">archive</span>
                 <span>Select .ZIP Archive</span>
               </button>
@@ -381,7 +352,7 @@
               </button>
             </div>
 
-            <div id="upload-status-indicator" class="hidden flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/20 text-primary text-xs font-semibold animate-pulse mt-1">
+            <div id="upload-status-indicator" class="hidden flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-primary text-xs font-semibold  mt-1">
               <span class="material-symbols-outlined text-sm animate-spin">sync</span>
               <span id="upload-status-text">Processing files...</span>
             </div>
@@ -390,7 +361,7 @@
           </div>
 
           <!-- Auto-Detected Dynamic Customization Slots -->
-          <div class="p-4 rounded-2xl bg-surface-container-high border border-purple-200/80 flex flex-col gap-2.5">
+          <div class="p-4 rounded-lg bg-surface-container-high border border-slate-200 flex flex-col gap-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="flex items-center gap-2 text-on-surface font-bold text-xs sm:text-sm">
                 <span class="material-symbols-outlined text-primary text-[19px]">auto_awesome</span>
@@ -408,11 +379,11 @@
         </section>
 
         <!-- STEP 3: TEMPLATE STORE METADATA, PRICING & HOMEPAGE PLACEMENT (Always Visible Inline!) -->
-        <div id="smart-import-studio-workspace" class="hidden wm-card bg-surface-container-lowest p-4 sm:p-5 rounded-2xl border border-purple-500/40 flex flex-col gap-5 shadow-xl" role="region" aria-label="Smart Template Recognition and Side-by-Side Comparison Studio"></div>
+        <div id="smart-import-studio-workspace" class="hidden wm-card bg-surface-container-lowest p-4 sm:p-5 rounded-lg border border-slate-200 flex flex-col gap-5 shadow-xl" role="region" aria-label="Smart Template Recognition and Side-by-Side Comparison Studio"></div>
         <section id="upload-step-config" class="wm-card p-5 sm:p-6 flex flex-col gap-5">
-          <div class="flex items-center justify-between border-b border-purple-100 pb-3.5">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-3.5">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#6d28d9] flex items-center justify-center text-white shadow-md">
+              <div class="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md">
                 <span class="material-symbols-outlined text-[22px]">tune</span>
               </div>
               <div>
@@ -426,7 +397,7 @@
             <!-- Template Title -->
             <div class="flex flex-col gap-1.5">
               <label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                Template Title <span class="text-pink-500">*</span>
+                Template Title <span class="text-slate-900">*</span>
               </label>
               <input id="new-tpl-title" type="text" placeholder="e.g. Royal Fairytale Birthday 3D" class="w-full px-4 py-2.5 rounded-xl font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary"/>
             </div>
@@ -476,7 +447,7 @@
                 </label>
                 <div class="flex items-center gap-1 text-[10px] font-extrabold">
                   <button type="button" onclick="document.getElementById('new-tpl-price').value='0';document.getElementById('new-tpl-tier').value='free';" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 cursor-pointer">₹0</button>
-                  <button type="button" onclick="document.getElementById('new-tpl-price').value='59';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 cursor-pointer">₹59</button>
+                  <button type="button" onclick="document.getElementById('new-tpl-price').value='59';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer">₹59</button>
                   <button type="button" onclick="document.getElementById('new-tpl-price').value='149';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 cursor-pointer">₹149</button>
                 </div>
               </div>
@@ -492,12 +463,12 @@
               <label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 Cover Thumbnail Image
               </label>
-              <div class="flex flex-wrap items-center gap-4 p-3 rounded-2xl bg-surface-container-high border border-purple-200/70">
-                <div class="w-28 h-18 rounded-xl bg-surface-container-lowest border border-purple-300 overflow-hidden flex-shrink-0">
-                  <img id="thumbnail-preview-img" src="/assets/admin-tpl-thumb-1.png" alt="Cover Preview" class="w-full h-full object-cover" onerror="this.src='/assets/file_ab2082.png'"/>
+              <div class="flex flex-wrap items-center gap-4 p-3 rounded-lg bg-surface-container-high border border-slate-200">
+                <div class="w-28 h-18 rounded-xl bg-surface-container-lowest border border-slate-200 overflow-hidden flex-shrink-0">
+                  <img id="thumbnail-preview-img" src="/assets/icons/admin-icon-192.png" alt="Cover Preview" class="w-full h-full object-cover" onerror="this.src='/assets/icons/admin-icon-192.png'"/>
                 </div>
                 <div class="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-                  <button type="button" onclick="document.getElementById('custom-thumb-input').click()" class="self-start px-4 py-2 rounded-xl bg-white hover:bg-purple-50 text-on-surface text-xs font-bold border border-purple-300 shadow-xs transition cursor-pointer">
+                  <button type="button" onclick="document.getElementById('custom-thumb-input').click()" class="self-start px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-on-surface text-xs font-bold border border-slate-200 shadow-xs transition cursor-pointer">
                     + Upload Custom Cover Photo
                   </button>
                   <span class="text-[11px] text-on-surface-variant">Automatically extracted from your uploaded package or upload any custom JPG/PNG/WebP cover.</span>
@@ -519,16 +490,16 @@
           </div>
 
           <!-- Deploy Action Bar -->
-          <div class="pt-3 border-t border-purple-100 flex flex-wrap items-center justify-between gap-3">
+          <div class="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <a href="/admin/anktech/anktech/admin/templates" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs sm:text-sm transition">
               ← View All Templates
             </a>
             <div class="flex flex-wrap items-center gap-2.5">
-              <button type="button" id="btn-stage-template-draft" onclick="deployUploadedTemplate(false)" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest border border-purple-500/30 text-on-surface font-bold text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer" title="Upload to cloud and stage for live preview without publishing to public store yet">
+              <button type="button" id="btn-stage-template-draft" onclick="deployUploadedTemplate(false)" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest border border-slate-200 text-on-surface font-bold text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer" title="Upload to cloud and stage for live preview without publishing to public store yet">
                 <span class="material-symbols-outlined text-[18px]">draft</span>
                 <span>Save as Draft (Preview First)</span>
               </button>
-              <button type="button" id="btn-deploy-template" onclick="deployUploadedTemplate(true)" class="wm-btn-pink-pill !px-7 !py-3 !text-sm">
+              <button type="button" id="btn-deploy-template" onclick="deployUploadedTemplate(true)" class="wm-btn-primary !px-7 !py-3 !text-sm">
                 <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
                 <span>Deploy &amp; Publish to Website</span>
               </button>
@@ -545,7 +516,7 @@
         <section class="wm-card p-5 flex flex-col gap-3.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 "></span>
               <h3 class="text-base font-extrabold text-on-surface">Live Interactive Sandbox Preview</h3>
             </div>
             <div class="flex items-center gap-1.5">
@@ -554,7 +525,7 @@
             </div>
           </div>
 
-          <div id="sandbox-iframe-wrapper" class="w-full h-[360px] sm:h-[420px] rounded-2xl border border-purple-300 overflow-hidden bg-[#120924] relative shadow-inner transition-all">
+          <div id="sandbox-iframe-wrapper" class="w-full h-[360px] sm:h-[420px] rounded-lg border border-slate-200 overflow-hidden bg-[#120924] relative shadow-inner transition-all">
             <iframe id="upload-preview-iframe" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
           </div>
           <p class="text-[11px] text-on-surface-variant">
@@ -588,11 +559,11 @@
 <!-- ============================================================================ -->
 <!-- PART 50: SMART IMPORT STUDIO — DEDICATED PUBLISH CONFIRMATION MODAL           -->
 <!-- ============================================================================ -->
-<div class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="import-publish-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="import-confirm-modal-title">
-  <div class="w-full max-w-3xl max-h-[92vh] bg-surface-container-low border border-purple-500/40 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">
-    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
+<div class="fixed inset-0 z-50 hidden bg-black/90  flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="import-publish-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="import-confirm-modal-title">
+  <div class="w-full max-w-3xl max-h-[92vh] bg-surface-container-low border border-slate-200 rounded-lg sm:rounded-xl shadow-sm flex flex-col overflow-hidden my-auto">
+    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-slate-200">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/25 to-purple-500/25 border border-emerald-400/40 text-emerald-300 flex items-center justify-center">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 border border-emerald-400/40 text-emerald-300 flex items-center justify-center">
           <span class="material-symbols-outlined text-[24px]">verified_user</span>
         </div>
         <div>

@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="js/api-client.js"></script>
   <meta charset="utf-8"/>
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
   <title>WishMagic | Pricing & Plans Manager</title>
-  <meta name="theme-color" content="#1e7f4e"/>
+  <meta name="theme-color" content="#0f172a"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -17,201 +16,167 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261025_vessa_mobile_v10"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
+  <script src="js/wish-lifecycle.js"></script>
+  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
   <script>
-    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+    if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261028_pwa_v1"/>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261028_pwa_v1"></script>
-  <script src="js/wish-lifecycle.js"></script>
-  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
-
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
-<!-- Mobile Sidebar Backdrop Overlay -->
-<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+<div id="sidebar-backdrop" class="fixed inset-0 bg-slate-950/40 z-40 hidden md:hidden" onclick="toggleSidebar(false)"></div>
 
-<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
-  <div class="flex flex-col min-h-0 flex-1">
-    <!-- Brand Logo Header -->
-    <div class="px-5 pt-5 pb-3 flex-shrink-0">
-      <div class="flex items-center justify-between">
-        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
-          <!-- Magic Wand Icon -->
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
-              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
-              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
-              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
-              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
-              <defs>
-                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#C084FC"/>
-                  <stop offset="0.55" stop-color="#F472B6"/>
-                  <stop offset="1" stop-color="#FBBF24"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div class="flex flex-col">
-            <div class="text-[22px] leading-none tracking-tight">
-              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
-            </div>
-            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
-          </div>
-        </a>
-        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
-          <span class="material-symbols-outlined text-[20px]">close</span>
-        </button>
+<aside id="admin-sidebar" class="-translate-x-full md:translate-x-0 select-none">
+  <div class="h-14 px-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+    <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-2.5 text-decoration-none">
+      <div class="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs font-bold">WM</div>
+      <div class="flex flex-col leading-none">
+        <span class="text-sm font-bold text-slate-900 tracking-tight">WishMagic</span>
+        <span class="text-[10px] font-medium text-slate-500 mt-0.5">Admin Console</span>
       </div>
-    </div>
+    </a>
+    <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
+      <span class="material-symbols-outlined text-[18px]">close</span>
+    </button>
+  </div>
 
-    <!-- Navigation Menu -->
-    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
-      <nav class="flex flex-col gap-0.5">
-        <!-- Top Primary Dashboard Link -->
-        <div class="mb-1 pt-1">
-          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
-            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
-            <span>Dashboard</span>
-          </a>
-        </div>
+  <div class="wm-sidebar-scroll custom-scrollbar">
+    <nav class="flex flex-col" aria-label="Admin Navigation">
+      <div class="wm-nav-section-label">MAIN</div>
+      <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+        <span class="material-symbols-outlined">home</span>
+        <span>Dashboard</span>
+      </a>
 
-        <!-- TEMPLATES -->
-        <div class="wm-nav-section-label">TEMPLATES</div>
-        <a href="/admin/anktech/anktech/admin/templates">
-          <span class="material-symbols-outlined">grid_view</span>
-          <span>All Templates</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/add-template">
-          <span class="material-symbols-outlined">add_circle</span>
-          <span>Add Template</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/festivals">
-          <span class="material-symbols-outlined">event_available</span>
-          <span>Festival Scheduler</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/occasions">
-          <span class="material-symbols-outlined">category</span>
-          <span>Categories</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media">
-          <span class="material-symbols-outlined">image</span>
-          <span>Media Library</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media?tab=audio">
-          <span class="material-symbols-outlined">music_note</span>
-          <span>Music Library</span>
-        </a>
+      <div class="wm-nav-section-label">TEMPLATES</div>
+      <a href="/admin/anktech/anktech/admin/templates">
+        <span class="material-symbols-outlined">grid_view</span>
+        <span>All Templates</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/add-template">
+        <span class="material-symbols-outlined">add_circle</span>
+        <span>Add Template</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/festivals">
+        <span class="material-symbols-outlined">event_available</span>
+        <span>Festival Scheduler</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/occasions">
+        <span class="material-symbols-outlined">category</span>
+        <span>Categories</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media">
+        <span class="material-symbols-outlined">image</span>
+        <span>Media Library</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media?tab=audio">
+        <span class="material-symbols-outlined">music_note</span>
+        <span>Music Library</span>
+      </a>
 
-        <!-- WISHES -->
-        <div class="wm-nav-section-label">WISHES</div>
-        <a href="/admin/anktech/anktech/admin/wishes">
-          <span class="material-symbols-outlined">description</span>
-          <span>All Wishes</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
-          <span class="material-symbols-outlined">schedule</span>
-          <span>Expiring Soon</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/analytics">
-          <span class="material-symbols-outlined">trending_up</span>
-          <span>Analytics</span>
-        </a>
+      <div class="wm-nav-section-label">WISHES</div>
+      <a href="/admin/anktech/anktech/admin/wishes">
+        <span class="material-symbols-outlined">description</span>
+        <span>All Wishes</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Expiring Soon</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/analytics">
+        <span class="material-symbols-outlined">trending_up</span>
+        <span>Analytics</span>
+      </a>
 
-        <!-- USERS -->
-        <div class="wm-nav-section-label">USERS</div>
-        <a href="/admin/anktech/anktech/admin/users">
-          <span class="material-symbols-outlined">group</span>
-          <span>All Users</span>
-        </a>
-        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/pricing">
-          <span class="material-symbols-outlined">workspace_premium</span>
-          <span>Subscriptions</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/orders">
-          <span class="material-symbols-outlined">credit_card</span>
-          <span>Payments</span>
-        </a>
+      <div class="wm-nav-section-label">USERS</div>
+      <a href="/admin/anktech/anktech/admin/users">
+        <span class="material-symbols-outlined">group</span>
+        <span>All Users</span>
+      </a>
+      <a class="wm-nav-active" href="/admin/anktech/anktech/admin/pricing">
+        <span class="material-symbols-outlined">workspace_premium</span>
+        <span>Subscriptions</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/orders">
+        <span class="material-symbols-outlined">credit_card</span>
+        <span>Payments</span>
+      </a>
 
-        <!-- SYSTEM -->
-        <div class="wm-nav-section-label">SYSTEM</div>
-        <a href="/admin/anktech/anktech/admin/settings">
-          <span class="material-symbols-outlined">settings</span>
-          <span>Settings</span>
-        </a>
-            </nav>
-    </div>
+      <div class="wm-nav-section-label">SYSTEM</div>
+      <a href="/admin/anktech/anktech/admin/settings">
+        <span class="material-symbols-outlined">settings</span>
+        <span>Settings</span>
+      </a>
+    </nav>
   </div>
 </aside>
 
-<!-- Main Viewport Wrapper -->
-<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
-<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
-  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
-    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
-      <!-- Left: Hamburger + Search Pill with Ctrl K -->
-      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
-          <span class="material-symbols-outlined text-[22px]">menu</span>
+<div class="w-full md:pl-[220px] min-h-screen flex flex-col">
+  <header class="wm-top-header">
+    <div class="w-full h-full px-3 sm:px-5 flex items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar()" aria-label="Open Navigation">
+          <span class="material-symbols-outlined text-[20px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-2.5 text-slate-400 text-[18px] pointer-events-none">search</span>
           <input class="wm-header-search-input" placeholder="Search pricing tiers, coupons, gateways..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
-          <!-- Search Dropdown Results Container -->
         </div>
       </div>
 
-      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
-      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-
-        <!-- Admin Profile Pill -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button type="button" id="wm-header-live-sync-btn" onclick="window.triggerAdminLiveSync && window.triggerAdminLiveSync(true, { showToastFeedback: true })" class="wm-icon-btn" title="Sync Live Data" aria-label="Sync Live Data">
+          <span class="material-symbols-outlined text-[18px]" id="wm-header-live-sync-icon">sync</span>
+        </button>
+        <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-primary hidden sm:inline-flex">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>New Template</span>
+        </a>
         <div class="relative">
-          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
-            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-              <span class="material-symbols-outlined text-[19px]">person</span>
+          <button type="button" onclick="toggleAdminProfileMenu(event)" class="flex items-center gap-2 h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
+            <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center">AS</span>
+            <div class="hidden sm:flex flex-col text-left leading-none">
+              <span class="text-xs font-semibold text-slate-900">Admin</span>
+              <span id="wm-admin-header-email" class="text-[10px] text-slate-500 max-w-[140px] truncate">ankit.babusaini@gmail.com</span>
             </div>
-            <div class="hidden sm:flex flex-col text-left leading-tight">
-              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
-              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
-            </div>
-            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
-          </div>
+            <span class="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
+          </button>
 
-          <!-- Profile Dropdown Menu -->
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="px-3 py-2 border-b border-purple-100 mb-1">
-              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
-              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-1.5 w-56 bg-white rounded-lg border border-slate-200 shadow-lg p-1.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-2.5 py-2 border-b border-slate-100 mb-1">
+              <div class="font-semibold text-slate-900">WishMagic Admin</div>
+              <div class="text-[11px] text-slate-500 truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
-              <span>Main Website &amp; Site Settings</span>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">settings</span>
+              <span>Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
-              <span>Upload &amp; Set New Template</span>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">add_circle</span>
+              <span>Upload Template</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
-              <span>Hero Photo &amp; Media Vault</span>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">perm_media</span>
+              <span>Media Vault</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
-              <span>View Live Website</span>
+            <a href="/" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">open_in_new</span>
+              <span>View Storefront</span>
             </a>
-            <div class="border-t border-purple-100 my-1"></div>
-            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition text-left cursor-pointer">
-              <span class="material-symbols-outlined text-[17px]">logout</span>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-rose-50 text-rose-600 font-semibold text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">logout</span>
               <span>Sign Out</span>
             </button>
           </div>
@@ -220,27 +185,22 @@
     </div>
   </header>
 
-  <!-- Main Workspace Content -->
   <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
 
-    <section class="wm-hero-banner">
+    <section class="wm-page-head block">
       <div class="relative z-10 flex flex-col items-start max-w-2xl">
-        <div class="wm-hero-welcome-pill">
-          <span>Subscriptions &amp; Monetization Engine</span>
-          <span>👑</span>
-        </div>
-        <h1 class="wm-hero-title">
-          <span>Subscriptions,</span> <span class="wm-pink-word">Plans</span> <span class="wm-lavender-word">&amp; Coupons</span>
+        <h1 class="wm-page-title">
+          <span>Subscriptions,</span> <span >Plans</span> <span >&amp; Coupons</span>
         </h1>
-        <p id="pricing-hero-subtitle" class="wm-hero-subtitle">
+        <p id="pricing-hero-subtitle" class="wm-page-subtitle">
           Control ₹59 Custom Link Only, ₹59 HD Images + Style, ₹99 Free Template Combo, Template + ₹70 Premium Combo, and 7-Friends Referral rules.
         </p>
         <div class="flex flex-wrap items-center gap-3">
-          <button id="btn-hero-save-pricing" type="button" onclick="savePricingConfig()" class="wm-btn-pink-pill">
+          <button id="btn-hero-save-pricing" type="button" onclick="savePricingConfig()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">save</span>
             <span id="btn-hero-save-pricing-label">Save Pricing Changes</span>
           </button>
-          <a href="/pricing.html" target="_blank" class="wm-btn-glass-pill">
+          <a href="/pricing.html" target="_blank" class="wm-btn-secondary">
             <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             <span>View Public Pricing</span>
           </a>
@@ -252,7 +212,7 @@
     </section>
 
     <!-- Honest Error & Unsaved Changes Banners -->
-    <div id="pricing-error-banner" class="hidden p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-200 text-xs sm:text-sm flex items-center justify-between gap-3">
+    <div id="pricing-error-banner" class="hidden p-4 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-200 text-xs sm:text-sm flex items-center justify-between gap-3">
       <div class="flex items-center gap-2.5">
         <span class="material-symbols-outlined text-rose-400">error</span>
         <span id="pricing-error-message" class="font-bold">Unable to save or load pricing configuration.</span>
@@ -262,7 +222,7 @@
       </button>
     </div>
 
-    <div id="pricing-unsaved-banner" class="hidden p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-3">
+    <div id="pricing-unsaved-banner" class="hidden p-3.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-amber-400">edit_notifications</span>
         <span id="pricing-unsaved-summary" class="font-bold">You have unsaved pricing changes. Click Save to persist to D1 and update live checkout.</span>
@@ -280,7 +240,7 @@
     <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
         <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
+          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]">stars</span>
           </div>
           <div>
@@ -305,7 +265,7 @@
 
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
         <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0">
+          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-sm flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]">pie_chart</span>
           </div>
           <div>
@@ -330,7 +290,7 @@
 
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
         <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#ec4899] flex items-center justify-center text-white shadow-md shadow-pink-500/25 flex-shrink-0">
+          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-sm flex-shrink-0">
             <span class="text-[22px] font-extrabold">₹</span>
           </div>
           <div>
@@ -355,7 +315,7 @@
 
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
         <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#10b981] to-[#059669] flex items-center justify-center text-white shadow-md shadow-emerald-500/25 flex-shrink-0">
+          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]">local_offer</span>
           </div>
           <div>
@@ -381,22 +341,22 @@
     <!-- ===================================================================== -->
     <!-- VIP PLANS & PERKS STUDIO (CREATE / EDIT ANY PLAN INCLUDING ₹49 / DELETE) -->
     <!-- ===================================================================== -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border-2 border-primary/50 shadow-2xl space-y-5" id="vip-plans-studio-section">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/25">
+    <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-6 border-2 border-primary/50 shadow-sm space-y-5" id="vip-plans-studio-section">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
         <div>
           <div class="flex items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white text-[10px] font-black uppercase tracking-wider">👑 VIP PLANS &amp; PERKS STUDIO</span>
-            <span id="vip-plans-count-badge" class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[11px] font-bold">5 Active Plans</span>
+            <span class="px-2.5 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider">👑 VIP PLANS &amp; PERKS STUDIO</span>
+            <span id="vip-plans-count-badge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold">5 Active Plans</span>
           </div>
           <h2 class="text-lg sm:text-xl font-extrabold text-on-surface mt-1">Manage All VIP Plans (Create, Edit ₹49 &amp; Default Plans, Delete &amp; Set Free Perks)</h2>
           <p class="text-xs text-on-surface-variant mt-0.5">Har plan (jaise ₹49 VIP Pass, ₹59 Link, ₹99 Combo) ko edit ya delete karein, naye VIP plans banayein, aur set karein ki wo user ko kya-kya FREE denge.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
-          <button type="button" onclick="openVipPlanModal(null)" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-xs font-extrabold shadow-lg hover:brightness-110 transition flex items-center gap-1.5 cursor-pointer">
+          <button type="button" onclick="openVipPlanModal(null)" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-extrabold shadow-lg hover:brightness-110 transition flex items-center gap-1.5 cursor-pointer">
             <span class="material-symbols-outlined text-[17px]">add_circle</span>
             <span>+ Create New VIP Plan</span>
           </button>
-          <button type="button" onclick="restoreDefaultVipPlans()" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant text-xs font-bold border border-purple-900/30 transition cursor-pointer" title="Restore factory default plans">
+          <button type="button" onclick="restoreDefaultVipPlans()" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant text-xs font-bold border border-slate-200 transition cursor-pointer" title="Restore factory default plans">
             Restore Default Plans
           </button>
         </div>
@@ -409,11 +369,11 @@
     </div>
 
     <!-- VIP PLAN CREATE / EDIT MODAL -->
-    <div id="vip-plan-modal" class="fixed inset-0 z-[150] bg-black/75 backdrop-blur-md hidden items-center justify-center p-4 overflow-y-auto">
-      <div class="wm-card bg-surface-container rounded-3xl max-w-2xl w-full p-5 sm:p-7 border-2 border-primary/50 shadow-2xl space-y-4 my-8" onclick="event.stopPropagation()">
-        <div class="flex items-center justify-between pb-3 border-b border-purple-900/30">
+    <div id="vip-plan-modal" class="fixed inset-0 z-[150] bg-black/75  hidden items-center justify-center p-4 overflow-y-auto">
+      <div class="wm-card bg-surface-container rounded-xl max-w-2xl w-full p-5 sm:p-7 border-2 border-primary/50 shadow-sm space-y-4 my-8" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
           <div class="flex items-center gap-2.5">
-            <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#ff2a85] to-[#a855f7] text-white flex items-center justify-center font-bold">👑</span>
+            <span class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">👑</span>
             <div>
               <h3 id="vip-plan-modal-title" class="text-base sm:text-lg font-extrabold text-on-surface">Edit VIP Plan &amp; Free Perks</h3>
               <p class="text-[11px] text-on-surface-variant">Set plan price, badge, and what free perks/features users unlock.</p>
@@ -427,11 +387,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
             <label class="block font-bold text-on-surface-variant mb-1">Plan Name *</label>
-            <input id="vp-edit-name" type="text" placeholder="e.g. VIP Magic Pass" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-bold text-sm focus:outline-none focus:border-primary"/>
+            <input id="vp-edit-name" type="text" placeholder="e.g. VIP Magic Pass" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 font-bold text-sm focus:outline-none focus:border-primary"/>
           </div>
           <div>
             <label class="block font-bold text-on-surface-variant mb-1">Top Badge Text</label>
-            <input id="vp-edit-badge" type="text" placeholder="e.g. 👑 VIP PASS or 🔥 BEST SELLER" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-bold text-sm focus:outline-none focus:border-primary"/>
+            <input id="vp-edit-badge" type="text" placeholder="e.g. 👑 VIP PASS or 🔥 BEST SELLER" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 font-bold text-sm focus:outline-none focus:border-primary"/>
           </div>
           <div>
             <label class="block font-bold text-on-surface-variant mb-1">Plan Price (₹) * (Set 0 for Free)</label>
@@ -439,59 +399,59 @@
           </div>
           <div>
             <label class="block font-bold text-on-surface-variant mb-1">Strike-Through Original Price (₹)</label>
-            <input id="vp-edit-orig-price" type="number" min="0" max="100000" placeholder="99" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-bold text-sm focus:outline-none"/>
+            <input id="vp-edit-orig-price" type="number" min="0" max="100000" placeholder="99" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 font-bold text-sm focus:outline-none"/>
           </div>
           <div>
             <label class="block font-bold text-on-surface-variant mb-1">Billing / Validity Label</label>
-            <input id="vp-edit-billing" type="text" placeholder="e.g. one-time, / wish, / month" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-semibold text-xs focus:outline-none"/>
+            <input id="vp-edit-billing" type="text" placeholder="e.g. one-time, / wish, / month" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 font-semibold text-xs focus:outline-none"/>
           </div>
           <div>
             <label class="block font-bold text-on-surface-variant mb-1">Button CTA Text</label>
-            <input id="vp-edit-cta" type="text" placeholder="e.g. Unlock VIP Magic Pass ✨" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-semibold text-xs focus:outline-none"/>
+            <input id="vp-edit-cta" type="text" placeholder="e.g. Unlock VIP Magic Pass ✨" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 font-semibold text-xs focus:outline-none"/>
           </div>
         </div>
 
         <div class="text-xs">
           <label class="block font-bold text-on-surface-variant mb-1">Plan Description</label>
-          <textarea id="vp-edit-desc" rows="2" placeholder="Describe what this VIP plan offers..." class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-medium text-xs focus:outline-none"></textarea>
+          <textarea id="vp-edit-desc" rows="2" placeholder="Describe what this VIP plan offers..." class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 font-medium text-xs focus:outline-none"></textarea>
         </div>
 
         <!-- WHAT THIS PLAN GIVES FREE (PERKS TOGGLES) -->
-        <div class="p-3.5 rounded-2xl bg-surface-container-low border border-purple-900/30 space-y-2.5">
+        <div class="p-3.5 rounded-lg bg-surface-container-low border border-slate-200 space-y-2.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-pink-400">🎁 What Free Perks &amp; Features Does This Plan Give?</span>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600">🎁 What Free Perks &amp; Features Does This Plan Give?</span>
             <span class="text-[10px] font-bold text-on-surface-variant">Check all included perks</span>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
-              <input type="checkbox" id="vp-perk-custom-link" checked class="rounded text-pink-500"/>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
+              <input type="checkbox" id="vp-perk-custom-link" checked class="rounded text-slate-900"/>
               <span class="font-bold text-on-surface">🔗 Free Custom Link (<code>/w/name</code>)</span>
             </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
-              <input type="checkbox" id="vp-perk-hd-photos" checked class="rounded text-pink-500"/>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
+              <input type="checkbox" id="vp-perk-hd-photos" checked class="rounded text-slate-900"/>
               <span class="font-bold text-on-surface">🖼️ Free HD Quality Photos (Up to 16)</span>
             </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
-              <input type="checkbox" id="vp-perk-custom-style" checked class="rounded text-pink-500"/>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
+              <input type="checkbox" id="vp-perk-custom-style" checked class="rounded text-slate-900"/>
               <span class="font-bold text-on-surface">🎨 Free Custom Fonts, Themes &amp; FX</span>
             </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
-              <input type="checkbox" id="vp-perk-unlock-vip" checked class="rounded text-pink-500"/>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
+              <input type="checkbox" id="vp-perk-unlock-vip" checked class="rounded text-slate-900"/>
               <span class="font-bold text-on-surface">👑 Unlock Paid / VIP Templates Free</span>
             </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
-              <input type="checkbox" id="vp-perk-music-voice" checked class="rounded text-pink-500"/>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
+              <input type="checkbox" id="vp-perk-music-voice" checked class="rounded text-slate-900"/>
               <span class="font-bold text-on-surface">🎵 Custom Music &amp; Voice Dedication</span>
             </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
-              <input type="checkbox" id="vp-perk-no-watermark" checked class="rounded text-pink-500"/>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
+              <input type="checkbox" id="vp-perk-no-watermark" checked class="rounded text-slate-900"/>
               <span class="font-bold text-on-surface">✨ Remove Watermark (White-Label)</span>
             </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
-              <input type="checkbox" id="vp-perk-lifetime" checked class="rounded text-pink-500"/>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
+              <input type="checkbox" id="vp-perk-lifetime" checked class="rounded text-slate-900"/>
               <span class="font-bold text-on-surface">♾️ Permanent Lifetime Link Validity</span>
             </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-slate-200 cursor-pointer">
               <input type="checkbox" id="vp-edit-popular" class="rounded text-amber-500"/>
               <span class="font-bold text-amber-300">⭐ Highlight as "Most Popular" Plan</span>
             </label>
@@ -500,12 +460,12 @@
 
         <div class="text-xs">
           <label class="block font-bold text-on-surface-variant mb-1">Custom Feature Bullet Points (One per line — shown on Website Pricing Cards)</label>
-          <textarea id="vp-edit-features" rows="4" placeholder="Unlock VIP & Premium 3D Templates&#10;Free Custom Link (/w/your-name) Included&#10;Up to 16 Uncompressed HD Photos" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-mono text-xs focus:outline-none"></textarea>
+          <textarea id="vp-edit-features" rows="4" placeholder="Unlock VIP & Premium 3D Templates&#10;Free Custom Link (/w/your-name) Included&#10;Up to 16 Uncompressed HD Photos" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 font-mono text-xs focus:outline-none"></textarea>
         </div>
 
-        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-purple-900/30">
+        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200">
           <button type="button" onclick="closeVipPlanModal()" class="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
-          <button type="button" onclick="saveVipPlanFromModal()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-xs font-extrabold shadow-lg hover:brightness-110 transition cursor-pointer">
+          <button type="button" onclick="saveVipPlanFromModal()" class="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-extrabold shadow-lg hover:brightness-110 transition cursor-pointer">
             💾 Save VIP Plan &amp; Sync to Website
           </button>
         </div>
@@ -515,10 +475,10 @@
     <!-- MODULAR & COMBO PRICING CONFIGURATOR (4 CARDS + 7-REFERRAL & TEMPLATE TIERS) -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
       <!-- Card 1: Custom Link Only (₹59) -->
-      <div class="wm-card bg-surface-container rounded-2xl p-5 border border-purple-900/30 shadow-xl flex flex-col justify-between">
+      <div class="wm-card bg-surface-container rounded-lg p-5 border border-slate-200 shadow-xl flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <span class="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-extrabold">1. Custom Link Only</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-extrabold">1. Custom Link Only</span>
             <span class="text-[11px] font-bold text-emerald-400">Add-On Pack</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
@@ -528,8 +488,8 @@
               <input id="vip-price-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="59"/>
             </div>
           </div>
-          <p class="text-xs text-on-surface-variant mb-3">Sirf Custom Link (<code class="text-pink-400">/w/your-custom-name</code>) set karne ka price. Template base price alag rahega.</p>
-          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
+          <p class="text-xs text-on-surface-variant mb-3">Sirf Custom Link (<code class="text-slate-600">/w/your-custom-name</code>) set karne ka price. Template base price alag rahega.</p>
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-slate-200">
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom personalized URL slug</li>
             <li class="flex items-center gap-2"><span class="text-outline">•</span> Standard images &amp; default style</li>
           </ul>
@@ -540,21 +500,21 @@
       </div>
 
       <!-- Card 2: High Quality Images + Style Only (₹59) -->
-      <div class="wm-card bg-surface-container rounded-2xl p-5 border border-purple-900/30 shadow-xl flex flex-col justify-between">
+      <div class="wm-card bg-surface-container rounded-lg p-5 border border-slate-200 shadow-xl flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <span class="px-2.5 py-1 rounded-full bg-pink-500/20 text-pink-300 text-xs font-extrabold">2. HD Images + Style</span>
-            <span id="hd-style-badge" class="text-[11px] font-bold text-pink-400">₹59 Add-On</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-extrabold">2. HD Images + Style</span>
+            <span id="hd-style-badge" class="text-[11px] font-bold text-slate-600">₹59 Add-On</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-secondary">₹</span>
-              <input id="hd-style-price-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-purple-500/40 text-xl font-black focus:outline-none" value="59"/>
+              <input id="hd-style-price-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-xl font-black focus:outline-none" value="59"/>
             </div>
           </div>
           <p class="text-xs text-on-surface-variant mb-3">High quality (HD) images upload karne aur custom theme/font/particle style set karne ka price.</p>
-          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-slate-200">
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> High Quality (HD) photo uploads</li>
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom fonts, colors &amp; 3D particles</li>
             <li class="flex items-center gap-2"><span class="text-outline">•</span> Uses random wish link unless combined</li>
@@ -566,8 +526,8 @@
       </div>
 
       <!-- Card 3: Free Template Combo Offer -->
-      <div class="wm-card bg-surface-container rounded-2xl p-5 border-2 border-primary shadow-2xl relative flex flex-col justify-between">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
+      <div class="wm-card bg-surface-container rounded-lg p-5 border-2 border-primary shadow-sm relative flex flex-col justify-between">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
           Best Seller • Free Template Combo
         </div>
         <div>
@@ -583,20 +543,20 @@
             </div>
           </div>
           <p id="free-combo-desc" class="text-xs text-on-surface-variant mb-3">Free template ke saath Custom Link + High Quality Images + Custom Style sab kuch ek saath.</p>
-          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Link (<code class="text-pink-400">/w/custom-name</code>)</li>
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-slate-200">
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Link (<code class="text-slate-600">/w/custom-name</code>)</li>
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> High Quality (HD) Images upload</li>
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Style, Fonts, Colors &amp; Effects</li>
           </ul>
         </div>
-        <button id="btn-save-free-combo" class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-lg shadow-purple-600/30 hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
+        <button id="btn-save-free-combo" class="mt-5 w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-lg shadow-sm hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
           Update Free Combo (₹99)
         </button>
       </div>
 
       <!-- Card 4: Premium Template Royal Combo -->
-      <div class="wm-card bg-surface-container rounded-2xl p-5 border-2 border-amber-500/50 shadow-xl relative flex flex-col justify-between">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-pink-500 text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
+      <div class="wm-card bg-surface-container rounded-lg p-5 border-2 border-amber-500/50 shadow-xl relative flex flex-col justify-between">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
           Premium Template + Combo
         </div>
         <div>
@@ -612,25 +572,25 @@
             </div>
           </div>
           <p id="premium-addon-desc" class="text-xs text-on-surface-variant mb-3">Premium template (₹59 ya ₹149) ke saath +₹70 me Custom Link + HD Images + Style sab milega.</p>
-          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-slate-200">
             <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹<span id="prem-tier-1-base">59</span> Template Combo = <strong id="prem-tier-1-total">₹129</strong></li>
             <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹<span id="prem-tier-2-base">149</span> Template Combo = <strong id="prem-tier-2-total">₹219</strong></li>
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unlocks Template + Link + HD + Style</li>
           </ul>
         </div>
-        <button id="btn-save-premium-addon" class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 text-white text-xs font-bold shadow-lg hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
+        <button id="btn-save-premium-addon" class="mt-5 w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-lg hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
           Update Premium Add-On (+₹70)
         </button>
       </div>
     </div>
 
     <!-- TEMPLATE TIER PRESETS -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl">
-      <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/20 flex flex-col justify-between gap-3">
+    <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-6 border border-slate-200 shadow-xl">
+      <div class="p-4 rounded-xl bg-surface-container-low border border-slate-200 flex flex-col justify-between gap-3">
         <div>
           <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-purple-300">Template Base Price Tiers</span>
-            <a href="/admin/anktech/anktech/admin/templates" class="text-[11px] font-bold text-pink-400 hover:underline">Manage Templates →</a>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Template Base Price Tiers</span>
+            <a href="/admin/anktech/anktech/admin/templates" class="text-[11px] font-bold text-slate-600 hover:underline">Manage Templates →</a>
           </div>
           <p class="text-xs text-on-surface-variant mb-3">Individual templates can be Free (₹0), ₹59, ₹149, or any custom price set in Template Studio.</p>
           <div class="grid grid-cols-3 gap-2">
@@ -638,8 +598,8 @@
               <div class="text-[10px] font-bold text-emerald-400 uppercase">Free Tier</div>
               <div class="text-base font-black text-on-surface">₹0</div>
             </div>
-            <div class="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-center">
-              <div class="text-[10px] font-bold text-purple-300 uppercase">Standard VIP</div>
+            <div class="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-center">
+              <div class="text-[10px] font-bold text-slate-600 uppercase">Standard VIP</div>
               <div class="text-base font-black text-on-surface">₹59</div>
             </div>
             <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
@@ -648,16 +608,16 @@
             </div>
           </div>
         </div>
-        <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs">
+        <div class="flex items-center justify-between pt-2 border-t border-slate-200 text-xs">
           <span class="text-on-surface-variant font-semibold">Creator Bulk Pack Price (₹):</span>
-          <input id="creator-price-input" type="number" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container text-on-surface border border-purple-900/40 font-black text-sm text-right" value="199"/>
+          <input id="creator-price-input" type="number" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container text-on-surface border border-slate-200 font-black text-sm text-right" value="199"/>
         </div>
       </div>
     </div>
 
     <!-- COUPONS & DISCOUNT ENGINE -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+    <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h2 class="font-headline-sm text-lg font-bold text-on-surface">Discount Promo Codes Engine</h2>
           <p class="text-xs sm:text-sm text-on-surface-variant">Active coupons applicable at checkout on VIP passes.</p>
@@ -671,7 +631,7 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="border-b border-purple-900/30 text-outline text-xs uppercase font-bold">
+            <tr class="border-b border-slate-200 text-outline text-xs uppercase font-bold">
               <th class="py-3 px-3">Coupon Code</th>
               <th class="py-3 px-3">Discount Type</th>
               <th class="py-3 px-3">Redemptions</th>
@@ -732,8 +692,8 @@
 </div>
 
 <!-- Modal: New Coupon -->
-<div id="new-coupon-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-  <div class="wm-card bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
+<div id="new-coupon-modal" class="fixed inset-0 bg-black/80  z-50 hidden items-center justify-center p-4">
+  <div class="wm-card bg-surface-container w-full max-w-md rounded-lg p-6 border border-slate-200 shadow-sm flex flex-col gap-4">
     <div class="flex items-center justify-between">
       <h3 class="font-headline-sm text-lg font-bold text-on-surface">Create New Promo Code</h3>
       <button onclick="toggleModal('new-coupon-modal')" class="text-on-surface-variant hover:text-on-surface">
@@ -742,19 +702,19 @@
     </div>
     <div>
       <label class="block text-xs font-bold uppercase text-outline mb-1">Promo Code (Uppercase)</label>
-      <input id="coupon-code" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-mono uppercase" placeholder="e.g. DIWALIMAGIC"/>
+      <input id="coupon-code" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-sm font-mono uppercase" placeholder="e.g. DIWALIMAGIC"/>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block text-xs font-bold uppercase text-outline mb-1">Discount Type</label>
-        <select id="coupon-type-select" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm">
+        <select id="coupon-type-select" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-sm">
           <option>Percentage (% Off)</option>
           <option>Flat INR (₹ Off)</option>
         </select>
       </div>
       <div>
         <label class="block text-xs font-bold uppercase text-outline mb-1">Value</label>
-        <input id="coupon-value-input" type="number" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="e.g. 50" value="50"/>
+        <input id="coupon-value-input" type="number" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-sm" placeholder="e.g. 50" value="50"/>
       </div>
     </div>
     <div class="flex justify-end gap-2 pt-2">
@@ -985,7 +945,7 @@
     if (countBadge) countBadge.textContent = `${plans.length} Active Plan${plans.length === 1 ? "" : "s"}`;
 
     if (plans.length === 0) {
-      grid.innerHTML = `<div class="col-span-full p-8 rounded-2xl bg-surface-container-low border border-purple-900/30 text-center space-y-3">
+      grid.innerHTML = `<div class="col-span-full p-8 rounded-2xl bg-surface-container-low border border-slate-200 text-center space-y-3">
         <div class="text-2xl">👑</div>
         <div class="text-sm font-extrabold text-on-surface">No VIP Plans Configured</div>
         <p class="text-xs text-on-surface-variant">Click "+ Create New VIP Plan" or "Restore Default Plans" to add plans.</p>
@@ -1008,10 +968,10 @@
       const safeId = String(plan.id).replace(/'/g, "");
 
       return `
-        <div class="wm-card bg-surface-container-low rounded-2xl p-4 sm:p-5 border ${plan.isPopular ? "border-2 border-primary shadow-xl" : "border-purple-900/30"} flex flex-col justify-between gap-3 relative">
+        <div class="wm-card bg-surface-container-low rounded-2xl p-4 sm:p-5 border ${plan.isPopular ? "border-2 border-primary shadow-xl" : "border-slate-200"} flex flex-col justify-between gap-3 relative">
           <div>
             <div class="flex items-center justify-between gap-2 mb-2">
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.isPopular ? "bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white" : "bg-purple-500/20 text-purple-300"}">${plan.badge || "VIP PLAN"}</span>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.isPopular ? "bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white" : "bg-slate-100 text-slate-600"}">${plan.badge || "VIP PLAN"}</span>
               <span class="text-[10px] font-mono text-on-surface-variant">ID: ${plan.id}</span>
             </div>
             <h3 class="text-base font-extrabold text-on-surface">${plan.name}</h3>
@@ -1024,11 +984,11 @@
             <div class="flex flex-wrap gap-1 mb-2.5">
               ${perkBadges.map(b => `<span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">${b}</span>`).join("")}
             </div>
-            <ul class="space-y-1 text-[11px] text-on-surface-variant pt-2 border-t border-purple-900/20">
+            <ul class="space-y-1 text-[11px] text-on-surface-variant pt-2 border-t border-slate-200">
               ${feats.map(f => `<li class="flex items-center gap-1.5 truncate"><span class="text-emerald-400 font-bold">✓</span><span>${f}</span></li>`).join("")}
             </ul>
           </div>
-          <div class="flex items-center gap-2 pt-3 border-t border-purple-900/20">
+          <div class="flex items-center gap-2 pt-3 border-t border-slate-200">
             <button type="button" onclick="openVipPlanModal('${safeId}')" class="flex-1 py-2 px-3 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-xs font-extrabold transition flex items-center justify-center gap-1 cursor-pointer">
               <span class="material-symbols-outlined text-[15px]">edit</span>
               <span>Edit Plan &amp; Perks</span>

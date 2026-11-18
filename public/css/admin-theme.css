@@ -1,27 +1,16 @@
 /* ==========================================================================
-   WishMagic — Vessa Botanical Sage & Forest Emerald Admin Studio UI (v2026.10.25)
-   Pixel-Matched 1:1 to Reference Video (_code_and_chill_ Inventory Dashboard UI)
-   Across All 25 Website Admin Pages + Circular View-Transition Theme Wipe
-   + Compact Labeled Mobile Drawer (216px), Desktop Rail & Zero-Lag GPU Optimization
+   WishMagic Admin Console — Minimalist Lightweight UI (v2026.11)
+   Clean Neutral SaaS Design System • Zero Heavy Effects • Mobile-First PWA
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* ==========================================================================
-   0. CIRCULAR VIEW-TRANSITION THEME WIPE (::view-transition-new(root))
-      Exact implementation from video: src > ui.ts > wipe()
-   ========================================================================== */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none !important;
   mix-blend-mode: normal !important;
   display: block;
 }
-
-::view-transition-old(root) {
-  z-index: 1;
-}
-
 ::view-transition-new(root) {
   z-index: 2147483646;
 }
@@ -30,1160 +19,417 @@
 html,
 html.dark,
 html:not(.dark) {
-  /* Vessa Botanical Sage & Crisp Alabaster — Light Mode */
-  --color-background: #eef2ef;
-  --color-surface: #ffffff;
-  --color-surface-variant: #f3f7f4;
-  --color-surface-bright: #ffffff;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f7faf8;
-  --color-surface-container: #ffffff;
-  --color-surface-container-high: #eef3f0;
-  --color-surface-container-highest: #e3ece6;
-  --color-on-surface: #111c16;
-  --color-on-surface-variant: #526358;
-  --color-outline: #74877b;
-  --color-outline-variant: #dde6e0;
+  --wm-bg: #f8fafc;
+  --wm-surface: #ffffff;
+  --wm-surface-subtle: #f1f5f9;
+  --wm-border: #e2e8f0;
+  --wm-border-strong: #cbd5e1;
+  --wm-text: #0f172a;
+  --wm-muted: #475569;
+  --wm-soft: #64748b;
+  --wm-accent: #2563eb;
+  --wm-accent-hover: #1d4ed8;
+  --wm-accent-soft: #eff6ff;
+  --wm-primary: #0f172a;
+  --wm-primary-hover: #1e293b;
 
-  /* RGB Channel Variables (--c-*) for Tailwind Config */
-  --c-background: 238 242 239;
-  --c-on-background: 17 28 22;
+  /* Tailwind RGB Variables */
+  --c-background: 248 250 252;
+  --c-on-background: 15 23 42;
   --c-surface: 255 255 255;
-  --c-surface-variant: 243 247 244;
-  --c-surface-dim: 229 236 231;
+  --c-surface-variant: 241 245 249;
+  --c-surface-dim: 241 245 249;
   --c-surface-bright: 255 255 255;
   --c-surface-container-lowest: 255 255 255;
-  --c-surface-container-low: 247 250 248;
+  --c-surface-container-low: 248 250 252;
   --c-surface-container: 255 255 255;
-  --c-surface-container-high: 238 243 240;
-  --c-surface-container-highest: 227 236 230;
-  --c-on-surface: 17 28 22;
-  --c-on-surface-variant: 82 99 88;
-  --c-outline: 116 135 123;
-  --c-outline-variant: 221 230 224;
-  --c-primary: 30 127 78;
-  --c-primary-container: 225 243 232;
+  --c-surface-container-high: 241 245 249;
+  --c-surface-container-highest: 226 232 240;
+  --c-on-surface: 15 23 42;
+  --c-on-surface-variant: 71 85 105;
+  --c-outline: 100 116 139;
+  --c-outline-variant: 226 232 240;
+  --c-primary: 37 99 235;
+  --c-primary-container: 239 246 255;
   --c-on-primary: 255 255 255;
-  --c-on-primary-container: 15 66 40;
-  --c-secondary: 20 30 24;
-  --c-secondary-container: 232 239 234;
+  --c-on-primary-container: 29 78 216;
+  --c-secondary: 15 23 42;
+  --c-secondary-container: 241 245 249;
   --c-on-secondary: 255 255 255;
-  --c-on-secondary-container: 17 28 22;
+  --c-on-secondary-container: 15 23 42;
   --c-tertiary: 22 163 74;
   --c-tertiary-container: 220 252 231;
-
-  /* Vessa Component Tokens — Light Mode */
-  --vessa-bg: #eef2ef;
-  --vessa-shell-bg: #f5f8f6;
-  --vessa-header-bg: #ffffff;
-  --vessa-rail-bg: #ffffff;
-  --vessa-card-bg: #ffffff;
-  --vessa-card-border: #e3ebe6;
-  --vessa-card-shadow: 0 1px 3px rgba(16, 28, 22, 0.03), 0 4px 12px rgba(16, 28, 22, 0.025);
-  --vessa-welcome-grad: linear-gradient(140deg, #e2f1e7 0%, #edf6f0 58%, #e4f2e9 100%);
-  --vessa-welcome-border: #cfe4d6;
-  --vessa-emerald: #1e7f4e;
-  --vessa-emerald-hover: #17663e;
-  --vessa-emerald-soft: #e1f3e8;
-  --vessa-emerald-text: #15623b;
-  --vessa-pill-track: #eaf0ec;
-  --vessa-pill-active-bg: #141e18;
-  --vessa-pill-active-text: #ffffff;
-  --vessa-text-main: #111c16;
-  --vessa-text-muted: #526358;
-  --vessa-text-soft: #788a7f;
-  --wm-card-bg: #ffffff;
-  --wm-card-border: #e3ebe6;
-  --wm-card-shadow: 0 1px 3px rgba(16, 28, 22, 0.03), 0 4px 12px rgba(16, 28, 22, 0.025);
-  --wm-text-main: #111c16;
-  --wm-text-muted: #526358;
-  --wm-text-soft: #788a7f;
-  --wm-table-head-bg: #f4f8f5;
-  --wm-table-row-hover: #f8fbf9;
-  --wm-input-bg: #ffffff;
-  --wm-input-border: #d5e0d9;
 }
 
-/* ==========================================================================
-   1. BASE BODY, SHELL & ZERO-LAG GPU OPTIMIZATION
-   ========================================================================== */
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 html, body {
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
-  color: var(--vessa-text-main) !important;
-  background-color: var(--vessa-bg) !important;
-  background-image: none !important;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--wm-text);
+  background-color: var(--wm-bg);
   overflow-x: hidden;
   max-width: 100vw;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Zero-Lag Optimization: Remove expensive GPU blur orbs & card backdrop-filters during scroll */
-main div[class*="blur-[128px]"],
-main div[class*="blur-[140px]"],
-main div[class*="blur-3xl"],
-main div[class*="blur-2xl"].pointer-events-none {
-  display: none !important;
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
-main [class*="backdrop-blur"],
-header.wm-top-header,
-aside#admin-sidebar,
-#sidebar-backdrop {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Stop continuous infinite pulse/ping repaints on decorative dots inside main */
-main .animate-ping,
-main span.w-2.h-2.animate-pulse,
-main span.w-1\.5.h-1\.5.animate-pulse {
-  animation: none !important;
-}
-
-/* Adjust desktop viewport wrapper for slim 68px Vessa Icon Rail or 216px Expanded Sidebar */
-@media (min-width: 768px) {
-  body > div.md\:pl-\[270px\] {
-    padding-left: 68px !important;
-    transition: padding-left 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  body.vessa-sidebar-expanded > div.md\:pl-\[270px\] {
-    padding-left: 216px !important;
-  }
-}
-
-/* ==========================================================================
-   2. FULL-WIDTH 3-ZONE TOP HEADER BAR (Matches Video Top Bar 1:1)
-      Left: Vessa/WishMagic Brand | Center: Segmented Sub-Tab Pills | Right: Search + Actions + Profile
-   ========================================================================== */
+/* Top Bar */
 header.wm-top-header {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: 64px !important;
-  background: var(--vessa-header-bg) !important;
-  background-image: none !important;
-  border-bottom: 1px solid var(--vessa-card-border) !important;
-  box-shadow: none !important;
-  z-index: 65 !important;
-  display: flex !important;
-  align-items: center !important;
-}
-
-.vessa-top-header-inner {
-  width: 100%;
-  height: 100%;
-  padding: 0 18px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--wm-surface);
+  border-bottom: 1px solid var(--wm-border);
+  z-index: 40;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
-/* Zone 1: Brand Emblem & Title (Far Left) */
-.vessa-brand-block {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none !important;
-  flex-shrink: 0;
-}
-
-.vessa-brand-logo-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 9999px;
-  background: #238854;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(35, 136, 84, 0.22);
-  flex-shrink: 0;
-}
-
-.vessa-brand-title {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--vessa-text-main);
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.vessa-brand-sub {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--vessa-text-soft);
-  line-height: 1.15;
-  margin-top: 1px;
-}
-
-/* Zone 3: Right Search, Quick Icons, + New Button & Greeting Profile Pill */
-.vessa-header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+@media (min-width: 768px) {
+  header.wm-top-header {
+    left: 220px;
+  }
 }
 
 .wm-header-search-wrap {
   position: relative;
   display: flex;
   align-items: center;
-  width: 220px;
-  max-width: 260px;
+  flex: 1;
+  max-width: 340px;
 }
 
 .wm-header-search-input {
   width: 100%;
-  height: 36px !important;
-  padding: 0 46px 0 34px !important;
-  border-radius: 9999px !important;
-  background: var(--vessa-pill-track) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  color: var(--vessa-text-main) !important;
-  font-size: 12.5px !important;
-  font-weight: 500 !important;
-  box-shadow: none !important;
-  transition: border-color 0.16s ease, background-color 0.16s ease;
+  height: 36px;
+  padding: 0 54px 0 34px;
+  border-radius: 8px;
+  background: var(--wm-bg);
+  border: 1px solid var(--wm-border);
+  color: var(--wm-text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .wm-header-search-input::placeholder {
-  color: var(--vessa-text-soft) !important;
+  color: var(--wm-soft);
 }
 
 .wm-header-search-input:focus {
-  outline: none !important;
-  background: var(--vessa-card-bg) !important;
-  border-color: var(--vessa-emerald) !important;
-  box-shadow: 0 0 0 3px rgba(30, 127, 78, 0.14) !important;
+  outline: none;
+  background: var(--wm-surface);
+  border-color: var(--wm-accent);
 }
 
 .wm-ctrl-k-badge {
   position: absolute;
   right: 8px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: var(--vessa-card-bg);
-  border: 1px solid var(--vessa-card-border);
-  color: var(--vessa-text-soft);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--wm-surface);
+  border: 1px solid var(--wm-border);
+  color: var(--wm-soft);
+  font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   pointer-events: none;
 }
 
-.vessa-icon-circle-btn {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  border-radius: 9999px;
-  background: var(--vessa-pill-track);
-  border: 1px solid var(--vessa-card-border);
-  color: var(--vessa-text-muted);
+.wm-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--wm-surface);
+  border: 1px solid var(--wm-border);
+  color: var(--wm-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  text-decoration: none !important;
   flex-shrink: 0;
+  transition: background-color 0.14s ease, color 0.14s ease;
 }
 
-.vessa-icon-circle-btn:hover {
-  background: var(--vessa-emerald-soft);
-  color: var(--vessa-emerald-text);
-  border-color: var(--vessa-emerald);
+.wm-icon-btn:hover {
+  background: var(--wm-surface-subtle);
+  color: var(--wm-text);
 }
 
-.vessa-new-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 36px;
-  padding: 0 15px;
-  border-radius: 9999px;
-  background: var(--vessa-emerald) !important;
-  color: #ffffff !important;
-  font-size: 12.5px;
-  font-weight: 700;
-  text-decoration: none !important;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.16s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.vessa-new-btn:hover {
-  background: var(--vessa-emerald-hover) !important;
-}
-
-.wm-admin-profile-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 11px 3px 4px;
-  border-radius: 9999px;
-  background: var(--vessa-pill-track) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  box-shadow: none !important;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.vessa-avatar-circle {
-  width: 30px;
-  height: 30px;
-  border-radius: 9999px;
-  background: #d3eadc;
-  color: #15623b;
-  font-size: 11px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-/* ==========================================================================
-   3. UNIFIED SIDE PANEL (aside#admin-sidebar)
-      - Desktop Collapsed Icon Rail (68px resting, matches reference video 1:1)
-      - Desktop Hover / Pinned Expanded Labeled Sidebar (216px compact)
-      - Mobile Compact Labeled Drawer (<768px: 216px, shows ALL icons + section names)
-   ========================================================================== */
+/* Sidebar */
 aside#admin-sidebar {
-  position: fixed !important;
-  background: var(--vessa-rail-bg) !important;
-  background-image: none !important;
-  border-right: 1px solid var(--vessa-card-border) !important;
-  z-index: 60 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-  overflow: hidden !important;
-  will-change: transform, width;
-  transition: width 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 220px;
+  background: var(--wm-surface);
+  border-right: 1px solid var(--wm-border);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.2s ease;
 }
 
-aside#admin-sidebar::before {
-  display: none !important;
+.wm-sidebar-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 10px 24px;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Single Unified Scroll Container Inside Sidebar */
-.vessa-sidebar-scroll {
-  flex: 1 1 0% !important;
-  min-height: 0 !important;
-  width: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
+.wm-nav-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wm-soft);
+  padding: 14px 10px 4px;
+}
+
+aside#admin-sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--wm-muted);
+  text-decoration: none;
+  margin-bottom: 1px;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 aside#admin-sidebar nav a .material-symbols-outlined {
-  font-size: 19px !important;
-  color: inherit !important;
-  flex-shrink: 0 !important;
-}
-
-aside#admin-sidebar nav a:hover:not(.wm-nav-active):not(.active) {
-  background: var(--vessa-pill-track) !important;
-  color: var(--vessa-text-main) !important;
-}
-
-/* ACTIVE SIDEBAR ITEM — Vibrant Forest Emerald Pill/Circle */
-aside#admin-sidebar nav a.wm-nav-active,
-aside#admin-sidebar nav a.active {
-  background: var(--vessa-emerald) !important;
-  border-color: transparent !important;
-  color: #ffffff !important;
-  box-shadow: 0 3px 10px rgba(30, 127, 78, 0.24) !important;
-  font-weight: 700 !important;
-}
-
-aside#admin-sidebar nav a.wm-nav-active .material-symbols-outlined,
-aside#admin-sidebar nav a.active .material-symbols-outlined {
-  color: #ffffff !important;
-}
-
-/* Body-level Floating Tooltip for Desktop Collapsed Rail */
-.vessa-rail-floating-tooltip {
-  position: fixed;
-  padding: 5px 11px;
-  border-radius: 8px;
-  background: #141e18;
-  color: #ffffff;
-  font-size: 11.5px;
-  font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(-50%) translateX(-4px);
-  transition: opacity 0.14s ease, transform 0.14s ease;
-  z-index: 9999;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-}
-
-.vessa-rail-floating-tooltip.visible {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-}
-
-/* --------------------------------------------------------------------------
-   3A. DESKTOP SIDEBAR RULES (Strictly scoped to @media (min-width: 768px))
-   -------------------------------------------------------------------------- */
-@media (min-width: 768px) {
-  aside#admin-sidebar {
-    top: 64px !important;
-    left: 0 !important;
-    width: 68px !important;
-    height: calc(100vh - 64px) !important;
-    align-items: center !important;
-    padding: 8px 0 !important;
-    box-shadow: none !important;
-  }
-
-  /* Expand to sleek 216px on Hover OR when Pinned (.vessa-rail-expanded) */
-  aside#admin-sidebar.vessa-rail-expanded,
-  aside#admin-sidebar:hover {
-    width: 216px !important;
-    align-items: stretch !important;
-    padding: 0 0 10px 0 !important;
-    box-shadow: 8px 0 26px rgba(0, 0, 0, 0.08) !important;
-  }
-
-  .vessa-mobile-drawer-header {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    padding: 9px 11px;
-    border-bottom: 1px solid var(--vessa-card-border);
-    background: var(--vessa-header-bg);
-    flex-shrink: 0;
-    width: 100%;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded .vessa-mobile-drawer-header,
-  aside#admin-sidebar:hover .vessa-mobile-drawer-header {
-    display: flex !important;
-  }
-
-  .vessa-sidebar-scroll {
-    padding: 2px 0 10px 0 !important;
-    scrollbar-width: none;
-  }
-
-  .vessa-sidebar-scroll::-webkit-scrollbar {
-    width: 0px;
-    display: none;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded .vessa-sidebar-scroll,
-  aside#admin-sidebar:hover .vessa-sidebar-scroll {
-    padding: 3px 8px 14px 8px !important;
-    scrollbar-width: thin;
-  }
-
-  /* Collapsed 68px Rail State (when NOT expanded and NOT hovered) */
-  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) .wm-nav-section-label {
-    display: none !important;
-  }
-
-  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav.vessa-sidebar-nav,
-  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 4px !important;
-    width: 100% !important;
-  }
-
-  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav a {
-    position: relative !important;
-    width: 40px !important;
-    height: 40px !important;
-    min-height: 40px !important;
-    padding: 0 !important;
-    margin: 0 auto !important;
-    border-radius: 9999px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    color: var(--vessa-text-muted) !important;
-    background: transparent !important;
-    border: 1px solid transparent !important;
-    box-shadow: none !important;
-    text-decoration: none !important;
-    flex-shrink: 0 !important;
-  }
-
-  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
-    display: none !important;
-  }
-
-  /* Expanded / Hovered 216px Desktop Sidebar State */
-  aside#admin-sidebar.vessa-rail-expanded .wm-nav-section-label,
-  aside#admin-sidebar:hover .wm-nav-section-label {
-    display: block !important;
-    font-size: 9.5px !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.08em !important;
-    text-transform: uppercase !important;
-    color: var(--vessa-text-soft) !important;
-    padding: 9px 10px 3px 10px !important;
-    margin: 0 !important;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded nav.vessa-sidebar-nav,
-  aside#admin-sidebar.vessa-rail-expanded nav,
-  aside#admin-sidebar:hover nav.vessa-sidebar-nav,
-  aside#admin-sidebar:hover nav {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 2px !important;
-    width: 100% !important;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded nav a,
-  aside#admin-sidebar:hover nav a {
-    width: 100% !important;
-    min-height: 36px !important;
-    height: auto !important;
-    padding: 7px 10px !important;
-    border-radius: 10px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 9px !important;
-    font-size: 12.5px !important;
-    font-weight: 600 !important;
-    color: var(--vessa-text-muted) !important;
-    text-decoration: none !important;
-    flex-shrink: 0 !important;
-    margin: 0 !important;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge),
-  aside#admin-sidebar:hover nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
-    display: inline-block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-  }
-
-  .vessa-rail-expand-btn {
-    margin: 4px auto 0 auto;
-    width: 38px;
-    height: 38px;
-    border-radius: 9999px;
-    border: 1px solid var(--vessa-card-border);
-    background: var(--vessa-pill-track);
-    color: var(--vessa-text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background-color 0.16s ease, color 0.16s ease;
-  }
-
-  .vessa-rail-expand-label {
-    display: none;
-    font-size: 11.5px;
-    font-weight: 700;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded .vessa-rail-expand-btn,
-  aside#admin-sidebar:hover .vessa-rail-expand-btn {
-    width: calc(100% - 18px);
-    margin: 4px 9px 0 9px;
-    border-radius: 10px;
-    height: 34px;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded .vessa-rail-expand-label,
-  aside#admin-sidebar:hover .vessa-rail-expand-label {
-    display: inline;
-  }
-
-  .vessa-rail-expand-btn:hover {
-    background: var(--vessa-emerald-soft);
-    color: var(--vessa-emerald-text);
-    border-color: var(--vessa-emerald);
-  }
-}
-
-/* ==========================================================================
-   4. VESSA WELCOME HERO CARD, EDITORIAL PAGE HEADERS & KPI CARDS
-   ========================================================================== */
-.vessa-welcome-card {
-  background: var(--vessa-welcome-grad) !important;
-  border: 1px solid var(--vessa-welcome-border) !important;
-  border-radius: 20px !important;
-  padding: 20px 22px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  box-shadow: var(--vessa-card-shadow) !important;
-}
-
-.vessa-welcome-greeting {
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-size: 30px;
-  font-weight: 400;
-  line-height: 1.08;
-  letter-spacing: -0.01em;
-  color: var(--vessa-text-main) !important;
-  margin: 6px 0 8px 0;
-}
-
-/* Editorial Page Header (.wm-hero-banner) across all 22 specialized pages */
-.wm-hero-banner {
-  position: relative;
-  background: var(--vessa-welcome-grad) !important;
-  background-image: var(--vessa-welcome-grad) !important;
-  border: 1px solid var(--vessa-welcome-border) !important;
-  border-radius: 20px !important;
-  padding: 18px 22px !important;
-  box-shadow: var(--vessa-card-shadow) !important;
-  color: var(--vessa-text-main) !important;
-}
-
-.wm-hero-banner::before {
-  display: none !important;
-}
-
-.wm-hero-banner > div {
-  max-width: 100% !important;
-  width: 100% !important;
-  display: grid !important;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 8px 16px;
-}
-
-.wm-hero-welcome-pill {
-  grid-column: 1 / -1;
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 9999px;
-  background: rgba(30, 127, 78, 0.12) !important;
-  border: 1px solid rgba(30, 127, 78, 0.22) !important;
-  color: var(--vessa-emerald-text) !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  margin-bottom: 2px !important;
-}
-
-.wm-hero-title,
-.wm-hero-title span,
-.wm-pink-word,
-.wm-lavender-word {
-  grid-column: 1 / 2;
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
-  font-style: normal !important;
-  font-weight: 800 !important;
-  font-size: clamp(1.35rem, 2vw, 1.85rem) !important;
-  color: var(--vessa-text-main) !important;
-  background: none !important;
-  -webkit-text-fill-color: var(--vessa-text-main) !important;
-  letter-spacing: -0.025em !important;
-  line-height: 1.18 !important;
-  text-shadow: none !important;
-  margin: 0 !important;
-}
-
-.wm-hero-subtitle {
-  grid-column: 1 / 2;
-  font-size: 12.5px !important;
-  color: var(--vessa-text-muted) !important;
-  margin: 2px 0 0 0 !important;
-  font-weight: 500 !important;
-  max-width: 680px;
-  line-height: 1.45 !important;
-}
-
-.wm-hero-banner > div > div:last-child {
-  grid-column: 2 / 3;
-  grid-row: 2 / 4;
-  justify-self: end;
-  align-self: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-@media (max-width: 960px) {
-  .wm-hero-banner > div {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 6px !important;
-  }
-  .wm-hero-banner > div > div:last-child {
-    margin-top: 6px;
-    width: 100%;
-    justify-content: flex-start;
-  }
-}
-
-/* Primary & Secondary Pill Buttons in Vessa Style */
-.wm-btn-pink-pill,
-.vessa-btn-emerald {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8.5px 16px;
-  border-radius: 9999px !important;
-  background: var(--vessa-emerald) !important;
-  background-image: none !important;
-  color: #ffffff !important;
-  font-size: 12.5px;
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(30, 127, 78, 0.20) !important;
-  border: 1px solid transparent !important;
-  text-decoration: none !important;
-  cursor: pointer;
-  transition: background-color 0.16s ease;
-}
-
-.wm-btn-pink-pill *,
-.vessa-btn-emerald * {
-  color: inherit !important;
-}
-
-.wm-btn-pink-pill:hover,
-.vessa-btn-emerald:hover {
-  background: var(--vessa-emerald-hover) !important;
-}
-
-.wm-btn-glass-pill,
-.vessa-btn-white {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8.5px 16px;
-  border-radius: 9999px !important;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--vessa-text-main) !important;
-  background: var(--vessa-card-bg) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
-  transition: background-color 0.16s ease, border-color 0.16s ease;
-  cursor: pointer;
-  text-decoration: none !important;
-}
-
-.wm-btn-glass-pill *,
-.vessa-btn-white * {
-  color: var(--vessa-text-main) !important;
-}
-
-.wm-btn-glass-pill:hover,
-.vessa-btn-white:hover {
-  background: var(--vessa-pill-track) !important;
-  border-color: var(--vessa-emerald) !important;
-}
-
-/* ==========================================================================
-   5. CARDS, STAT BOXES, TABLES & BADGES (Vessa Clean Botanical Surface)
-   ========================================================================== */
-.wm-card,
-.vessa-card {
-  background: var(--vessa-card-bg) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  border-radius: 20px !important;
-  box-shadow: var(--vessa-card-shadow) !important;
-}
-
-.vessa-kpi-icon-circle {
-  width: 38px;
-  height: 38px;
-  border-radius: 9999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #cdece1;
-  color: #136847;
+  font-size: 18px;
+  color: inherit;
   flex-shrink: 0;
 }
 
-.vessa-kpi-icon-circle.amber {
-  background: #f5e6c8;
-  color: #9a6715;
+aside#admin-sidebar nav a:hover:not(.wm-nav-active):not(.active) {
+  background: var(--wm-surface-subtle);
+  color: var(--wm-text);
 }
 
-.vessa-trend-pill {
-  display: inline-flex;
+aside#admin-sidebar nav a.wm-nav-active,
+aside#admin-sidebar nav a.active {
+  background: var(--wm-accent-soft);
+  color: var(--wm-accent-hover);
+  font-weight: 600;
+}
+
+/* Main Content Area */
+main#admin-main-content {
+  width: 100%;
+  max-width: 1480px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 72px 20px 48px;
+}
+
+/* Surface Cards & Page Headers */
+.wm-card {
+  background: var(--wm-surface);
+  border: 1px solid var(--wm-border);
+  border-radius: 10px;
+}
+
+.wm-page-head {
+  background: var(--wm-surface);
+  border: 1px solid var(--wm-border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  background: var(--vessa-emerald-soft);
-  color: var(--vessa-emerald-text);
-  font-size: 11px;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wm-page-title {
+  font-size: 1.25rem;
   font-weight: 700;
+  color: var(--wm-text);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
 }
 
-.wm-view-all-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  border-radius: 9999px;
-  background: var(--vessa-pill-track) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  color: var(--vessa-text-main) !important;
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
+.wm-page-subtitle {
+  font-size: 12.5px;
+  color: var(--wm-muted);
+  margin: 2px 0 0;
 }
 
-.wm-view-all-pill:hover {
-  background: var(--vessa-emerald-soft) !important;
-  color: var(--vessa-emerald-text) !important;
-  border-color: var(--vessa-emerald) !important;
-}
-
-.wm-status-active {
+/* Minimalist Action Buttons */
+.wm-btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3.5px 11px;
-  border-radius: 9999px;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: var(--wm-primary);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid var(--wm-primary);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.14s ease;
+}
+
+.wm-btn-primary:hover {
+  background: var(--wm-primary-hover);
+}
+
+.wm-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  background: var(--wm-surface);
+  color: var(--wm-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid var(--wm-border);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.wm-btn-secondary:hover {
+  background: var(--wm-surface-subtle);
+  border-color: var(--wm-border-strong);
+}
+
+/* Status Chips */
+.wm-status-active {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
   font-size: 11px;
-  font-weight: 700;
-  background: var(--vessa-emerald-soft) !important;
-  color: var(--vessa-emerald-text) !important;
-  border: 1px solid rgba(30, 127, 78, 0.25) !important;
+  font-weight: 600;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
 .wm-status-expired {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 3.5px 11px;
-  border-radius: 9999px;
+  padding: 2px 8px;
+  border-radius: 6px;
   font-size: 11px;
-  font-weight: 700;
-  background: rgba(225, 29, 72, 0.12) !important;
-  color: #be123c !important;
-  border: 1px solid rgba(225, 29, 72, 0.24) !important;
+  font-weight: 600;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
+/* Compact Tables */
 .wm-table-action-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--vessa-pill-track) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  color: var(--vessa-text-muted) !important;
+  background: var(--wm-surface);
+  border: 1px solid var(--wm-border);
+  color: var(--wm-muted);
   cursor: pointer;
 }
 
 .wm-table-action-btn:hover {
-  background: var(--vessa-emerald-soft) !important;
-  color: var(--vessa-emerald-text) !important;
-  border-color: var(--vessa-emerald) !important;
+  background: var(--wm-surface-subtle);
+  color: var(--wm-text);
+  border-color: var(--wm-border-strong);
 }
 
-/* Tables — Always display:table inside smooth horizontal scroll wrappers */
 main table {
-  display: table !important;
-  width: 100% !important;
-  border-collapse: collapse !important;
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
 }
 
 main table thead tr th {
-  background: var(--wm-table-head-bg) !important;
-  color: var(--vessa-text-muted) !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid var(--vessa-card-border) !important;
+  background: var(--wm-bg);
+  color: var(--wm-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--wm-border);
   white-space: nowrap;
 }
 
 main table tbody tr td {
-  color: var(--vessa-text-main);
-  border-bottom: 1px solid var(--vessa-card-border);
+  color: var(--wm-text);
+  border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
 }
 
 main table tbody tr:hover td {
-  background: var(--wm-table-row-hover) !important;
+  background: #f8fafc;
 }
 
-/* ==========================================================================
-   6. UNIVERSAL PURPLE/PINK TO VESSA EMERALD & SAGE HARMONIZER
-      + COMPLETE LIGHT-MODE TEXT CONTRAST GUARANTEES ACROSS ALL 25 PAGES
-   ========================================================================== */
-
-/* Convert solid purple/pink gradient buttons & active tabs to Forest Emerald */
-main button[class*="from-pink-"],
-main button[class*="from-purple-"],
-main button[class*="to-pink-"],
-main button[class*="to-purple-"],
-main button[class*="via-pink-"],
-main button[class*="via-purple-"],
-main button[class*="from-[#a855f7]"],
-main button[class*="from-[#6d28d9]"],
-main button[class*="from-[#ff2a85]"],
-main button[class*="bg-purple-6"],
-main button[class*="bg-pink-6"],
-main button[class*="bg-primary"],
-main a[class*="from-pink-"],
-main a[class*="from-purple-"],
-main a[class*="to-pink-"],
-main a[class*="to-purple-"],
-main a[class*="bg-purple-6"],
-main a[class*="bg-primary"],
-[id*="modal"] button[class*="from-pink-"],
-[id*="modal"] button[class*="from-purple-"],
-[id*="modal"] button[class*="to-pink-"],
-[id*="modal"] button[class*="to-purple-"],
-[id*="modal"] button[class*="bg-purple-6"],
-[id*="modal"] button[class*="bg-primary"] {
-  background: var(--vessa-emerald) !important;
-  background-image: none !important;
-  border-color: transparent !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(30, 127, 78, 0.20) !important;
+/* Command Palette Result Item */
+.wm-cmd-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
 }
 
-/* Convert pastel & dark purple/pink containers to Botanical Sage */
-html:not(.dark) main [class*="bg-purple-50"],
-html:not(.dark) main [class*="bg-purple-100"],
-html:not(.dark) main [class*="bg-pink-50"],
-html:not(.dark) main [class*="bg-pink-100"],
-html:not(.dark) main [class*="bg-[#f5f1fd]"],
-html:not(.dark) main [class*="bg-[#f6f3fd]"],
-html:not(.dark) main [class*="bg-[#faf7ff]"],
-html:not(.dark) [id*="modal"] [class*="bg-purple-50"],
-html:not(.dark) [id*="modal"] [class*="bg-purple-100"] {
-  background-color: #eef4f0 !important;
-  border-color: #d8e4dc !important;
-  color: #15623b !important;
+.wm-cmd-result-item:hover,
+.wm-cmd-result-item.active,
+.wm-cmd-result-item.wm-cmd-item-focused {
+  background-color: var(--wm-surface-subtle);
 }
 
-html:not(.dark) main [class*="bg-purple-950"],
-html:not(.dark) main [class*="bg-purple-900"],
-html:not(.dark) main [class*="bg-pink-950"],
-html:not(.dark) [id*="modal"] [class*="bg-purple-950"],
-html:not(.dark) [id*="modal"] [class*="bg-purple-900"] {
-  background-color: #f2f7f4 !important;
-  border-color: #dce6e0 !important;
-  color: #111c16 !important;
+/* Form Elements */
+main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+main select,
+main textarea,
+[id*="modal"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[id*="modal"] select,
+[id*="modal"] textarea {
+  background-color: #ffffff;
+  border: 1px solid var(--wm-border-strong);
+  border-radius: 8px;
+  color: var(--wm-text);
 }
 
-html:not(.dark) main [class*="from-purple-950"],
-html:not(.dark) main [class*="from-pink-950"],
-html:not(.dark) main [class*="from-emerald-950"],
-html:not(.dark) [id*="modal"] [class*="from-purple-950"] {
-  background-image: linear-gradient(135deg, #ffffff 0%, #f3f8f5 100%) !important;
-  border-color: #dce6e0 !important;
+main input:focus,
+main select:focus,
+main textarea:focus {
+  outline: none;
+  border-color: var(--wm-accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
 }
 
-main [class*="border-purple-"],
-main [class*="border-pink-"],
-main [class*="border-[#e5dcf7]"],
-main [class*="divide-[#f1ecfa]"],
-[id*="modal"] [class*="border-purple-"],
-[id*="modal"] [class*="border-pink-"] {
-  border-color: var(--vessa-card-border) !important;
-}
-
-main [class*="text-purple-"],
-main [class*="text-pink-"],
-main [class*="text-[#7c3aed]"],
-main [class*="text-[#6d28d9]"],
-[id*="modal"] [class*="text-purple-"],
-[id*="modal"] [class*="text-pink-"] {
-  color: var(--vessa-emerald-text) !important;
-}
-
-/* CRITICAL LIGHT-MODE READABILITY FIX:
-   Ensure headings, labels, spans & table cells with legacy .text-white or pale colors
-   are crisp dark forest (#111c16) on white cards in Light Mode! */
-html:not(.dark) main :is(h1, h2, h3, h4, h5, h6, p, label, td, th, dt, dd).text-white,
-html:not(.dark) main div.text-white:not([class*="bg-"]):not([class*="from-"]),
-html:not(.dark) main span.text-white:not([class*="bg-"]):not([class*="from-"]),
-html:not(.dark) [id*="modal"] :is(h1, h2, h3, h4, h5, h6, p, label, td, th).text-white,
-html:not(.dark) [id*="modal"] span.text-white:not([class*="bg-"]):not([class*="from-"]) {
-  color: #111c16 !important;
-}
-
-html:not(.dark) main [class*="text-amber-200"],
-html:not(.dark) main [class*="text-amber-300"],
-html:not(.dark) main [class*="text-amber-400"],
-html:not(.dark) [id*="modal"] [class*="text-amber-200"],
-html:not(.dark) [id*="modal"] [class*="text-amber-300"] {
-  color: #92400e !important;
-}
-
-html:not(.dark) main [class*="text-emerald-200"],
-html:not(.dark) main [class*="text-emerald-300"],
-html:not(.dark) main [class*="text-emerald-400"],
-html:not(.dark) [id*="modal"] [class*="text-emerald-300"],
-html:not(.dark) [id*="modal"] [class*="text-emerald-400"] {
-  color: #15623b !important;
-}
-
-html:not(.dark) main [class*="text-rose-200"],
-html:not(.dark) main [class*="text-rose-300"],
-html:not(.dark) main [class*="text-rose-400"],
-html:not(.dark) [id*="modal"] [class*="text-rose-200"],
-html:not(.dark) [id*="modal"] [class*="text-rose-300"] {
-  color: #be123c !important;
-}
-
-html:not(.dark) main [class*="text-indigo-300"],
-html:not(.dark) main [class*="text-cyan-300"],
-html:not(.dark) main [class*="text-secondary"] {
-  color: #1e7f4e !important;
-}
-
-/* Surface Container Mappings */
-html:not(.dark) main .bg-surface-container,
-html:not(.dark) main .bg-surface-container-low,
-html:not(.dark) main .bg-surface-container-lowest,
-html:not(.dark) [id*="modal"] .bg-surface-container,
-html:not(.dark) [id*="modal"] .bg-surface-container-low {
-  background-color: #ffffff !important;
-  border-color: var(--vessa-card-border) !important;
-}
-
-html:not(.dark) main .bg-surface-container-high,
-html:not(.dark) [id*="modal"] .bg-surface-container-high {
-  background-color: #f3f7f4 !important;
-  border-color: #dde6e0 !important;
-  color: #111c16 !important;
-}
-
-/* Inputs, Selects & Textareas */
-html:not(.dark) main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
-html:not(.dark) main select,
-html:not(.dark) main textarea,
-html:not(.dark) [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
-html:not(.dark) [id*="modal"] select,
-html:not(.dark) [id*="modal"] textarea {
-  background-color: #ffffff !important;
-  border: 1px solid #d5e0d9 !important;
-  color: #111c16 !important;
-}
-
-/* Checkboxes & Toggle Switches in Vessa Forest Emerald */
-main input[type="checkbox"]:not(.sr-only),
-[id*="modal"] input[type="checkbox"]:not(.sr-only) {
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  width: 18px !important;
-  height: 18px !important;
-  min-width: 18px !important;
-  min-height: 18px !important;
-  border-radius: 5px !important;
-  cursor: pointer !important;
-  display: inline-grid !important;
-  place-content: center !important;
-  border: 2px solid var(--vessa-emerald) !important;
-  background-color: var(--wm-input-bg) !important;
-}
-
-main input[type="checkbox"]:not(.sr-only)::before,
-[id*="modal"] input[type="checkbox"]:not(.sr-only)::before {
-  content: "" !important;
-  width: 9px !important;
-  height: 5.5px !important;
-  border-left: 2.2px solid #ffffff !important;
-  border-bottom: 2.2px solid #ffffff !important;
-  transform: rotate(-45deg) translate(1px, -1px) scale(0) !important;
-  transition: transform 0.14s ease !important;
-}
-
-main input[type="checkbox"]:not(.sr-only):checked,
-[id*="modal"] input[type="checkbox"]:not(.sr-only):checked {
-  background-color: var(--vessa-emerald) !important;
-  background-image: none !important;
-  border-color: var(--vessa-emerald) !important;
-}
-
-main input[type="checkbox"]:not(.sr-only):checked::before,
-[id*="modal"] input[type="checkbox"]:not(.sr-only):checked::before {
-  transform: rotate(-45deg) translate(1px, -1px) scale(1) !important;
-}
-
-main input[type="checkbox"].peer:checked + div,
-[id*="modal"] input[type="checkbox"].peer:checked + div {
-  background-color: var(--vessa-emerald) !important;
-  background-image: none !important;
-  border-color: var(--vessa-emerald) !important;
-}
-
-/* Modals */
-.fixed.inset-0:not(#sidebar-backdrop),
-[id$="-modal"].fixed,
-[id*="modal"].fixed {
-  z-index: 140 !important;
-}
-
-html:not(.dark) [id*="modal"].fixed > div,
-html:not(.dark) .fixed.inset-0:not(#sidebar-backdrop) > div:not(#preview-viewport-shell) {
-  background-color: #ffffff !important;
-  border-color: #d8e4dc !important;
-  color: #111c16 !important;
-  box-shadow: 0 20px 50px rgba(17, 28, 22, 0.18) !important;
-}
-
-/* Main Content Layout & Responsive Padding */
-main#admin-main-content {
-  width: 100% !important;
-  max-width: 1600px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-  padding-top: 80px !important;
-}
-
-/* Catalog Filter Pills & Analytics Range Pills */
-#btn-filter-all,
-#btn-filter-published,
-#btn-filter-draft,
-#btn-filter-free,
-#btn-filter-vip,
-#btn-filter-featured,
-#filter-occasions-container button,
-#btn-range-today,
-#btn-range-7d,
-#btn-range-30d,
-#btn-range-90d,
-#btn-range-this_month,
-#btn-range-this_year {
-  border-radius: 9999px !important;
-  padding: 6px 13px !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  background: var(--vessa-card-bg) !important;
-  color: var(--vessa-text-muted) !important;
-  box-shadow: none !important;
-}
-
+/* Filter Pill Buttons Compatibility */
 #btn-filter-all.bg-primary-container,
 #btn-filter-published.bg-primary-container,
 #btn-filter-draft.bg-primary-container,
@@ -1197,461 +443,26 @@ main#admin-main-content {
 #btn-range-90d.bg-primary,
 #btn-range-this_month.bg-primary,
 #btn-range-this_year.bg-primary {
-  background: var(--vessa-pill-active-bg) !important;
-  color: var(--vessa-pill-active-text) !important;
-  border-color: var(--vessa-pill-active-bg) !important;
+  background: var(--wm-primary) !important;
+  color: #ffffff !important;
+  border-color: var(--wm-primary) !important;
 }
 
-/* Template Cards in Catalog Grid (#master-templates-grid / #dynamic-templates-container) */
-#master-templates-grid article,
-#dynamic-templates-container article {
-  background: var(--vessa-card-bg) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  border-radius: 20px !important;
-  box-shadow: var(--vessa-card-shadow) !important;
-}
-
+/* Scrollbar */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(30, 127, 78, 0.28) transparent;
+  scrollbar-color: #cbd5e1 transparent;
 }
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(30, 127, 78, 0.28);
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 
-/* ==========================================================================
-   7. COMPLETE MOBILE & TABLET VIEW OPTIMIZATION (<1024px & <768px)
-      Fixes Side Panel Drawer (Compact 216px + 100% Visible Section Names),
-      Hero Banners, 2-Col Mobile KPI Cards, Tables, Grids & Modals
-   ========================================================================== */
-
-@media (max-width: 1023px) {
-  main#admin-main-content,
-  body > div > main,
-  main.flex-1 {
-    padding-top: 80px !important;
-  }
-}
-
-@media (max-width: 767px) {
-  html, body {
-    overflow-x: hidden !important;
-    max-width: 100vw !important;
-  }
-
-  /* 1. Top Header on Mobile (<768px) */
-  header.wm-top-header {
-    height: 56px !important;
-    padding: 0 8px !important;
-  }
-
-  .vessa-top-header-inner {
-    padding: 0 2px !important;
-    gap: 5px !important;
-    width: 100% !important;
-    justify-content: space-between !important;
-  }
-
-  .vessa-brand-block {
-    gap: 6px !important;
-  }
-
-  .vessa-brand-logo-circle {
-    width: 30px !important;
-    height: 30px !important;
-  }
-
-  .vessa-brand-title {
-    font-size: 13.5px !important;
-  }
-
-  .vessa-brand-sub,
-  .wm-ctrl-k-badge {
-    display: none !important;
-  }
-
-  .vessa-header-right {
-    gap: 4px !important;
-    flex-shrink: 1 !important;
-    min-width: 0 !important;
-  }
-
-  .wm-header-search-wrap {
-    width: clamp(84px, 26vw, 145px) !important;
-    height: 32px !important;
-    flex-shrink: 1 !important;
-    min-width: 76px !important;
-  }
-
-  .wm-header-search-input {
-    height: 32px !important;
-    padding: 0 8px 0 28px !important;
-    font-size: 11.5px !important;
-  }
-
-  .vessa-icon-circle-btn {
-    width: 32px !important;
-    height: 32px !important;
-    flex-shrink: 0 !important;
-  }
-
-  .vessa-new-btn {
-    height: 32px !important;
-    padding: 0 10px !important;
-    font-size: 11px !important;
-    gap: 3px !important;
-    flex-shrink: 0 !important;
-  }
-
-  .wm-admin-profile-pill {
-    padding: 2px 5px 2px 2px !important;
-    gap: 2px !important;
-  }
-
-  .vessa-avatar-circle {
-    width: 26px !important;
-    height: 26px !important;
-    font-size: 10px !important;
-  }
-
-  /* Compact Mobile Side Panel Drawer (aside#admin-sidebar) */
-  #sidebar-backdrop {
-    z-index: 190 !important;
-    background: rgba(10, 18, 14, 0.52) !important;
-  }
-
-  aside#admin-sidebar,
-  aside#admin-sidebar.vessa-rail-expanded,
-  aside#admin-sidebar:not(.vessa-rail-expanded) {
-    top: 0 !important;
-    left: 0 !important;
-    bottom: 0 !important;
-    width: 216px !important;
-    max-width: 66vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    z-index: 200 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    justify-content: flex-start !important;
-    border-right: 1px solid var(--vessa-card-border) !important;
-    box-shadow: 12px 0 34px rgba(0, 0, 0, 0.28) !important;
-  }
-
-  aside#admin-sidebar .vessa-mobile-drawer-header {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    padding: 9px 10px !important;
-    border-bottom: 1px solid var(--vessa-card-border) !important;
-    background: var(--vessa-header-bg) !important;
-    flex-shrink: 0 !important;
-    width: 100% !important;
-  }
-
-  aside#admin-sidebar .vessa-sidebar-scroll {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    width: 100% !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    padding: 2px 7px 26px 7px !important;
-    scrollbar-width: thin !important;
-  }
-
-  aside#admin-sidebar nav.vessa-sidebar-nav,
-  aside#admin-sidebar nav,
-  aside#admin-sidebar:not(.vessa-rail-expanded) nav {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 2px !important;
-    width: 100% !important;
-  }
-
-  aside#admin-sidebar .wm-nav-section-label,
-  aside#admin-sidebar:not(.vessa-rail-expanded) .wm-nav-section-label {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    font-size: 9px !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.08em !important;
-    text-transform: uppercase !important;
-    color: var(--vessa-text-soft) !important;
-    padding: 8px 8px 2px 8px !important;
-    margin: 0 !important;
-    text-align: left !important;
-  }
-
-  aside#admin-sidebar nav a,
-  aside#admin-sidebar:not(.vessa-rail-expanded) nav a,
-  aside#admin-sidebar.vessa-rail-expanded nav a {
-    width: 100% !important;
-    min-height: 34px !important;
-    height: auto !important;
-    padding: 6.5px 9px !important;
-    border-radius: 9px !important;
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 8.5px !important;
-    margin: 0 !important;
-    text-align: left !important;
-    text-decoration: none !important;
-  }
-
-  aside#admin-sidebar nav a .material-symbols-outlined,
-  aside#admin-sidebar:not(.vessa-rail-expanded) nav a .material-symbols-outlined {
-    font-size: 17.5px !important;
-    flex-shrink: 0 !important;
-    display: inline-flex !important;
-  }
-
-  aside#admin-sidebar nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge),
-  aside#admin-sidebar:not(.vessa-rail-expanded) nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge),
-  aside#admin-sidebar.vessa-rail-expanded nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
-    display: inline-block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    line-height: 1.25 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    color: inherit !important;
-  }
-
-  aside#admin-sidebar .vessa-rail-expand-btn,
-  .vessa-rail-floating-tooltip {
-    display: none !important;
-  }
-
-  /* Main Content Offset & Clean Full-Width Mobile Alignment */
-  main#admin-main-content,
-  body > div > main,
-  main.flex-1 {
-    padding-top: 72px !important;
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-    padding-bottom: 68px !important;
-    width: 100% !important;
-    max-width: 100vw !important;
-    overflow-x: hidden !important;
-    gap: 12px !important;
-  }
-
-  /* Remove redundant horizontal padding on inner page wrappers inside main */
-  main#admin-main-content > div.px-4,
-  main#admin-main-content > div.sm\:px-8 {
-    padding-left: 2px !important;
-    padding-right: 2px !important;
-  }
-
-  /* Hero Banner on Mobile (<768px) */
-  .wm-hero-banner {
-    padding: 13px 14px !important;
-    border-radius: 16px !important;
-  }
-
-  .wm-hero-title,
-  .wm-hero-title span {
-    font-size: 1.2rem !important;
-    line-height: 1.2 !important;
-  }
-
-  .wm-hero-subtitle {
-    font-size: 11px !important;
-    line-height: 1.4 !important;
-  }
-
-  .wm-hero-banner > div > div:last-child {
-    width: 100% !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-  }
-
-  .wm-hero-banner > div > div:last-child > a,
-  .wm-hero-banner > div > div:last-child > button {
-    font-size: 11px !important;
-    padding: 7px 11px !important;
-  }
-
-  /* Overview Bar Chart Callout & Compact 2-Col Mobile KPI Cards */
-  .wm-card,
-  .vessa-card,
-  .vessa-welcome-card {
-    padding: 12px 13px !important;
-    border-radius: 16px !important;
-  }
-
-  /* Make 5th card in 5-card KPI grids span full width cleanly on 2-col mobile/tablet layouts */
-  main .grid-cols-2.lg\:grid-cols-5 > *:nth-child(5):last-child {
-    grid-column: span 2 / span 2 !important;
-  }
-
-  main .grid-cols-2 > .wm-card {
-    padding: 10px 11px !important;
-    border-radius: 14px !important;
-  }
-
-  .vessa-welcome-greeting {
-    font-size: 22px !important;
-    margin: 3px 0 5px 0 !important;
-  }
-
-  #stat-wishes,
-  #stat-revenue,
-  #stat-templates {
-    font-size: 21px !important;
-  }
-
-  div.hidden.md\:flex.absolute.right-8.top-16 {
-    position: static !important;
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 6px !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    margin-bottom: 10px !important;
-    padding: 8px 10px !important;
-    border-radius: 14px !important;
-    box-shadow: none !important;
-  }
-
-  div.hidden.md\:flex.absolute.right-8.top-16 > div:first-child {
-    display: none !important;
-  }
-
-  div.hidden.md\:flex.absolute.right-8.top-16 > div {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 2px !important;
-    font-size: 10.5px !important;
-  }
-
-  #template-performance-chart {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-
-  /* 7. Responsive Data Tables on Mobile (Never squash columns!) */
-  main .overflow-x-auto {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    max-width: 100% !important;
-  }
-
-  main table {
-    display: table !important;
-    width: 100% !important;
-    min-width: 560px !important;
-  }
-
-  main table th,
-  main table td {
-    padding: 8.5px 9px !important;
-    font-size: 11px !important;
-  }
-
-  /* 8. Multi-Column Grid & Min-Width Safeguards on Mobile */
-  main [class*="min-w-[2"],
-  main [class*="min-w-[3"],
-  main [class*="min-w-[4"] {
-    min-width: 0 !important;
-    max-width: 100% !important;
-  }
-
-  main .grid-cols-1 > .col-span-2,
-  main .grid-cols-1 > .col-span-3 {
-    grid-column: span 1 / span 1 !important;
-  }
-
-  main .grid-cols-3:not([class*="sm:grid-cols"]):not([class*="md:grid-cols"]),
-  main .grid-cols-4:not([class*="sm:grid-cols"]):not([class*="md:grid-cols"]) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-  }
-
-  /* Hide decorative sparkline SVGs inside 2-col mobile KPI cards on narrow screens */
-  .wm-card > .w-20.h-11 {
-    display: none !important;
-  }
-
-  /* 9. Dropdowns, Modals & Toast Placement on Mobile */
-  #wm-admin-profile-dropdown,
-  #wm-global-command-dropdown {
-    position: fixed !important;
-    top: 60px !important;
-    left: 8px !important;
-    right: 8px !important;
-    width: auto !important;
-    max-width: calc(100vw - 16px) !important;
-    max-height: 76dvh !important;
-    overflow-y: auto !important;
-    z-index: 150 !important;
-  }
-
-  [id*="modal"].fixed > div:not(#preview-viewport-shell) {
-    width: calc(100vw - 16px) !important;
-    max-width: calc(100vw - 16px) !important;
-    max-height: 90dvh !important;
-    overflow-y: auto !important;
-    padding: 14px !important;
-    border-radius: 20px !important;
-    margin: auto !important;
-  }
-
-  [id*="modal"].fixed .grid-cols-2:not([class*="sm:grid-cols"]),
-  [id*="modal"].fixed .grid-cols-3:not([class*="sm:grid-cols"]) {
-    grid-template-columns: 1fr !important;
-  }
-
-  #admin-toast {
-    left: 12px !important;
-    right: 12px !important;
-    bottom: 16px !important;
-    max-width: calc(100vw - 24px) !important;
-  }
-}
-
-@media (max-width: 420px) {
-  .vessa-brand-title {
-    display: none !important;
-  }
-
-  .wm-header-search-wrap {
-    width: clamp(80px, 33vw, 128px) !important;
-  }
-
-  .vessa-new-btn span:not(.material-symbols-outlined) {
-    display: none !important;
-  }
-
-  .vessa-new-btn {
-    width: 32px !important;
-    padding: 0 !important;
-    justify-content: center !important;
-  }
-}
-
-
-/* ==========================================================================
-   8. ADMIN PWA INSTALLABLE WEB APP & MOBILE UX HARDENING (Phases 3, 4 & 7)
-   ========================================================================== */
-
+/* PWA Update & Network Status Bars */
 button,
 a,
 input,
@@ -1673,38 +484,37 @@ main canvas,
 .wm-table-scroll-wrap {
   width: 100%;
   max-width: 100%;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  border-radius: 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 #wm-pwa-update-banner {
   position: fixed;
-  bottom: 18px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2147483645;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px 10px 16px;
-  border-radius: 9999px;
-  background: #141e18;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--wm-primary);
   color: #ffffff;
-  border: 1px solid rgba(56, 201, 118, 0.45);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  border: 1px solid #334155;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   max-width: calc(100vw - 24px);
 }
 
 #wm-pwa-update-banner button.wm-pwa-update-now {
-  padding: 6px 13px;
-  border-radius: 9999px;
-  background: #38c976;
-  color: #0b1911;
+  padding: 5px 11px;
+  border-radius: 6px;
+  background: var(--wm-accent);
+  color: #ffffff;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 600;
   border: none;
   cursor: pointer;
   white-space: nowrap;
@@ -1712,14 +522,14 @@ main canvas,
 
 #wm-network-status-bar {
   position: fixed;
-  top: 64px;
+  top: 56px;
   left: 0;
   right: 0;
   z-index: 180;
   padding: 6px 14px;
   text-align: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   display: none;
   align-items: center;
   justify-content: center;
@@ -1728,7 +538,7 @@ main canvas,
 
 #wm-network-status-bar.offline {
   display: flex;
-  background: #9f1239;
+  background: #b91c1c;
   color: #ffffff;
 }
 
@@ -1738,21 +548,27 @@ main canvas,
   color: #ffffff;
 }
 
+/* Mobile Responsive (<768px) */
 @media (max-width: 767px) {
-  #wm-network-status-bar {
-    top: 56px;
+  aside#admin-sidebar {
+    width: 216px !important;
+    max-width: 66vw !important;
+    height: 100dvh;
+    z-index: 120;
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.16);
   }
 
-  main button:not(.wm-table-action-btn):not([class*="w-5"]):not([class*="w-6"]),
-  [id*="modal"] button:not([class*="w-6"]) {
-    min-height: 38px;
+  main#admin-main-content {
+    padding: 68px 12px 64px;
   }
 
-  .wm-table-action-btn {
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
-    min-height: 34px !important;
+  main .overflow-x-auto {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  main table {
+    min-width: 560px;
   }
 
   main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
@@ -1762,34 +578,31 @@ main canvas,
   [id*="modal"] select,
   [id*="modal"] textarea {
     font-size: 16px !important;
-    min-height: 42px;
+    min-height: 40px;
   }
 
-  main input[type="date"],
-  main input[type="datetime-local"],
-  main input[type="time"],
-  [id*="modal"] input[type="date"],
-  [id*="modal"] input[type="datetime-local"] {
-    font-size: 16px !important;
-    min-height: 42px !important;
-    max-width: 100% !important;
-  }
-
-  body.wm-keyboard-open main#admin-main-content,
-  body.wm-keyboard-open body > div > main {
-    padding-bottom: calc(var(--wm-kb-height, 260px) + 72px) !important;
-  }
-
-  body.wm-keyboard-open [id*="modal"].fixed > div:not(#preview-viewport-shell) {
-    max-height: calc(var(--wm-vv-height, 68dvh) - 16px) !important;
+  #wm-admin-profile-dropdown,
+  #wm-global-command-dropdown {
+    position: fixed !important;
+    top: 60px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: 75dvh !important;
     overflow-y: auto !important;
-    padding-bottom: 24px !important;
+    z-index: 150 !important;
   }
-}
 
-@media (max-width: 380px) {
-  .wm-header-search-wrap {
-    width: clamp(72px, 26vw, 110px) !important;
+  [id*="modal"].fixed > div:not(#preview-viewport-shell) {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: 90dvh !important;
+    overflow-y: auto !important;
+  }
+
+  body.wm-keyboard-open main#admin-main-content {
+    padding-bottom: calc(var(--wm-kb-height, 260px) + 64px) !important;
   }
 }
 
@@ -1797,30 +610,13 @@ main canvas,
   header.wm-top-header {
     height: 48px !important;
   }
-  main#admin-main-content,
-  body > div > main {
-    padding-top: 62px !important;
+  main#admin-main-content {
+    padding-top: 60px !important;
   }
   [id*="modal"].fixed > div:not(#preview-viewport-shell) {
     max-height: 92dvh !important;
     overflow-y: auto !important;
   }
-}
-
-/* Command Search & Accessibility Reduced-Motion Support */
-.wm-cmd-result-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.625rem 0.875rem;
-  border-radius: 0.75rem;
-  cursor: pointer;
-  transition: background-color 0.14s ease, color 0.14s ease;
-}
-.wm-cmd-result-item:hover,
-.wm-cmd-result-item.active {
-  background-color: var(--v-surface-low);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1837,4 +633,3 @@ button[onclick*="toggleAdminTheme"],
 button[onclick*="toggleSiteTheme"] {
   display: none !important;
 }
-

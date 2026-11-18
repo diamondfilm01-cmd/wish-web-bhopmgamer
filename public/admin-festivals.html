@@ -6,7 +6,7 @@
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
   <title>WishMagic | Festival Scheduler &amp; Main Website Campaign Studio</title>
-  <meta name="theme-color" content="#1e7f4e"/>
+  <meta name="theme-color" content="#0f172a"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -16,193 +16,181 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261025_vessa_mobile_v10"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
   <script>
-    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+    if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261028_pwa_v1"/>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261028_pwa_v1"></script>
-  <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
-<!-- Mobile Sidebar Backdrop Overlay -->
-<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+<div id="sidebar-backdrop" class="fixed inset-0 bg-slate-950/40 z-40 hidden md:hidden" onclick="toggleSidebar(false)"></div>
 
-<!-- Magical Castle Sidebar (Complete 21-Route Canonical Admin Sidebar — Zero Missing Items) -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
-  <div class="flex flex-col min-h-0 flex-1">
-    <!-- Brand Logo Header -->
-    <div class="px-5 pt-5 pb-3 flex-shrink-0">
-      <div class="flex items-center justify-between">
-        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4.5 19.5L15.5 8.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
-              <path d="M18 3L19.1 5.9L22 7L19.1 8.1L18 11L16.9 8.1L14 7L16.9 5.9L18 3Z" fill="#FDE047"/>
-              <circle cx="11" cy="5" r="1.2" fill="#F472B6"/>
-              <circle cx="20" cy="14" r="1.2" fill="#C084FC"/>
-              <defs>
-                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#C084FC"/>
-                  <stop offset="0.55" stop-color="#F472B6"/>
-                  <stop offset="1" stop-color="#FBBF24"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div class="flex flex-col">
-            <div class="text-[22px] leading-none tracking-tight">
-              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
-            </div>
-            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
-          </div>
-        </a>
-        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
-          <span class="material-symbols-outlined text-[20px]">close</span>
-        </button>
+<aside id="admin-sidebar" class="-translate-x-full md:translate-x-0 select-none">
+  <div class="h-14 px-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+    <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-2.5 text-decoration-none">
+      <div class="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs font-bold">WM</div>
+      <div class="flex flex-col leading-none">
+        <span class="text-sm font-bold text-slate-900 tracking-tight">WishMagic</span>
+        <span class="text-[10px] font-medium text-slate-500 mt-0.5">Admin Console</span>
       </div>
-    </div>
+    </a>
+    <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
+      <span class="material-symbols-outlined text-[18px]">close</span>
+    </button>
+  </div>
 
-    <!-- Navigation Menu -->
-    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
-      <nav class="flex flex-col gap-0.5" aria-label="Admin Navigation">
-        <!-- Top Primary Dashboard Link -->
-        <div class="mb-1 pt-1">
-          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
-            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
-            <span>Dashboard</span>
-          </a>
-        </div>
+  <div class="wm-sidebar-scroll custom-scrollbar">
+    <nav class="flex flex-col" aria-label="Admin Navigation">
+      <div class="wm-nav-section-label">MAIN</div>
+      <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+        <span class="material-symbols-outlined">home</span>
+        <span>Dashboard</span>
+      </a>
 
-        <!-- TEMPLATES -->
-        <div class="wm-nav-section-label">TEMPLATES</div>
-        <a href="/admin/anktech/anktech/admin/templates">
-          <span class="material-symbols-outlined">grid_view</span>
-          <span>All Templates</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/add-template">
-          <span class="material-symbols-outlined">add_circle</span>
-          <span>Add Template</span>
-        </a>
-        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/festivals">
-          <span class="material-symbols-outlined">event_available</span>
-          <span>Festival Scheduler</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/occasions">
-          <span class="material-symbols-outlined">category</span>
-          <span>Categories</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media">
-          <span class="material-symbols-outlined">image</span>
-          <span>Media Library</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media?tab=audio">
-          <span class="material-symbols-outlined">music_note</span>
-          <span>Music Library</span>
-        </a>
+      <div class="wm-nav-section-label">TEMPLATES</div>
+      <a href="/admin/anktech/anktech/admin/templates">
+        <span class="material-symbols-outlined">grid_view</span>
+        <span>All Templates</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/add-template">
+        <span class="material-symbols-outlined">add_circle</span>
+        <span>Add Template</span>
+      </a>
+      <a class="wm-nav-active" href="/admin/anktech/anktech/admin/festivals">
+        <span class="material-symbols-outlined">event_available</span>
+        <span>Festival Scheduler</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/occasions">
+        <span class="material-symbols-outlined">category</span>
+        <span>Categories</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media">
+        <span class="material-symbols-outlined">image</span>
+        <span>Media Library</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media?tab=audio">
+        <span class="material-symbols-outlined">music_note</span>
+        <span>Music Library</span>
+      </a>
 
-        <!-- WISHES -->
-        <div class="wm-nav-section-label">WISHES</div>
-        <a href="/admin/anktech/anktech/admin/wishes">
-          <span class="material-symbols-outlined">description</span>
-          <span>All Wishes</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
-          <span class="material-symbols-outlined">schedule</span>
-          <span>Expiring Soon</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/analytics">
-          <span class="material-symbols-outlined">trending_up</span>
-          <span>Analytics</span>
-        </a>
+      <div class="wm-nav-section-label">WISHES</div>
+      <a href="/admin/anktech/anktech/admin/wishes">
+        <span class="material-symbols-outlined">description</span>
+        <span>All Wishes</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Expiring Soon</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/analytics">
+        <span class="material-symbols-outlined">trending_up</span>
+        <span>Analytics</span>
+      </a>
 
-        <!-- USERS -->
-        <div class="wm-nav-section-label">USERS</div>
-        <a href="/admin/anktech/anktech/admin/users">
-          <span class="material-symbols-outlined">group</span>
-          <span>All Users</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/pricing">
-          <span class="material-symbols-outlined">workspace_premium</span>
-          <span>Subscriptions</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/orders">
-          <span class="material-symbols-outlined">credit_card</span>
-          <span>Payments</span>
-        </a>
+      <div class="wm-nav-section-label">USERS</div>
+      <a href="/admin/anktech/anktech/admin/users">
+        <span class="material-symbols-outlined">group</span>
+        <span>All Users</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/pricing">
+        <span class="material-symbols-outlined">workspace_premium</span>
+        <span>Subscriptions</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/orders">
+        <span class="material-symbols-outlined">credit_card</span>
+        <span>Payments</span>
+      </a>
 
-        <!-- SYSTEM -->
-        <div class="wm-nav-section-label">SYSTEM</div>
-        <a href="/admin/anktech/anktech/admin/settings">
-          <span class="material-symbols-outlined">settings</span>
-          <span>Settings</span>
-        </a>
-            </nav>
-    </div>
+      <div class="wm-nav-section-label">SYSTEM</div>
+      <a href="/admin/anktech/anktech/admin/settings">
+        <span class="material-symbols-outlined">settings</span>
+        <span>Settings</span>
+      </a>
+    </nav>
   </div>
 </aside>
 
-<!-- Main Viewport Wrapper -->
-<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
-
-  <!-- Universal Top Cloud Header -->
-  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
-    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
-      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
-          <span class="material-symbols-outlined text-[22px]">menu</span>
+<div class="w-full md:pl-[220px] min-h-screen flex flex-col">
+  <header class="wm-top-header">
+    <div class="w-full h-full px-3 sm:px-5 flex items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar()" aria-label="Open Navigation">
+          <span class="material-symbols-outlined text-[20px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-2.5 text-slate-400 text-[18px] pointer-events-none">search</span>
           <input id="global-admin-search-input" class="wm-header-search-input" placeholder="Search festivals, templates, campaigns..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button type="button" id="wm-header-live-sync-btn" onclick="window.triggerAdminLiveSync && window.triggerAdminLiveSync(true, { showToastFeedback: true })" class="wm-icon-btn" title="Sync Live Data" aria-label="Sync Live Data">
+          <span class="material-symbols-outlined text-[18px]" id="wm-header-live-sync-icon">sync</span>
+        </button>
+        <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-primary hidden sm:inline-flex">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>New Template</span>
+        </a>
         <div class="relative">
-          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
-            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-              <span class="material-symbols-outlined text-[19px]">person</span>
+          <button type="button" onclick="toggleAdminProfileMenu(event)" class="flex items-center gap-2 h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
+            <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center">AS</span>
+            <div class="hidden sm:flex flex-col text-left leading-none">
+              <span class="text-xs font-semibold text-slate-900">Admin</span>
+              <span id="wm-admin-header-email" class="text-[10px] text-slate-500 max-w-[140px] truncate">ankit.babusaini@gmail.com</span>
             </div>
-            <div class="hidden sm:flex flex-col text-left leading-tight">
-              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
-              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
+            <span class="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
+          </button>
+
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-1.5 w-56 bg-white rounded-lg border border-slate-200 shadow-lg p-1.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-2.5 py-2 border-b border-slate-100 mb-1">
+              <div class="font-semibold text-slate-900">WishMagic Admin</div>
+              <div class="text-[11px] text-slate-500 truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
-          </div>
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs">
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-500/10 text-on-surface font-semibold">
-              <span class="material-symbols-outlined text-[17px]">open_in_new</span>
-              <span>View Main Website</span>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">settings</span>
+              <span>Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-500/10 text-on-surface font-semibold">
-              <span class="material-symbols-outlined text-[17px]">settings</span>
-              <span>Platform Settings</span>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">add_circle</span>
+              <span>Upload Template</span>
             </a>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">perm_media</span>
+              <span>Media Vault</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">open_in_new</span>
+              <span>View Storefront</span>
+            </a>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-rose-50 text-rose-600 font-semibold text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">logout</span>
+              <span>Sign Out</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Area -->
   <main id="admin-main-content" class="w-full pt-[80px] pb-12 max-w-[1560px] mx-auto flex-1 flex flex-col">
     <!-- Page Header & Quick Actions -->
     <div class="px-4 sm:px-8 pt-4 pb-3 flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/25">
       <div>
         <div class="flex flex-wrap items-center gap-2">
           <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-on-surface">Festival Scheduler &amp; Main Website Campaign Studio</h1>
-          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">UTP v1.4.0 Live</span>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">UTP v1.4.0 Live</span>
         </div>
         <p class="text-xs text-on-surface-variant mt-0.5">Annual Festival Calendar, Year-Scoped Date Overrides, Campaign Windows (F-15 to F+3 Inclusive), Template Assignments &amp; Direct Main Website Spotlight Sync</p>
       </div>
@@ -215,15 +203,15 @@
           <option value="2027">2027</option>
           <option value="2028">2028</option>
         </select>
-        <button type="button" onclick="quickLaunchFestivalOnWebsite('fest_diwali', true)" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-600 text-white text-xs font-extrabold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer" title="1-Click Launch Diwali Campaign + Templates + 3D Theme on Main Website">
+        <button type="button" onclick="quickLaunchFestivalOnWebsite('fest_diwali', true)" class="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-extrabold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer" title="1-Click Launch Diwali Campaign + Templates + 3D Theme on Main Website">
           <span class="material-symbols-outlined text-[16px]">rocket_launch</span>
           <span>🚀 Launch Diwali on Main Website</span>
         </button>
-        <button type="button" onclick="triggerProviderSync()" id="btn-sync-provider" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-purple-500/20 border border-outline-variant/40 text-xs font-bold text-on-surface flex items-center gap-1.5 transition cursor-pointer">
+        <button type="button" onclick="triggerProviderSync()" id="btn-sync-provider" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-slate-100 border border-outline-variant/40 text-xs font-bold text-on-surface flex items-center gap-1.5 transition cursor-pointer">
           <span class="material-symbols-outlined text-[16px]">sync</span>
           <span>Sync Calendar</span>
         </button>
-        <button type="button" onclick="openFestivalModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer">
+        <button type="button" onclick="openFestivalModal()" class="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer">
           <span class="material-symbols-outlined text-[16px]">add</span>
           <span>New Festival</span>
         </button>
@@ -232,45 +220,45 @@
 
     <!-- Live KPI Summary & Main Website Impact Bar -->
     <div class="px-4 sm:px-8 pt-4 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
-      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 flex items-center justify-between">
+      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-outline-variant/30 flex items-center justify-between">
         <div>
           <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">Total Festivals</span>
           <span id="kpi-total-festivals" class="text-xl font-extrabold text-on-surface mt-0.5 block">11</span>
         </div>
-        <span class="material-symbols-outlined text-purple-400 text-[26px]">calendar_month</span>
+        <span class="material-symbols-outlined text-slate-600 text-[26px]">calendar_month</span>
       </div>
-      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-emerald-500/30 flex items-center justify-between">
+      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-emerald-500/30 flex items-center justify-between">
         <div>
           <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">Live on Main Website</span>
           <span id="kpi-active-campaigns" class="text-xl font-extrabold text-emerald-400 mt-0.5 block">0 Active</span>
         </div>
         <span class="material-symbols-outlined text-emerald-400 text-[26px]">campaign</span>
       </div>
-      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-amber-500/30 flex items-center justify-between">
+      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-amber-500/30 flex items-center justify-between">
         <div>
           <span class="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Open Windows Now</span>
           <span id="kpi-open-windows" class="text-xl font-extrabold text-amber-400 mt-0.5 block">0 Open</span>
         </div>
         <span class="material-symbols-outlined text-amber-400 text-[26px]">event_available</span>
       </div>
-      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-pink-500/30 flex items-center justify-between">
+      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-slate-200 flex items-center justify-between">
         <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-pink-300 block">Assigned Templates</span>
-          <span id="kpi-assigned-templates" class="text-xl font-extrabold text-pink-400 mt-0.5 block">0 Linked</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">Assigned Templates</span>
+          <span id="kpi-assigned-templates" class="text-xl font-extrabold text-slate-600 mt-0.5 block">0 Linked</span>
         </div>
-        <span class="material-symbols-outlined text-pink-400 text-[26px]">style</span>
+        <span class="material-symbols-outlined text-slate-600 text-[26px]">style</span>
       </div>
-      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 flex flex-col justify-between gap-1.5">
+      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-outline-variant/30 flex flex-col justify-between gap-1.5">
         <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">Main Website Theme Sync</span>
         <div class="flex items-center gap-1.5">
           <button type="button" onclick="applyStorefrontFestivalTheme('diwali')" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/35 text-[11px] font-extrabold cursor-pointer transition">🪔 Diwali Theme</button>
-          <button type="button" onclick="applyStorefrontFestivalTheme('default')" class="flex-1 py-1.5 px-2 rounded-lg bg-surface hover:bg-purple-500/20 text-on-surface border border-outline-variant/40 text-[11px] font-bold cursor-pointer transition">☁️ Default</button>
+          <button type="button" onclick="applyStorefrontFestivalTheme('default')" class="flex-1 py-1.5 px-2 rounded-lg bg-surface hover:bg-slate-100 text-on-surface border border-outline-variant/40 text-[11px] font-bold cursor-pointer transition">☁️ Default</button>
         </div>
       </div>
     </div>
 
     <!-- Status Banner -->
-    <div id="scheduler-feedback-banner" class="hidden mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between shadow-lg" role="status" aria-live="polite"></div>
+    <div id="scheduler-feedback-banner" class="hidden mx-4 sm:mx-8 mt-4 p-4 rounded-lg border text-xs font-semibold flex items-center justify-between shadow-lg" role="status" aria-live="polite"></div>
 
     <!-- Navigation Tabs for Required Admin Sections A–H -->
     <div class="px-4 sm:px-8 pt-4">
@@ -309,7 +297,7 @@
           </div>
         </div>
 
-        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
               <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
@@ -332,7 +320,7 @@
 
       <!-- SECTION B: FESTIVAL DETAILS -->
       <section id="section-details" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-details">
-        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div class="flex items-center justify-between">
             <div>
               <h2 id="heading-details" class="text-lg font-extrabold text-on-surface">B. Festival Details &amp; Configuration</h2>
@@ -420,7 +408,7 @@
               </label>
             </div>
             <div class="md:col-span-2 flex justify-end gap-3 pt-2">
-              <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Festival Definition</button>
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-bold shadow-md cursor-pointer">Save Festival Definition</button>
             </div>
           </form>
         </div>
@@ -428,7 +416,7 @@
 
       <!-- SECTION C: TEMPLATE ASSIGNMENTS -->
       <section id="section-assignments" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-assignments">
-        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 id="heading-assignments" class="text-lg font-extrabold text-on-surface">C. Campaign Template &amp; Relation Variant Assignments</h2>
@@ -459,7 +447,7 @@
 
       <!-- SECTION D: PUBLICATION SCHEDULE -->
       <section id="section-schedule" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-schedule">
-        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div>
             <h2 id="heading-schedule" class="text-lg font-extrabold text-on-surface">D. Campaign Publication Schedule &amp; Status Controls</h2>
             <p class="text-xs text-on-surface-variant">Create or configure festival campaigns. Default window: Start = <code>F - 15 days</code>, End = <code>F + 3 days</code> (inclusive). Wishes created during the active window become accessible immediately.</p>
@@ -506,7 +494,7 @@
               <input type="number" id="camp-days-after" value="3" min="0" max="60" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
             </div>
             <div class="flex items-end">
-              <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Campaign Schedule</button>
+              <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 text-white font-bold shadow-md cursor-pointer">Save Campaign Schedule</button>
             </div>
           </form>
 
@@ -516,7 +504,7 @@
 
       <!-- SECTION E: DATE OVERRIDES -->
       <section id="section-overrides" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-overrides">
-        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div>
             <h2 id="heading-overrides" class="text-lg font-extrabold text-on-surface">E. Year-Scoped Manual Date Overrides</h2>
             <p class="text-xs text-on-surface-variant">Override an automatically resolved or imported festival date for a specific year without modifying source code or affecting other years. Removing an override immediately restores automatic resolution.</p>
@@ -558,7 +546,7 @@
                 <span id="ov-window-preview-display" class="text-sm font-extrabold font-mono text-emerald-400">—</span>
               </div>
               <div class="flex items-center gap-2">
-                <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 text-white font-bold shadow-md cursor-pointer">Save Override</button>
+                <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold shadow-md cursor-pointer">Save Override</button>
                 <button type="button" onclick="removeCurrentSelectedOverride()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold cursor-pointer">Remove Override</button>
               </div>
             </div>
@@ -577,7 +565,7 @@
 
       <!-- SECTION G: PREVIEW AND DIAGNOSTICS -->
       <section id="section-preview" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-preview">
-        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div>
             <h2 id="heading-preview" class="text-lg font-extrabold text-on-surface">G. Publication Window Preview &amp; Schedule Diagnostics</h2>
             <p class="text-xs text-on-surface-variant">Simulate any festival date, offset, and timestamp to verify authoritative server window calculations (<code>startOfDay(start_date, tz) &lt;= t &lt; startOfDay(end_date + 1 day, tz)</code>).</p>
@@ -613,7 +601,7 @@
           <h2 id="heading-history" class="text-lg font-extrabold text-on-surface">H. Administrative Change History &amp; Synchronization Audit Logs</h2>
           <p class="text-xs text-on-surface-variant">Immutable audit trail recording administrator identity, timestamp, affected festival/year, previous value, new value, and override reason.</p>
         </div>
-        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
+        <div class="rounded-lg border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
               <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
@@ -637,7 +625,7 @@
 </div>
 
 <!-- Floating High-Contrast Confirmation Toast -->
-<div id="scheduler-toast-popup" class="fixed bottom-6 right-6 z-[9999] hidden max-w-md rounded-2xl px-5 py-3.5 shadow-2xl border text-xs sm:text-sm font-extrabold flex items-center gap-3 transition-all duration-300"></div>
+<div id="scheduler-toast-popup" class="fixed bottom-6 right-6 z-[9999] hidden max-w-md rounded-lg px-5 py-3.5 shadow-sm border text-xs sm:text-sm font-extrabold flex items-center gap-3 transition-all duration-300"></div>
 
 <script>
   let schedulerState = {
@@ -844,7 +832,7 @@
         ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${escapeSafe(dr.verificationStatus)}</span>`
         : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${escapeSafe(dr.verificationStatus || 'UNCONFIRMED')}</span>`;
       const overrideBadge = dr.isOverridden
-        ? `<span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">Overridden</span>`
+        ? `<span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">Overridden</span>`
         : '';
 
       const campStateBadge = camp
@@ -1119,7 +1107,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" onclick="quickLaunchFestivalOnWebsite('${escapeSafe(c.festivalId)}', false)" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold cursor-pointer">🚀 Activate Now</button>
           <button type="button" onclick="quickUpdateCampaignStatus('${escapeSafe(c.id)}', '${c.status === 'PAUSED' ? 'ACTIVE' : 'PAUSED'}')" class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-amber-500/20 font-bold cursor-pointer">${c.status === 'PAUSED' ? '▶️ Resume' : '⏸️ Pause'}</button>
-          <button type="button" onclick="document.getElementById('assign-campaign-select').value='${escapeSafe(c.id)}';renderCampaignAssignmentsPanel();switchSchedulerTab('section-assignments');" class="px-3 py-1.5 rounded-lg bg-primary/20 text-purple-200 font-bold cursor-pointer">Assign Templates (${c.assignedTemplatesCount})</button>
+          <button type="button" onclick="document.getElementById('assign-campaign-select').value='${escapeSafe(c.id)}';renderCampaignAssignmentsPanel();switchSchedulerTab('section-assignments');" class="px-3 py-1.5 rounded-lg bg-primary/20 text-slate-600 font-bold cursor-pointer">Assign Templates (${c.assignedTemplatesCount})</button>
         </div>
       </div>
     `).join('');
@@ -1151,7 +1139,7 @@
             </div>
             <div class="flex items-center gap-1.5">
               <a href="/template-preview.html?template=${encodeURIComponent(t.id)}" target="_blank" class="px-2.5 py-1 rounded-lg bg-surface-container text-on-surface font-bold">Preview</a>
-              <button type="button" onclick="assignTemplateToSelectedCampaign('${escapeSafe(t.id)}')" class="px-3 py-1 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold cursor-pointer">Assign</button>
+              <button type="button" onclick="assignTemplateToSelectedCampaign('${escapeSafe(t.id)}')" class="px-3 py-1 rounded-lg bg-slate-900 text-white font-bold cursor-pointer">Assign</button>
             </div>
           </div>
           ${varCheckboxes}
@@ -1238,7 +1226,7 @@
           <div class="space-y-2">
             <div class="flex items-center justify-between">
               <span class="font-extrabold text-sm text-on-surface">${escapeSafe(f.name)}</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${camp && camp.eligible ? 'bg-emerald-500/20 text-emerald-300' : (dr.isConfirmed ? 'bg-purple-500/20 text-purple-300' : 'bg-amber-500/20 text-amber-300')}">${camp && camp.eligible ? '🟢 LIVE ON WEBSITE' : escapeSafe(dr.verificationStatus)}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${camp && camp.eligible ? 'bg-emerald-500/20 text-emerald-300' : (dr.isConfirmed ? 'bg-slate-100 text-slate-600' : 'bg-amber-500/20 text-amber-300')}">${camp && camp.eligible ? '🟢 LIVE ON WEBSITE' : escapeSafe(dr.verificationStatus)}</span>
             </div>
             <div class="font-mono text-amber-300 font-bold">Effective Festival Date: ${escapeSafe(dr.effectiveDate || 'Unconfirmed')}</div>
             <div class="text-on-surface-variant font-mono">Window: ${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)} (Inclusive)` : 'Pending confirmation'}</div>

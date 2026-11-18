@@ -6,7 +6,7 @@
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
   <title>WishMagic | Settings & Team CMS</title>
-  <meta name="theme-color" content="#1e7f4e"/>
+  <meta name="theme-color" content="#0f172a"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -16,202 +16,167 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261025_vessa_mobile_v10"></script>
+  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
+  <script src="js/wish-lifecycle.js"></script>
   <script>
-    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+    if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261028_pwa_v1"/>
-  <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261028_pwa_v1"></script>
-  <script src="js/wish-lifecycle.js"></script>
-
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
-<!-- Mobile Sidebar Backdrop Overlay -->
-<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+<div id="sidebar-backdrop" class="fixed inset-0 bg-slate-950/40 z-40 hidden md:hidden" onclick="toggleSidebar(false)"></div>
 
-<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
-  <div class="flex flex-col min-h-0 flex-1">
-    <!-- Brand Logo Header -->
-    <div class="px-5 pt-5 pb-3 flex-shrink-0">
-      <div class="flex items-center justify-between">
-        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
-          <!-- Magic Wand Icon -->
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
-              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
-              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
-              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
-              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
-              <defs>
-                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#C084FC"/>
-                  <stop offset="0.55" stop-color="#F472B6"/>
-                  <stop offset="1" stop-color="#FBBF24"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div class="flex flex-col">
-            <div class="text-[22px] leading-none tracking-tight">
-              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
-            </div>
-            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
-          </div>
-        </a>
-        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
-          <span class="material-symbols-outlined text-[20px]">close</span>
-        </button>
+<aside id="admin-sidebar" class="-translate-x-full md:translate-x-0 select-none">
+  <div class="h-14 px-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+    <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-2.5 text-decoration-none">
+      <div class="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs font-bold">WM</div>
+      <div class="flex flex-col leading-none">
+        <span class="text-sm font-bold text-slate-900 tracking-tight">WishMagic</span>
+        <span class="text-[10px] font-medium text-slate-500 mt-0.5">Admin Console</span>
       </div>
-    </div>
+    </a>
+    <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
+      <span class="material-symbols-outlined text-[18px]">close</span>
+    </button>
+  </div>
 
-    <!-- Navigation Menu -->
-    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
-      <nav class="flex flex-col gap-0.5">
-        <!-- Top Primary Dashboard Link -->
-        <div class="mb-1 pt-1">
-          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
-            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
-            <span>Dashboard</span>
-          </a>
-        </div>
+  <div class="wm-sidebar-scroll custom-scrollbar">
+    <nav class="flex flex-col" aria-label="Admin Navigation">
+      <div class="wm-nav-section-label">MAIN</div>
+      <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+        <span class="material-symbols-outlined">home</span>
+        <span>Dashboard</span>
+      </a>
 
-        <!-- TEMPLATES -->
-        <div class="wm-nav-section-label">TEMPLATES</div>
-        <a href="/admin/anktech/anktech/admin/templates">
-          <span class="material-symbols-outlined">grid_view</span>
-          <span>All Templates</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/add-template">
-          <span class="material-symbols-outlined">add_circle</span>
-          <span>Add Template</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/festivals">
-          <span class="material-symbols-outlined">event_available</span>
-          <span>Festival Scheduler</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/occasions">
-          <span class="material-symbols-outlined">category</span>
-          <span>Categories</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media">
-          <span class="material-symbols-outlined">image</span>
-          <span>Media Library</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/media?tab=audio">
-          <span class="material-symbols-outlined">music_note</span>
-          <span>Music Library</span>
-        </a>
+      <div class="wm-nav-section-label">TEMPLATES</div>
+      <a href="/admin/anktech/anktech/admin/templates">
+        <span class="material-symbols-outlined">grid_view</span>
+        <span>All Templates</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/add-template">
+        <span class="material-symbols-outlined">add_circle</span>
+        <span>Add Template</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/festivals">
+        <span class="material-symbols-outlined">event_available</span>
+        <span>Festival Scheduler</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/occasions">
+        <span class="material-symbols-outlined">category</span>
+        <span>Categories</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media">
+        <span class="material-symbols-outlined">image</span>
+        <span>Media Library</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/media?tab=audio">
+        <span class="material-symbols-outlined">music_note</span>
+        <span>Music Library</span>
+      </a>
 
-        <!-- WISHES -->
-        <div class="wm-nav-section-label">WISHES</div>
-        <a href="/admin/anktech/anktech/admin/wishes">
-          <span class="material-symbols-outlined">description</span>
-          <span>All Wishes</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
-          <span class="material-symbols-outlined">schedule</span>
-          <span>Expiring Soon</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/analytics">
-          <span class="material-symbols-outlined">trending_up</span>
-          <span>Analytics</span>
-        </a>
+      <div class="wm-nav-section-label">WISHES</div>
+      <a href="/admin/anktech/anktech/admin/wishes">
+        <span class="material-symbols-outlined">description</span>
+        <span>All Wishes</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Expiring Soon</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/analytics">
+        <span class="material-symbols-outlined">trending_up</span>
+        <span>Analytics</span>
+      </a>
 
-        <!-- USERS -->
-        <div class="wm-nav-section-label">USERS</div>
-        <a href="/admin/anktech/anktech/admin/users">
-          <span class="material-symbols-outlined">group</span>
-          <span>All Users</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/pricing">
-          <span class="material-symbols-outlined">workspace_premium</span>
-          <span>Subscriptions</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/orders">
-          <span class="material-symbols-outlined">credit_card</span>
-          <span>Payments</span>
-        </a>
+      <div class="wm-nav-section-label">USERS</div>
+      <a href="/admin/anktech/anktech/admin/users">
+        <span class="material-symbols-outlined">group</span>
+        <span>All Users</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/pricing">
+        <span class="material-symbols-outlined">workspace_premium</span>
+        <span>Subscriptions</span>
+      </a>
+      <a href="/admin/anktech/anktech/admin/orders">
+        <span class="material-symbols-outlined">credit_card</span>
+        <span>Payments</span>
+      </a>
 
-        <!-- SYSTEM -->
-        <div class="wm-nav-section-label">SYSTEM</div>
-        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/settings">
-          <span class="material-symbols-outlined">settings</span>
-          <span>Settings</span>
-        </a>
-            </nav>
-    </div>
+      <div class="wm-nav-section-label">SYSTEM</div>
+      <a class="wm-nav-active" href="/admin/anktech/anktech/admin/settings">
+        <span class="material-symbols-outlined">settings</span>
+        <span>Settings</span>
+      </a>
+    </nav>
   </div>
 </aside>
 
-<!-- Main Viewport Wrapper -->
-<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
-<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
-  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
-    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
-      <!-- Left: Hamburger + Search Pill with Ctrl K -->
-      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
-          <span class="material-symbols-outlined text-[22px]">menu</span>
+<div class="w-full md:pl-[220px] min-h-screen flex flex-col">
+  <header class="wm-top-header">
+    <div class="w-full h-full px-3 sm:px-5 flex items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <button type="button" class="md:hidden wm-icon-btn" onclick="toggleSidebar()" aria-label="Open Navigation">
+          <span class="material-symbols-outlined text-[20px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-2.5 text-slate-400 text-[18px] pointer-events-none">search</span>
           <input id="header-settings-search-input" class="wm-header-search-input" placeholder="Search settings, CMS sections, hero controls..." type="text" oninput="handleSettingsSearchInput(this.value)"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
-          <!-- Search Dropdown Results Container -->
         </div>
       </div>
 
-      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
-      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-
-        <!-- Admin Profile Pill -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button type="button" id="wm-header-live-sync-btn" onclick="window.triggerAdminLiveSync && window.triggerAdminLiveSync(true, { showToastFeedback: true })" class="wm-icon-btn" title="Sync Live Data" aria-label="Sync Live Data">
+          <span class="material-symbols-outlined text-[18px]" id="wm-header-live-sync-icon">sync</span>
+        </button>
+        <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-primary hidden sm:inline-flex">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>New Template</span>
+        </a>
         <div class="relative">
-          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
-            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-              <span class="material-symbols-outlined text-[19px]">person</span>
+          <button type="button" onclick="toggleAdminProfileMenu(event)" class="flex items-center gap-2 h-[34px] px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
+            <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center">AS</span>
+            <div class="hidden sm:flex flex-col text-left leading-none">
+              <span class="text-xs font-semibold text-slate-900">Admin</span>
+              <span id="wm-admin-header-email" class="text-[10px] text-slate-500 max-w-[140px] truncate">ankit.babusaini@gmail.com</span>
             </div>
-            <div class="hidden sm:flex flex-col text-left leading-tight">
-              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
-              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
-            </div>
-            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
-          </div>
+            <span class="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
+          </button>
 
-          <!-- Profile Dropdown Menu -->
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="px-3 py-2 border-b border-purple-100 mb-1">
-              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
-              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-1.5 w-56 bg-white rounded-lg border border-slate-200 shadow-lg p-1.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-2.5 py-2 border-b border-slate-100 mb-1">
+              <div class="font-semibold text-slate-900">WishMagic Admin</div>
+              <div class="text-[11px] text-slate-500 truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
-              <span>Main Website &amp; Site Settings</span>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">settings</span>
+              <span>Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
-              <span>Upload &amp; Set New Template</span>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">add_circle</span>
+              <span>Upload Template</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
-              <span>Hero Photo &amp; Media Vault</span>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">perm_media</span>
+              <span>Media Vault</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
-              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
-              <span>View Live Website</span>
+            <a href="/" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 text-slate-700 font-medium">
+              <span class="material-symbols-outlined text-[16px] text-slate-500">open_in_new</span>
+              <span>View Storefront</span>
             </a>
-            <div class="border-t border-purple-100 my-1"></div>
-            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition text-left cursor-pointer">
-              <span class="material-symbols-outlined text-[17px]">logout</span>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-rose-50 text-rose-600 font-semibold text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">logout</span>
               <span>Sign Out</span>
             </button>
           </div>
@@ -220,31 +185,26 @@
     </div>
   </header>
 
-  <!-- Main Workspace Content -->
   <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
 
-    <section class="wm-hero-banner">
+    <section class="wm-page-head block">
       <div class="relative z-10 flex flex-col items-start max-w-2xl">
-        <div class="wm-hero-welcome-pill">
-          <span>Main Website Live CMS &amp; Control Matrix</span>
-          <span>✨</span>
-        </div>
-        <h1 class="wm-hero-title">
-          <span>Settings &amp;</span> <span class="wm-pink-word">Storefront</span> <span class="wm-lavender-word">CMS</span>
+        <h1 class="wm-page-title">
+          <span>Settings &amp;</span> <span >Storefront</span> <span >CMS</span>
         </h1>
-        <p class="wm-hero-subtitle">
+        <p class="wm-page-subtitle">
           Configure live main website hero text &amp; visuals, storefront sections, active templates, team roles, and global platform parameters.
         </p>
         <div class="flex flex-wrap items-center gap-3">
-          <button type="button" onclick="saveAllSiteSettings()" class="wm-btn-pink-pill">
+          <button type="button" onclick="saveAllSiteSettings()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">publish</span>
             <span>Publish to Live Site</span>
           </button>
-          <button type="button" onclick="resetToDefaults()" class="wm-btn-glass-pill">
+          <button type="button" onclick="resetToDefaults()" class="wm-btn-secondary">
             <span class="material-symbols-outlined text-[18px]">restart_alt</span>
             <span>Reset Defaults</span>
           </button>
-          <a href="/" target="_blank" class="wm-btn-glass-pill">
+          <a href="/" target="_blank" class="wm-btn-secondary">
             <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             <span>View Main Website</span>
           </a>
@@ -261,37 +221,37 @@
     </div>
 
     <!-- COMPLETE 12-CATEGORY SETTINGS NAVIGATION & INSTANT SEARCH -->
-    <div id="admin-settings-category-tabs" class="wm-card bg-surface-container-low/95 backdrop-blur-xl rounded-2xl p-4 border border-purple-500/35 shadow-md flex flex-col gap-3.5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-900/20">
+    <div id="admin-settings-category-tabs" class="wm-card bg-surface-container-low/95  rounded-lg p-4 border border-slate-200 shadow-md flex flex-col gap-3.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <div class="text-xs font-extrabold uppercase tracking-wider text-pink-400">Complete Settings Architecture (12 Categories)</div>
+          <div class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Complete Settings Architecture (12 Categories)</div>
           <p class="text-xs text-on-surface-variant mt-0.5" id="active-settings-category-desc">Select a category below or search any setting by name, purpose, or keyword.</p>
         </div>
         <div class="relative w-full sm:w-80">
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px] pointer-events-none">search</span>
-          <input id="settings-search-input" type="search" placeholder="Find any setting, domain, pricing, backup..." oninput="handleSettingsSearchInput(this.value)" class="w-full pl-9 pr-8 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-500/30 text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none"/>
+          <input id="settings-search-input" type="search" placeholder="Find any setting, domain, pricing, backup..." oninput="handleSettingsSearchInput(this.value)" class="w-full pl-9 pr-8 py-2 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none"/>
           <button type="button" id="settings-search-clear-btn" onclick="handleSettingsSearchInput('')" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface text-xs font-bold cursor-pointer">✕</button>
         </div>
       </div>
 
       <!-- Instant Search Results Panel -->
-      <div id="settings-search-results" class="hidden p-3.5 rounded-xl bg-surface-container border border-purple-500/35 space-y-2 max-h-80 overflow-y-auto custom-scrollbar"></div>
+      <div id="settings-search-results" class="hidden p-3.5 rounded-xl bg-surface-container border border-slate-200 space-y-2 max-h-80 overflow-y-auto custom-scrollbar"></div>
 
       <!-- Core Category Navigation Pills -->
       <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2" role="tablist" aria-label="Settings Categories">
-        <button type="button" role="tab" aria-selected="true" id="admin-settings-tab-storefront" onclick="switchAdminSettingsTab('storefront')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md">
+        <button type="button" role="tab" aria-selected="true" id="admin-settings-tab-storefront" onclick="switchAdminSettingsTab('storefront')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-slate-900 text-white shadow-md">
           <span>🏪</span><span class="truncate">Storefront &amp; Hero</span>
         </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-domain-links" onclick="switchAdminSettingsTab('domain-links')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-domain-links" onclick="switchAdminSettingsTab('domain-links')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-slate-200">
           <span>🔗</span><span class="truncate">Domain &amp; Wish Links</span>
         </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-templates-gallery" onclick="switchAdminSettingsTab('templates-gallery')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-templates-gallery" onclick="switchAdminSettingsTab('templates-gallery')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-slate-200">
           <span>🎨</span><span class="truncate">Templates &amp; Tags</span>
         </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-payments-pricing" onclick="switchAdminSettingsTab('payments-pricing')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-payments-pricing" onclick="switchAdminSettingsTab('payments-pricing')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-slate-200">
           <span>💳</span><span class="truncate">Pricing &amp; Free Offers</span>
         </button>
-        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-festivals-scheduling" onclick="switchAdminSettingsTab('festivals-scheduling')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-festivals-scheduling" onclick="switchAdminSettingsTab('festivals-scheduling')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-slate-200">
           <span>🪔</span><span class="truncate">Festivals &amp; Campaigns</span>
         </button>
         <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-team-rbac" class="hidden"></button>
@@ -305,8 +265,8 @@
     </div>
 
     <!-- SECTION 1: HERO SECTION CMS MANAGER -->
-    <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-900/20">
+    <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-primary-container/20 text-primary flex items-center justify-center">
             <span class="material-symbols-outlined text-2xl">view_carousel</span>
@@ -318,10 +278,10 @@
         </div>
         <div class="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
           <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-label-sm text-xs font-bold flex items-center gap-1">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 "></span>
             D1 Persistence Active
           </span>
-          <button type="button" onclick="saveAllSiteSettings('✨ Hero Section settings saved & published!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer">
+          <button type="button" onclick="saveAllSiteSettings('✨ Hero Section settings saved & published!')" class="px-4 py-2 rounded-xl bg-slate-900 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer">
             <span class="material-symbols-outlined text-sm">save</span>
             <span>Save Hero Settings</span>
           </button>
@@ -332,12 +292,12 @@
         <!-- Form Inputs (Left) -->
         <div class="lg:col-span-7 flex flex-col gap-4">
           <!-- Top Hero Occasion / Festival Pill Badge -->
-          <div class="p-3.5 rounded-2xl bg-surface-container-low border border-amber-500/25">
+          <div class="p-3.5 rounded-lg bg-surface-container-low border border-amber-500/25">
             <label class="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">✨ Top Hero Pill Badge</label>
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
               <div class="sm:col-span-4">
                 <label class="block text-[10px] font-semibold text-outline mb-1">Leading Pill Icon / Emoji</label>
-                <select id="setting-hero-badge-icon" class="w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
+                <select id="setting-hero-badge-icon" class="w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">✨ Default Dot</option>
                   <option value="🪔">🪔 Diya (Diwali)</option>
                   <option value="🎆">🎆 Fireworks</option>
@@ -349,32 +309,32 @@
               </div>
               <div class="sm:col-span-8">
                 <label class="block text-[10px] font-semibold text-outline mb-1">Top Pill Badge Text</label>
-                <input id="setting-hero-badge" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" placeholder="e.g. Make Every Moment Magical" value="Make Every Moment Magical"/>
+                <input id="setting-hero-badge" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" placeholder="e.g. Make Every Moment Magical" value="Make Every Moment Magical"/>
               </div>
             </div>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Main Display Headline (HTML / Gradient Supported)</label>
-            <input id="setting-hero-headline" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Send Personalized &lt;span class=&quot;hero-gradient-text&quot;&gt;Digital Wishes&lt;/span&gt; in Seconds"/>
+            <input id="setting-hero-headline" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Send Personalized &lt;span class=&quot;hero-gradient-text&quot;&gt;Digital Wishes&lt;/span&gt; in Seconds"/>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Subheadline / Supporting Pitch</label>
-            <textarea id="setting-hero-subheadline" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">Choose a template, add names, photos &amp; music, and share a personalized celebration link with your loved ones.</textarea>
+            <textarea id="setting-hero-subheadline" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">Choose a template, add names, photos &amp; music, and share a personalized celebration link with your loved ones.</textarea>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Banner Background Mode</label>
-              <select id="setting-hero-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
+              <select id="setting-hero-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="gradient" selected>🎨 Color Gradient Banner (Default)</option>
                 <option value="custom-photo">🖼️ Custom Uploaded Hero Photo</option>
               </select>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Banner Gradient Style</label>
-              <select id="setting-hero-style" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
+              <select id="setting-hero-style" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="cosmic-purple" selected>Cosmic Purple &amp; Magenta</option>
                 <option value="midnight-gold">Midnight Navy &amp; Gold</option>
                 <option value="romantic-rose">Romantic Rose</option>
@@ -387,23 +347,23 @@
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Custom Hero Background Photo (Optional — used when Custom Photo mode is selected)</label>
             <div class="flex items-center gap-2 mb-1.5">
-              <input id="setting-hero-image-url" class="flex-1 px-3.5 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs font-mono focus:ring-2 focus:ring-primary focus:outline-none" value="/assets/file_ab2082.png"/>
-              <a href="/admin-media.html" class="px-2.5 py-2 rounded-xl bg-purple-900/50 hover:bg-purple-800 text-purple-200 text-xs font-bold transition flex items-center gap-1 flex-shrink-0" title="Open Media Vault">
+              <input id="setting-hero-image-url" class="flex-1 px-3.5 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-primary focus:outline-none" value="/assets/icons/admin-icon-192.png"/>
+              <a href="/admin-media.html" class="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-purple-800 text-slate-600 text-xs font-bold transition flex items-center gap-1 flex-shrink-0" title="Open Media Vault">
                 <span class="material-symbols-outlined text-sm">perm_media</span>
                 <span>Vault</span>
               </a>
             </div>
-            <input id="setting-hero-file-upload" type="file" accept="image/*" class="w-full text-xs text-purple-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-pink-500/20 file:text-pink-300 hover:file:bg-pink-500/30 cursor-pointer" onchange="uploadHeroImageFromSettings(this)"/>
+            <input id="setting-hero-file-upload" type="file" accept="image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-600 hover:file:bg-slate-100 cursor-pointer" onchange="uploadHeroImageFromSettings(this)"/>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Primary CTA Button Text</label>
-              <input id="setting-hero-cta1" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Explore Magic"/>
+              <input id="setting-hero-cta1" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Explore Magic"/>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Secondary CTA Button Text</label>
-              <input id="setting-hero-cta2" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Create Your Wish"/>
+              <input id="setting-hero-cta2" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Create Your Wish"/>
             </div>
           </div>
         </div>
@@ -413,8 +373,8 @@
 
 
     <!-- SECTION 2: GLOBAL STOREFRONT SETTINGS -->
-    <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+    <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center">
             <span class="material-symbols-outlined text-2xl">public</span>
@@ -424,7 +384,7 @@
             <p class="text-xs sm:text-sm text-on-surface-variant">Manage global currencies, customer support channels, and ambient particle animations.</p>
           </div>
         </div>
-        <button type="button" onclick="saveAllSiteSettings('✨ Brand & Support WhatsApp settings saved!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+        <button type="button" onclick="saveAllSiteSettings('✨ Brand & Support WhatsApp settings saved!')" class="px-4 py-2 rounded-xl bg-slate-900 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
           <span class="material-symbols-outlined text-sm">save</span>
           <span>Save Brand &amp; Support Settings</span>
         </button>
@@ -433,19 +393,19 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Platform Brand Name</label>
-          <input id="setting-brand-name" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="WishMagic"/>
+          <input id="setting-brand-name" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="WishMagic"/>
         </div>
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="block text-xs font-bold uppercase tracking-wider text-outline" for="setting-support-wa">Support WhatsApp Number <span class="text-[10px] font-normal text-emerald-400">(Optional)</span></label>
-            <button type="button" onclick="document.getElementById('setting-support-wa').value=''; showToast('Support WhatsApp cleared — click Save to apply', 'info');" class="text-[11px] font-bold text-pink-400 hover:underline cursor-pointer">Clear Number</button>
+            <button type="button" onclick="document.getElementById('setting-support-wa').value=''; showToast('Support WhatsApp cleared — click Save to apply', 'info');" class="text-[11px] font-bold text-slate-600 hover:underline cursor-pointer">Clear Number</button>
           </div>
-          <input id="setting-support-wa" placeholder="Leave blank to hide WhatsApp number" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="+91 98765 43210"/>
+          <input id="setting-support-wa" placeholder="Leave blank to hide WhatsApp number" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="+91 98765 43210"/>
           <span class="text-[10px] text-on-surface-variant mt-1 block">Leave blank to hide WhatsApp support until you add a number later.</span>
         </div>
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Storefront Currency</label>
-          <select id="setting-currency" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
+          <select id="setting-currency" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
             <option value="INR" selected>₹ INR (Indian Rupee)</option>
             <option value="USD">$ USD (US Dollar)</option>
             <option value="EUR">€ EUR (Euro)</option>
@@ -457,32 +417,32 @@
       </div>
 
       <div class="pt-2">
-        <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-purple-900/20">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-slate-200">
           <div>
             <span class="font-bold text-sm text-on-surface block">Storefront Maintenance Mode</span>
             <span class="text-xs text-on-surface-variant">Temporarily redirect public traffic to maintenance notice.</span>
           </div>
-          <input type="checkbox" id="setting-maintenance-mode" class="w-5 h-5 rounded text-primary focus:ring-primary bg-surface-container-high border-purple-900/50 cursor-pointer"/>
+          <input type="checkbox" id="setting-maintenance-mode" class="w-5 h-5 rounded text-primary focus:ring-primary bg-surface-container-high border-slate-200 cursor-pointer"/>
         </div>
       </div>
     </div>
 
     <!-- SECTION: SMART WISH LINKS & SLUG ARCHITECTURE -->
-    <div data-settings-tab="domain-links" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/30 shadow-xl flex flex-col gap-6" id="section-wish-links">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-900/20">
+    <div data-settings-tab="domain-links" class="hidden wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-6" id="section-wish-links">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
             <span class="material-symbols-outlined text-2xl">link</span>
           </div>
           <div>
             <div class="flex items-center gap-2">
               <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Smart Wish Links &amp; Slug Architecture</h2>
-              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-pink-500/20 text-pink-300 border border-pink-500/30">SLUG &amp; LINK RULES</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">SLUG &amp; LINK RULES</span>
             </div>
             <p class="text-xs sm:text-sm text-on-surface-variant">Configure Personalized wish link availability, display labels, and Free Random slug generation rules.</p>
           </div>
         </div>
-        <button onclick="saveWishLinkSettings()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+        <button onclick="saveWishLinkSettings()" class="px-4 py-2 rounded-xl bg-slate-900 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
           <span class="material-symbols-outlined text-sm">save</span>
           <span>Save Wish Link Settings</span>
         </button>
@@ -492,8 +452,8 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         <!-- CARD 1: PERSONALIZED LINK SETTINGS -->
-        <div class="wm-card p-5 rounded-2xl bg-surface-container-low border border-purple-900/30 flex flex-col gap-4">
-          <div class="flex items-center justify-between pb-3 border-b border-purple-900/20">
+        <div class="wm-card p-5 rounded-lg bg-surface-container-low border border-slate-200 flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200">
             <div class="flex items-center gap-2">
               <span class="text-lg">✨</span>
               <div>
@@ -503,22 +463,22 @@
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" id="setting-personalized-enabled" checked onchange="updateWishLinkPreview()" class="sr-only peer"/>
-              <div class="w-11 h-6 bg-purple-900/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
+              <div class="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
             </label>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Active Price (Managed in Pricing)</label>
-              <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-container border border-purple-900/30 text-sm">
-                <span class="font-extrabold text-pink-400" id="setting-personalized-price-readonly">₹59</span>
+              <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-container border border-slate-200 text-sm">
+                <span class="font-extrabold text-slate-600" id="setting-personalized-price-readonly">₹59</span>
                 <a href="/admin/anktech/anktech/admin/pricing" class="text-[11px] font-bold text-primary hover:underline">Edit Price →</a>
               </div>
               <span class="text-[10px] text-on-surface-variant mt-0.5 block">Owned by Subscriptions &amp; Pricing Studio</span>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Currency</label>
-              <select id="setting-personalized-currency" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-semibold focus:ring-2 focus:ring-primary focus:outline-none" onchange="handleCurrencyChange()">
+              <select id="setting-personalized-currency" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-primary focus:outline-none" onchange="handleCurrencyChange()">
                 <option value="INR" selected>INR (₹ Indian Rupee)</option>
                 <option value="USD">USD ($ US Dollar)</option>
                 <option value="EUR">EUR (€ Euro)</option>
@@ -531,18 +491,18 @@
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Display Name in UI</label>
-            <input id="setting-personalized-name" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Personalized Link" oninput="updateWishLinkPreview()"/>
+            <input id="setting-personalized-name" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Personalized Link" oninput="updateWishLinkPreview()"/>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Short Description</label>
-            <input id="setting-personalized-desc" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Create a memorable link for your wish." oninput="updateWishLinkPreview()"/>
+            <input id="setting-personalized-desc" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Create a memorable link for your wish." oninput="updateWishLinkPreview()"/>
           </div>
         </div>
 
         <!-- CARD 2: FREE RANDOM LINK SETTINGS -->
-        <div class="wm-card p-5 rounded-2xl bg-surface-container-low border border-purple-900/30 flex flex-col gap-4">
-          <div class="flex items-center justify-between pb-3 border-b border-purple-900/20">
+        <div class="wm-card p-5 rounded-lg bg-surface-container-low border border-slate-200 flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200">
             <div class="flex items-center gap-2">
               <span class="text-lg">🎲</span>
               <div>
@@ -552,19 +512,19 @@
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" id="setting-random-enabled" checked onchange="updateWishLinkPreview()" class="sr-only peer"/>
-              <div class="w-11 h-6 bg-purple-900/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-emerald-500 peer-checked:to-teal-600"></div>
+              <div class="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-emerald-500 peer-checked:to-teal-600"></div>
             </label>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Prefix</label>
-              <input id="setting-random-prefix" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="wish-" oninput="updateWishLinkPreview()"/>
+              <input id="setting-random-prefix" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-sm font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="wish-" oninput="updateWishLinkPreview()"/>
               <span class="text-[10px] text-on-surface-variant mt-0.5 block">e.g. "wish-" or "w-"</span>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Random ID Length (5–20)</label>
-              <input id="setting-random-length" type="number" min="5" max="20" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="6" oninput="updateWishLinkPreview()"/>
+              <input id="setting-random-length" type="number" min="5" max="20" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="6" oninput="updateWishLinkPreview()"/>
             </div>
           </div>
 
@@ -572,19 +532,19 @@
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-2">Allowed Character Pool</label>
             <div class="flex flex-wrap gap-4 text-xs">
               <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="setting-chars-lower" checked class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-purple-900/50" onchange="updateWishLinkPreview()"/>
+                <input type="checkbox" id="setting-chars-lower" checked class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-slate-200" onchange="updateWishLinkPreview()"/>
                 <span class="font-mono">Lowercase (a-z)</span>
               </label>
               <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="setting-chars-numbers" checked class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-purple-900/50" onchange="updateWishLinkPreview()"/>
+                <input type="checkbox" id="setting-chars-numbers" checked class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-slate-200" onchange="updateWishLinkPreview()"/>
                 <span class="font-mono">Numbers (0-9)</span>
               </label>
               <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="setting-chars-upper" class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-purple-900/50" onchange="updateWishLinkPreview()"/>
+                <input type="checkbox" id="setting-chars-upper" class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-slate-200" onchange="updateWishLinkPreview()"/>
                 <span class="font-mono">Uppercase (A-Z)</span>
               </label>
             </div>
-            <span class="text-[10px] text-on-surface-variant mt-1.5 block">Prohibited characters like <code class="text-pink-400">/ ? # &amp; % = space</code> are strictly blocked.</span>
+            <span class="text-[10px] text-on-surface-variant mt-1.5 block">Prohibited characters like <code class="text-slate-600">/ ? # &amp; % = space</code> are strictly blocked.</span>
           </div>
 
           <!-- Validation Warning Banner (Hidden by default) -->
@@ -597,35 +557,35 @@
       </div>
 
       <!-- Live Studio Mini-Preview Bar -->
-      <div class="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 to-slate-950/80 border border-purple-800/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="p-4 rounded-lg bg-slate-900 border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span class="text-[10px] uppercase font-bold tracking-wider text-pink-300 block mb-0.5">Live Storefront Studio Simulation</span>
+          <span class="text-[10px] uppercase font-bold tracking-wider text-slate-600 block mb-0.5">Live Storefront Studio Simulation</span>
           <div class="flex flex-wrap items-center gap-4 text-xs">
             <div class="flex items-center gap-1.5">
-              <span class="text-pink-400 font-bold">Personalized:</span>
-              <span class="font-mono text-purple-200" id="preview-sample-personalized">wishmagic.live/w/happy-birthday-radha</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300" id="preview-price-tag">₹49 INR</span>
+              <span class="text-slate-600 font-bold">Personalized:</span>
+              <span class="font-mono text-slate-600" id="preview-sample-personalized">wishmagic.live/w/happy-birthday-radha</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600" id="preview-price-tag">₹49 INR</span>
             </div>
             <span class="text-outline hidden sm:inline">•</span>
             <div class="flex items-center gap-1.5">
               <span class="text-emerald-400 font-bold">Free Random:</span>
-              <span class="font-mono text-purple-200" id="preview-sample-random">wishmagic.live/w/wish-7k4m9x</span>
+              <span class="font-mono text-slate-600" id="preview-sample-random">wishmagic.live/w/wish-7k4m9x</span>
               <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300">FREE</span>
             </div>
           </div>
         </div>
         <div class="flex items-center gap-2 text-xs font-mono text-outline shrink-0">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 "></span>
           <span>CENTRALIZED CONFIG SYNCED</span>
         </div>
       </div>
     </div>
 
     <!-- CATEGORY 3: TEMPLATES & TEMPLATE GALLERY SETTINGS -->
-    <div id="section-templates-gallery" data-settings-tab="templates-gallery" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-500/35 shadow-xl flex flex-col gap-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+    <div id="section-templates-gallery" data-settings-tab="templates-gallery" class="hidden wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
             <span class="material-symbols-outlined text-2xl">grid_view</span>
           </div>
           <div>
@@ -638,11 +598,11 @@
             <span class="material-symbols-outlined text-sm">grid_view</span>
             <span>Manage All Templates →</span>
           </a>
-          <a href="/admin/anktech/anktech/admin/add-template" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/25 transition">
+          <a href="/admin/anktech/anktech/admin/add-template" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-slate-200 transition">
             <span class="material-symbols-outlined text-sm">upload_file</span>
             <span>Upload UTP v1.4 ZIP</span>
           </a>
-          <a href="/admin/anktech/anktech/admin/occasions" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/25 transition">
+          <a href="/admin/anktech/anktech/admin/occasions" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-slate-200 transition">
             <span class="material-symbols-outlined text-sm">category</span>
             <span>Categories &amp; Occasions</span>
           </a>
@@ -650,42 +610,42 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-slate-200">
           <div class="text-xs font-bold uppercase text-outline">Published Templates</div>
           <div id="settings-tpl-total-count" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
           <div class="text-[11px] text-on-surface-variant mt-1">Active in public gallery &amp; UTP resolver</div>
         </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-slate-200">
           <div class="text-xs font-bold uppercase text-outline">Free vs Premium Tiers</div>
           <div id="settings-tpl-tier-breakdown" class="text-2xl font-extrabold text-emerald-400 mt-1">—</div>
           <div class="text-[11px] text-on-surface-variant mt-1">Configured per template in Template Studio</div>
         </div>
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-slate-200">
           <div class="text-xs font-bold uppercase text-outline">UTP Protocol Standard</div>
-          <div class="text-2xl font-extrabold text-pink-400 mt-1">v1.4.0</div>
+          <div class="text-2xl font-extrabold text-slate-600 mt-1">v1.4.0</div>
           <div class="text-[11px] text-on-surface-variant mt-1">Multi-variant, nested sections &amp; festival metadata</div>
         </div>
       </div>
 
-      <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col gap-3">
+      <div class="p-4 rounded-xl bg-surface-container-low border border-slate-200 flex flex-col gap-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <label for="setting-popular-tags" class="text-xs font-bold uppercase tracking-wider text-on-surface block">Homepage &amp; Gallery Popular Search Tags (Comma-separated)</label>
             <span class="text-[11px] text-on-surface-variant">Persisted in D1 <code>site_settings.popular_tags_json</code> and displayed as quick filter chips on the storefront.</span>
           </div>
-          <button type="button" onclick="saveAllSiteSettings('✨ Popular Gallery Search Tags saved to D1!')" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold cursor-pointer self-start sm:self-auto">
+          <button type="button" onclick="saveAllSiteSettings('✨ Popular Gallery Search Tags saved to D1!')" class="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold cursor-pointer self-start sm:self-auto">
             Save Gallery Tags
           </button>
         </div>
-        <input id="setting-popular-tags" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Birthday Surprise, Romantic Anniversary, Best Friend Roast, Diwali Special, 3D Unboxing, Voice Keepsake"/>
+        <input id="setting-popular-tags" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Birthday Surprise, Romantic Anniversary, Best Friend Roast, Diwali Special, 3D Unboxing, Voice Keepsake"/>
       </div>
     </div>
 
     <!-- CATEGORY 4A: AUTHORITATIVE PAYMENTS & PRICING SUMMARY + DIRECT NAVIGATION -->
-    <div id="section-authoritative-pricing-link" data-settings-tab="payments-pricing" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border-2 border-primary/60 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+    <div id="section-authoritative-pricing-link" data-settings-tab="payments-pricing" class="hidden wm-card bg-surface-container rounded-lg p-5 sm:p-7 border-2 border-primary/60 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
-          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 text-white flex items-center justify-center shadow-lg">
+          <div class="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-lg">
             <span class="material-symbols-outlined text-2xl">workspace_premium</span>
           </div>
           <div>
@@ -697,11 +657,11 @@
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
-          <a id="btn-open-authoritative-pricing" href="/admin/anktech/anktech/admin/pricing" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition">
+          <a id="btn-open-authoritative-pricing" href="/admin/anktech/anktech/admin/pricing" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition">
             <span class="material-symbols-outlined text-base">payments</span>
             <span>Manage Payments &amp; Pricing →</span>
           </a>
-          <a href="/admin/anktech/anktech/admin/orders" class="px-3.5 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs flex items-center gap-1.5 border border-purple-500/25 transition">
+          <a href="/admin/anktech/anktech/admin/orders" class="px-3.5 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs flex items-center gap-1.5 border border-slate-200 transition">
             <span class="material-symbols-outlined text-sm">receipt_long</span>
             <span>Orders &amp; Refunds Ledger</span>
           </a>
@@ -709,23 +669,23 @@
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center">
-        <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-slate-200">
           <div class="text-[10px] font-bold uppercase text-outline">Custom Link Only</div>
           <div id="summary-price-custom-link" class="text-lg font-black text-on-surface mt-1">₹59</div>
         </div>
-        <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-slate-200">
           <div class="text-[10px] font-bold uppercase text-outline">HD Images + Style</div>
           <div id="summary-price-hd-style" class="text-lg font-black text-on-surface mt-1">₹59</div>
         </div>
         <div class="p-3.5 rounded-xl bg-surface-container-low border border-primary/40">
-          <div class="text-[10px] font-bold uppercase text-pink-400">Free Template Combo</div>
-          <div id="summary-price-free-combo" class="text-lg font-black text-pink-400 mt-1">₹99</div>
+          <div class="text-[10px] font-bold uppercase text-slate-600">Free Template Combo</div>
+          <div id="summary-price-free-combo" class="text-lg font-black text-slate-600 mt-1">₹99</div>
         </div>
         <div class="p-3.5 rounded-xl bg-surface-container-low border border-amber-500/40">
           <div class="text-[10px] font-bold uppercase text-amber-300">Premium Combo Add-On</div>
           <div id="summary-price-premium-addon" class="text-lg font-black text-amber-300 mt-1">+₹70</div>
         </div>
-        <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-slate-200">
           <div class="text-[10px] font-bold uppercase text-outline">Base Template Tiers</div>
           <div id="summary-price-base-tiers" class="text-sm font-black text-on-surface mt-1.5">₹0 / ₹59 / ₹149</div>
         </div>
@@ -733,43 +693,43 @@
     </div>
 
     <!-- CATEGORY 4B: PROMOTIONAL PRICING, DISCOUNTS & 100% FREE LIMITED OFFER CMS -->
-    <div id="section-promo-offers" data-settings-tab="payments-pricing" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/40 shadow-xl flex flex-col gap-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+    <div id="section-promo-offers" data-settings-tab="payments-pricing" class="hidden wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-slate-200 shadow-xl flex flex-col gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-amber-400 text-white flex items-center justify-center shadow-lg shadow-pink-500/30">
+          <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-sm">
             <span class="material-symbols-outlined text-2xl">local_offer</span>
           </div>
           <div>
             <div class="flex items-center gap-2">
               <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Promotional Discounts &amp; 100% Free Offer CMS</h2>
-              <span class="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 font-bold text-[10px] uppercase">Special Offer Engine</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">Special Offer Engine</span>
             </div>
             <p class="text-xs sm:text-sm text-on-surface-variant">Configure strikethrough prices, discount badges, and 1-click 100% FREE limited-time promotional mode.</p>
           </div>
         </div>
-        <button type="button" onclick="saveAllSiteSettings('✨ Promotional & Offer settings saved!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+        <button type="button" onclick="saveAllSiteSettings('✨ Promotional & Offer settings saved!')" class="px-4 py-2 rounded-xl bg-slate-900 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
           <span class="material-symbols-outlined text-sm">save</span>
           <span>Save Promotional Settings</span>
         </button>
       </div>
 
       <!-- 100% FREE Limited Time Offer Master Switch -->
-      <div class="p-4 rounded-2xl bg-gradient-to-r from-pink-950/70 via-purple-950/70 to-slate-950/70 border border-pink-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+      <div class="p-4 rounded-lg bg-slate-900 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
         <div class="flex items-start sm:items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center shrink-0">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
             <span class="material-symbols-outlined text-2xl">redeem</span>
           </div>
           <div>
             <div class="flex items-center gap-2">
               <strong class="text-white text-sm">100% FREE Limited Time Offer Mode</strong>
-              <span class="px-2 py-0.5 rounded-full bg-emerald-500 text-purple-950 font-black text-[9px] uppercase tracking-wider animate-pulse">100% Free Switch</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-500 text-purple-950 font-black text-[9px] uppercase tracking-wider ">100% Free Switch</span>
             </div>
-            <p class="text-xs text-purple-200/80 mt-0.5">When enabled, strikes out the original price and makes all links &amp; VIP templates ₹0 FREE for users with a celebratory discount badge.</p>
+            <p class="text-xs text-slate-600/80 mt-0.5">When enabled, strikes out the original price and makes all links &amp; VIP templates ₹0 FREE for users with a celebratory discount badge.</p>
           </div>
         </div>
         <label class="relative inline-flex items-center cursor-pointer shrink-0">
           <input type="checkbox" id="setting-promo-free-mode" onchange="handleFreeOfferModeToggle()" class="sr-only peer"/>
-          <div class="w-14 h-7 bg-purple-900/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-amber-400"></div>
+          <div class="w-14 h-7 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-slate-900 peer-checked:to-amber-400"></div>
         </label>
       </div>
 
@@ -777,14 +737,14 @@
         <!-- Form Controls (Left) -->
         <div class="lg:col-span-7 flex flex-col gap-4">
           <!-- Enable Discount Toggle -->
-          <div class="flex items-center justify-between p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="flex items-center justify-between p-3.5 rounded-xl bg-surface-container-low border border-slate-200">
             <div>
               <span class="text-xs font-bold uppercase tracking-wider text-on-surface block">Enable Promotional Price Display</span>
               <span class="text-[11px] text-on-surface-variant">Show original crossed-out price (~₹99~) next to sale price</span>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" id="setting-promo-enabled" onchange="updatePromoPreview()" class="sr-only peer"/>
-              <div class="w-11 h-6 bg-purple-900/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              <div class="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
 
@@ -794,7 +754,7 @@
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Original Price (Strikethrough)</label>
               <div class="relative flex items-center">
                 <span class="absolute left-3.5 text-xs font-bold text-outline" id="promo-currency-sym-1">₹</span>
-                <input id="setting-promo-original-price" type="number" min="0" class="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none font-mono" value="99" oninput="updatePromoPreview()"/>
+                <input id="setting-promo-original-price" type="number" min="0" class="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none font-mono" value="99" oninput="updatePromoPreview()"/>
               </div>
               <span class="text-[10px] text-on-surface-variant mt-0.5 block">Shown as <span class="line-through text-outline">₹99</span></span>
             </div>
@@ -803,7 +763,7 @@
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Offer / Sale Price</label>
               <div class="relative flex items-center">
                 <span class="absolute left-3.5 text-xs font-bold text-emerald-400" id="promo-currency-sym-2">₹</span>
-                <input id="setting-promo-discount-price" type="number" min="0" class="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none font-mono" value="49" oninput="updatePromoPreview()"/>
+                <input id="setting-promo-discount-price" type="number" min="0" class="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none font-mono" value="49" oninput="updatePromoPreview()"/>
               </div>
               <span class="text-[10px] text-on-surface-variant mt-0.5 block">Shown in bold (or FREE if 0)</span>
             </div>
@@ -812,12 +772,12 @@
           <!-- Discount Badge Text -->
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Discount Tag / Badge Text</label>
-            <input id="setting-promo-badge-text" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="🔥 Limited Time Offer - 100% OFF Free Today!" oninput="updatePromoPreview()"/>
+            <input id="setting-promo-badge-text" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="🔥 Limited Time Offer - 100% OFF Free Today!" oninput="updatePromoPreview()"/>
             <span class="text-[10px] text-on-surface-variant mt-0.5 block">e.g. "50% OFF", "Limited Period Free Offer ✨", "100% FREE Launch Special"</span>
           </div>
 
           <!-- Global Top Announcement Banner -->
-          <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col gap-2.5">
+          <div class="p-3.5 rounded-xl bg-surface-container-low border border-slate-200 flex flex-col gap-2.5">
             <div class="flex items-center justify-between">
               <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-on-surface block">Storefront Top Promo Banner</span>
@@ -825,10 +785,10 @@
               </div>
               <label class="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" id="setting-promo-banner-active" onchange="updatePromoPreview()" class="sr-only peer"/>
-                <div class="w-11 h-6 bg-purple-900/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
+                <div class="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
               </label>
             </div>
-            <input id="setting-promo-banner-text" class="w-full px-3.5 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="🎉 Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!" oninput="updatePromoPreview()"/>
+            <input id="setting-promo-banner-text" class="w-full px-3.5 py-2 rounded-xl bg-surface-container text-on-surface border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="🎉 Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!" oninput="updatePromoPreview()"/>
           </div>
         </div>
       </div>
@@ -843,8 +803,8 @@
     <div id="section-wish-lifecycle" data-settings-tab="wish-lifecycle" class="hidden"></div>
 
     <!-- CATEGORY 11: FESTIVALS & SCHEDULING -->
-    <div id="section-festivals-scheduling" data-settings-tab="festivals-scheduling" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-amber-500/40 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+    <div id="section-festivals-scheduling" data-settings-tab="festivals-scheduling" class="hidden wm-card bg-surface-container rounded-lg p-5 sm:p-7 border border-amber-500/40 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
             <span class="material-symbols-outlined text-2xl">festival</span>
@@ -858,18 +818,18 @@
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <button type="button" id="btn-quick-launch-diwali-from-settings" onclick="quickLaunchFestivalFromSettings('fest_diwali', true)" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition cursor-pointer">
+          <button type="button" id="btn-quick-launch-diwali-from-settings" onclick="quickLaunchFestivalFromSettings('fest_diwali', true)" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition cursor-pointer">
             <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
             <span>🚀 Launch Diwali Campaign on Website</span>
           </button>
-          <a id="btn-open-festival-scheduler" href="/admin/anktech/anktech/admin/festivals" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition self-start sm:self-auto">
+          <a id="btn-open-festival-scheduler" href="/admin/anktech/anktech/admin/festivals" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition self-start sm:self-auto">
           <span class="material-symbols-outlined text-base">calendar_month</span>
           <span>Open Festival Scheduler →</span>
         </a>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-slate-200">
           <div class="text-xs font-bold uppercase text-outline">Registered Festivals</div>
           <div id="settings-festivals-total" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
           <div class="text-[11px] text-on-surface-variant mt-1">Fixed, lunar/movable &amp; manual dates</div>
@@ -949,10 +909,10 @@
       (isErr
         ? 'bg-rose-950/95 border-rose-400 text-rose-100'
         : isInfo
-          ? 'bg-purple-950/95 border-purple-400 text-purple-100'
+          ? 'bg-slate-100 border-slate-200 text-slate-600'
           : 'bg-emerald-950/95 border-emerald-400 text-emerald-100');
     pop.innerHTML = `
-      <span class="material-symbols-outlined text-[22px] ${isErr ? 'text-rose-400' : isInfo ? 'text-purple-300' : 'text-emerald-400'}">${isErr ? 'error' : isInfo ? 'sync' : 'task_alt'}</span>
+      <span class="material-symbols-outlined text-[22px] ${isErr ? 'text-rose-400' : isInfo ? 'text-slate-600' : 'text-emerald-400'}">${isErr ? 'error' : isInfo ? 'sync' : 'task_alt'}</span>
       <div>
         <div class="leading-tight">${isErr ? '❌ Action Failed' : isInfo ? '⏳ Saving Changes...' : '✅ Ho Gaya! Setting Saved & Applied to Website'}</div>
         <div class="text-[11px] font-semibold opacity-90 mt-0.5">${String(msg || '').replace(/</g, '&lt;')}</div>
@@ -994,7 +954,7 @@
       banner.className = 'p-4 rounded-xl border text-sm flex items-center justify-between transition-all ' +
         (type === 'error' ? 'bg-rose-500/15 border-rose-500/30 text-rose-300' :
          type === 'success' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' :
-         'bg-purple-900/40 border-purple-800/50 text-purple-200');
+         'bg-slate-100 border-slate-200 text-slate-600');
       icon.textContent = type === 'error' ? 'error' : type === 'success' ? 'check_circle' : 'info';
       text.textContent = msg;
       banner.classList.remove('hidden');
@@ -1052,7 +1012,7 @@
     const priceTag = document.getElementById('preview-price-tag');
     if (priceTag) {
       priceTag.textContent = pEnabled ? `${sym}${price} ${currency}` : 'DISABLED';
-      priceTag.className = pEnabled ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-500/20 text-zinc-400';
+      priceTag.className = pEnabled ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-500/20 text-zinc-400';
     }
 
     const sampleRandEl = document.getElementById('preview-sample-random');
@@ -1493,8 +1453,8 @@
       const isSelected = c.key === active;
       btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
       btn.className = isSelected
-        ? 'px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
-        : 'px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20';
+        ? 'px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-slate-900 text-white shadow-md'
+        : 'px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-slate-200';
     });
 
     const descEl = document.getElementById('active-settings-category-desc');
@@ -1555,12 +1515,12 @@
     }
 
     resultsBox.innerHTML = matches.map(({ item, idx }) => `
-      <button type="button" onclick="openSearchedSetting(${idx})" class="w-full p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex items-center justify-between gap-3 text-left transition cursor-pointer">
+      <button type="button" onclick="openSearchedSetting(${idx})" class="w-full p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-slate-200 flex items-center justify-between gap-3 text-left transition cursor-pointer">
         <div>
           <div class="text-xs font-extrabold text-on-surface">${item.title}</div>
           <div class="text-[11px] text-on-surface-variant mt-0.5">${item.desc}</div>
         </div>
-        <span class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 text-[10px] font-bold shrink-0">${item.categoryLabel} →</span>
+        <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold shrink-0">${item.categoryLabel} →</span>
       </button>
     `).join('');
   };
@@ -1575,8 +1535,8 @@
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       if (typeof targetEl.focus === 'function') targetEl.focus({ preventScroll: true });
-      targetEl.classList.add('ring-2', 'ring-pink-500');
-      setTimeout(() => targetEl.classList.remove('ring-2', 'ring-pink-500'), 2200);
+      targetEl.classList.add('ring-2', 'ring-slate-300');
+      setTimeout(() => targetEl.classList.remove('ring-2', 'ring-slate-300'), 2200);
     }
   };
 
