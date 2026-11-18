@@ -31,9 +31,6 @@
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js?v=20261028_pwa_v1"></script>
   <script src="js/wish-lifecycle.js"></script>
-  <script src="js/repositories.js"></script>
-  <script src="js/analytics-service.js"></script>
-  <script src="js/security-hardening.js"></script>
 
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
@@ -176,19 +173,6 @@
 
       <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
       <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-
-        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
-        <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 border border-purple-200/80 flex items-center justify-center text-[#2b194d] shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
-            <span class="material-symbols-outlined text-[20px]">notifications</span>
-            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
-          </button>
-
-          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js?v=20261025_vessa_mobile_v11) -->
-          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
-          </div>
-        </div>
 
         <!-- Admin Profile Pill -->
         <div class="relative">
@@ -353,7 +337,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
               <div class="sm:col-span-4">
                 <label class="block text-[10px] font-semibold text-outline mb-1">Leading Pill Icon / Emoji</label>
-                <select id="setting-hero-badge-icon" class="w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
+                <select id="setting-hero-badge-icon" class="w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">✨ Default Dot</option>
                   <option value="🪔">🪔 Diya (Diwali)</option>
                   <option value="🎆">🎆 Fireworks</option>
@@ -383,14 +367,14 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Banner Background Mode</label>
-              <select id="setting-hero-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
+              <select id="setting-hero-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="gradient" selected>🎨 Color Gradient Banner (Default)</option>
                 <option value="custom-photo">🖼️ Custom Uploaded Hero Photo</option>
               </select>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Banner Gradient Style</label>
-              <select id="setting-hero-style" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
+              <select id="setting-hero-style" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="cosmic-purple" selected>Cosmic Purple &amp; Magenta</option>
                 <option value="midnight-gold">Midnight Navy &amp; Gold</option>
                 <option value="romantic-rose">Romantic Rose</option>
@@ -403,7 +387,7 @@
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Custom Hero Background Photo (Optional — used when Custom Photo mode is selected)</label>
             <div class="flex items-center gap-2 mb-1.5">
-              <input id="setting-hero-image-url" class="flex-1 px-3.5 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs font-mono focus:ring-2 focus:ring-primary focus:outline-none" value="/assets/file_ab2082.png" oninput="updateHeroPreview()"/>
+              <input id="setting-hero-image-url" class="flex-1 px-3.5 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs font-mono focus:ring-2 focus:ring-primary focus:outline-none" value="/assets/file_ab2082.png"/>
               <a href="/admin-media.html" class="px-2.5 py-2 rounded-xl bg-purple-900/50 hover:bg-purple-800 text-purple-200 text-xs font-bold transition flex items-center gap-1 flex-shrink-0" title="Open Media Vault">
                 <span class="material-symbols-outlined text-sm">perm_media</span>
                 <span>Vault</span>
@@ -915,22 +899,6 @@
     el.classList.toggle('flex');
   }
 
-  const HERO_GRADIENTS = {
-    'cosmic-purple': 'radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%)',
-    'midnight-gold': 'radial-gradient(circle at 75% 25%, #d97706 0%, #1e1b4b 28%, #0f172a 62%, #020617 100%)',
-    'romantic-rose': 'radial-gradient(circle at 75% 25%, #e11d48 0%, #831843 30%, #4c0519 65%, #1f020a 100%)',
-    'sunset-amber': 'radial-gradient(circle at 75% 25%, #ea580c 0%, #9a3412 30%, #431407 65%, #1c0702 100%)',
-    'emerald-aurora': 'radial-gradient(circle at 75% 25%, #059669 0%, #065f46 30%, #064e3b 65%, #022c22 100%)'
-  };
-
-  const HERO_STYLE_LABELS = {
-    'cosmic-purple': 'Cosmic Purple & Magenta',
-    'midnight-gold': 'Midnight Gold & Starfield',
-    'romantic-rose': 'Romantic Rose Velvet',
-    'sunset-amber': 'Sunset Amber & Warm Glow',
-    'emerald-aurora': 'Emerald Aurora & Forest'
-  };
-
   async function uploadHeroImageFromSettings(input) {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
@@ -950,8 +918,7 @@
         const data = await res.json();
         if (data.success && data.heroImageUrl) {
           document.getElementById('setting-hero-image-url').value = data.heroImageUrl;
-          document.getElementById('setting-hero-bg-mode').value = 'image';
-          updateHeroPreview();
+          document.getElementById('setting-hero-bg-mode').value = 'custom-photo';
           showStatusBanner('🌟 New Hero Photo uploaded successfully! Remember to click "Save All Site Settings".', 'success');
         } else {
           showStatusBanner('Upload failed: ' + (data.message || 'Unknown error'), 'error');
@@ -1037,99 +1004,6 @@
       if (type === 'success') animateSaveButtonsSuccess('✅ Ho Gaya — Saved!');
     }
   }
-
-  function updatePageBgPreview() {}
-
-
-  function applyHeroBadgeQuickPreset(iconVal, textVal) {
-    const iconEl = document.getElementById('setting-hero-badge-icon');
-    const textEl = document.getElementById('setting-hero-badge');
-    if (iconEl) iconEl.value = iconVal || '';
-    if (textEl) textEl.value = textVal || '';
-    updateHeroPreview();
-    scheduleAutoSaveSiteSettings(`✨ Top Hero Pill Badge updated to "${iconVal ? iconVal + ' ' : ''}${textVal}"!`, 150);
-  }
-
-  function updateHeroPreview() {
-    const badgeIcon = document.getElementById('setting-hero-badge-icon')?.value || '';
-    const badge = document.getElementById('setting-hero-badge')?.value || '';
-    const headline = document.getElementById('setting-hero-headline')?.value || '';
-    const sub = document.getElementById('setting-hero-subheadline')?.value || '';
-    const cta1 = document.getElementById('setting-hero-cta1')?.value || '';
-    const cta2 = document.getElementById('setting-hero-cta2')?.value || '';
-    const icon = document.getElementById('setting-hero-gift-icon')?.value || '🎁';
-    const style = document.getElementById('setting-hero-style')?.value || 'cosmic-purple';
-
-    const pBadge = document.getElementById('preview-badge');
-    const pHead = document.getElementById('preview-headline');
-    const pSub = document.getElementById('preview-subheadline');
-    const pCta1 = document.getElementById('preview-cta1');
-    const pCta2 = document.getElementById('preview-cta2');
-    const pIcon = document.getElementById('preview-icon');
-    const pStyleLabel = document.getElementById('preview-style-name');
-    const canvas = document.getElementById('hero-preview-canvas');
-
-    const bgMode = document.getElementById('setting-hero-bg-mode')?.value || 'image';
-    const imgUrl = document.getElementById('setting-hero-image-url')?.value || '/assets/file_ab2082.png';
-    const floatOn = document.getElementById('setting-hero-3d-floating')?.checked !== false;
-    const burstOn = document.getElementById('setting-hero-touch-burst')?.checked !== false;
-
-    // Highlight active 3D scene quick-switch button
-    const btnGift = document.getElementById('btn-scene-giftbox');
-    const btnDiwali = document.getElementById('btn-scene-diwali');
-    if (btnGift && btnDiwali) {
-      if (bgMode === 'diwali-3d') {
-        btnDiwali.className = 'flex items-center gap-3 p-2.5 rounded-xl border-2 border-amber-400 bg-amber-500/20 text-left transition cursor-pointer shadow-md';
-        btnGift.className = 'flex items-center gap-3 p-2.5 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-pink-400/50 cursor-pointer opacity-80';
-      } else if (bgMode === 'image') {
-        btnGift.className = 'flex items-center gap-3 p-2.5 rounded-xl border-2 border-pink-400 bg-pink-500/20 text-left transition cursor-pointer shadow-md';
-        btnDiwali.className = 'flex items-center gap-3 p-2.5 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-amber-400/60 cursor-pointer opacity-80';
-      } else {
-        btnGift.className = 'flex items-center gap-3 p-2.5 rounded-xl border border-purple-800/40 bg-surface-container text-left transition cursor-pointer opacity-70';
-        btnDiwali.className = 'flex items-center gap-3 p-2.5 rounded-xl border border-purple-800/40 bg-surface-container text-left transition cursor-pointer opacity-70';
-      }
-    }
-
-    if (pBadge) {
-      const displayBadge = badgeIcon && !badge.startsWith(badgeIcon) ? `${badgeIcon} ${badge}` : badge;
-      pBadge.textContent = displayBadge;
-    }
-    if (pHead) pHead.innerHTML = headline;
-    if (pSub) pSub.textContent = sub;
-    if (pCta1) pCta1.textContent = cta1;
-    if (pCta2) pCta2.textContent = cta2;
-    if (pIcon) pIcon.textContent = bgMode === 'diwali-3d' ? '🪔' : icon;
-    if (pStyleLabel) {
-      if (bgMode === 'gradient') {
-        pStyleLabel.textContent = HERO_STYLE_LABELS[style] || style;
-      } else if (bgMode === 'custom-photo') {
-        pStyleLabel.textContent = '🖼️ Custom Photo + Scrim';
-      } else if (bgMode === 'diwali-3d') {
-        pStyleLabel.textContent = `🪔 3D Diwali Diyas & Crackers (${floatOn ? 'Float ON' : 'Static'})`;
-      } else {
-        pStyleLabel.textContent = `🎁 3D Gift Box Scene (${floatOn ? 'Float ON' : 'Static'} • ${burstOn ? 'Touch Burst ON' : 'Burst OFF'})`;
-      }
-    }
-    if (canvas) {
-      if (bgMode === 'gradient') {
-        canvas.style.background = HERO_GRADIENTS[style] || HERO_GRADIENTS['cosmic-purple'];
-      } else if (bgMode === 'diwali-3d') {
-        canvas.style.background = `linear-gradient(90deg, rgba(16, 6, 32, 0.72) 0%, rgba(16, 6, 32, 0.28) 45%, rgba(16, 6, 32, 0.08) 100%), url('/assets/hero-diwali-3d.webp') right center / cover no-repeat`;
-      } else {
-        const previewImg = (bgMode === 'custom-photo' && imgUrl) ? imgUrl : '/assets/file_ab2082.png';
-        canvas.style.background = `linear-gradient(90deg, rgba(24, 8, 128, 0.92) 0%, rgba(28, 12, 138, 0.78) 46%, rgba(42, 12, 155, 0.22) 100%), url('${previewImg}') 65% center / cover no-repeat`;
-      }
-    }
-  }
-
-  // Real-time listener on input fields for live preview updates
-  ['setting-hero-badge-icon', 'setting-hero-badge', 'setting-hero-headline', 'setting-hero-subheadline', 'setting-hero-cta1', 'setting-hero-cta2', 'setting-hero-gift-icon', 'setting-hero-style', 'setting-hero-bg-mode', 'setting-hero-image-url'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('input', updateHeroPreview);
-      el.addEventListener('change', updateHeroPreview);
-    }
-  });
 
   // --- Smart Wish Links & Slug Settings Manager ---
   function getCurrencySymbol(curr) {
@@ -1371,46 +1245,6 @@
     const s2 = document.getElementById('promo-currency-sym-2');
     if (s1) s1.textContent = sym;
     if (s2) s2.textContent = sym;
-
-    const freeMode = Boolean(document.getElementById('setting-promo-free-mode')?.checked);
-    const promoEnabled = Boolean(document.getElementById('setting-promo-enabled')?.checked);
-    const origPrice = Math.max(0, Number(document.getElementById('setting-promo-original-price')?.value || 99));
-    const salePrice = freeMode ? 0 : Math.max(0, Number(document.getElementById('setting-promo-discount-price')?.value || 49));
-    const badgeText = document.getElementById('setting-promo-badge-text')?.value || '🔥 Limited Time Offer';
-    const bannerActive = Boolean(document.getElementById('setting-promo-banner-active')?.checked);
-    const bannerText = document.getElementById('setting-promo-banner-text')?.value || '';
-
-    const pBanner = document.getElementById('promo-preview-banner');
-    const pBannerTxt = document.getElementById('promo-preview-banner-text');
-    if (pBanner) {
-      if (bannerActive && bannerText) {
-        pBanner.classList.remove('hidden');
-        if (pBannerTxt) pBannerTxt.textContent = bannerText;
-      } else {
-        pBanner.classList.add('hidden');
-      }
-    }
-
-    const pBadge = document.getElementById('promo-preview-badge');
-    if (pBadge) pBadge.textContent = badgeText;
-
-    const pOrig = document.getElementById('promo-preview-original-price');
-    if (pOrig) {
-      pOrig.textContent = `${sym}${origPrice}`;
-      pOrig.style.display = (promoEnabled || freeMode) ? 'inline' : 'none';
-    }
-
-    const pFinal = document.getElementById('promo-preview-final-price');
-    if (pFinal) {
-      pFinal.textContent = freeMode ? `${sym}0 FREE` : `${sym}${salePrice}`;
-    }
-
-    const pPct = document.getElementById('promo-preview-discount-percent');
-    if (pPct) {
-      const pct = origPrice > 0 ? Math.max(0, Math.round(((origPrice - salePrice) / origPrice) * 100)) : 100;
-      pPct.textContent = freeMode ? '100% OFF FREE' : `${pct}% OFF`;
-      pPct.style.display = (promoEnabled || freeMode) ? 'inline-block' : 'none';
-    }
   }
 
   // Load Persisted Server Site Settings
@@ -1428,24 +1262,17 @@
         if (s.heroBadgeIcon !== undefined && document.getElementById('setting-hero-badge-icon')) document.getElementById('setting-hero-badge-icon').value = s.heroBadgeIcon;
         if (s.heroHeadline !== undefined) document.getElementById('setting-hero-headline').value = s.heroHeadline;
         if (s.heroSubheadline !== undefined) document.getElementById('setting-hero-subheadline').value = s.heroSubheadline;
-        if (s.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = s.heroGiftIcon;
+        if (s.heroGiftIcon !== undefined && document.getElementById('setting-hero-gift-icon')) document.getElementById('setting-hero-gift-icon').value = s.heroGiftIcon;
         if (s.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = s.heroBgMode;
         if (s.pageBgMode !== undefined && document.getElementById('setting-page-bg-mode')) document.getElementById('setting-page-bg-mode').value = s.pageBgMode;
-        if (s.pageBgBlur !== undefined) syncPageBgBlurInputs(s.pageBgBlur, false);
         if (s.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = s.heroImageUrl;
         if (s.heroStyle !== undefined) document.getElementById('setting-hero-style').value = s.heroStyle;
         if (s.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = s.heroCta1;
         if (s.heroCta2 !== undefined) document.getElementById('setting-hero-cta2').value = s.heroCta2;
-        if (s.hero3dFloatingEnabled !== undefined && document.getElementById('setting-hero-3d-floating')) {
-          document.getElementById('setting-hero-3d-floating').checked = Boolean(s.hero3dFloatingEnabled);
-        }
-        if (s.heroTouchBurstEnabled !== undefined && document.getElementById('setting-hero-touch-burst')) {
-          document.getElementById('setting-hero-touch-burst').checked = Boolean(s.heroTouchBurstEnabled);
-        }
         if (s.brandName !== undefined) document.getElementById('setting-brand-name').value = s.brandName;
         if (s.supportWa !== undefined) document.getElementById('setting-support-wa').value = s.supportWa;
         if (s.currency !== undefined) document.getElementById('setting-currency').value = s.currency;
-        if (s.particleFx !== undefined) document.getElementById('setting-particle-fx').checked = Boolean(s.particleFx);
+        if (s.particleFx !== undefined && document.getElementById('setting-particle-fx')) document.getElementById('setting-particle-fx').checked = Boolean(s.particleFx);
         if (s.maintenanceMode !== undefined) {
           document.getElementById('setting-maintenance-mode').checked = Boolean(s.maintenanceMode);
           const mLabel = document.getElementById('advanced-maintenance-status-label');
@@ -1481,7 +1308,6 @@
           document.getElementById('setting-promo-banner-text').value = s.promoBannerText;
         }
 
-        updateHeroPreview();
         updatePromoPreview();
       }
     } catch (err) {
@@ -1496,7 +1322,7 @@
       heroBadgeIcon: document.getElementById('setting-hero-badge-icon') ? document.getElementById('setting-hero-badge-icon').value : '',
       heroHeadline: document.getElementById('setting-hero-headline').value,
       heroSubheadline: document.getElementById('setting-hero-subheadline').value,
-      heroGiftIcon: document.getElementById('setting-hero-gift-icon').value,
+      heroGiftIcon: document.getElementById('setting-hero-gift-icon')?.value || '🎁',
       heroBgMode: document.getElementById('setting-hero-bg-mode').value,
       pageBgMode: document.getElementById('setting-page-bg-mode') ? document.getElementById('setting-page-bg-mode').value : 'cloudy',
       pageBgBlur: document.getElementById('setting-page-bg-blur') ? Math.min(50, Math.max(1, Math.round(Number(document.getElementById('setting-page-bg-blur').value) || 1))) : 1,
@@ -1504,12 +1330,10 @@
       heroStyle: document.getElementById('setting-hero-style').value,
       heroCta1: document.getElementById('setting-hero-cta1').value,
       heroCta2: document.getElementById('setting-hero-cta2').value,
-      hero3dFloatingEnabled: document.getElementById('setting-hero-3d-floating') ? document.getElementById('setting-hero-3d-floating').checked : true,
-      heroTouchBurstEnabled: document.getElementById('setting-hero-touch-burst') ? document.getElementById('setting-hero-touch-burst').checked : true,
       brandName: document.getElementById('setting-brand-name').value,
       supportWa: document.getElementById('setting-support-wa').value,
       currency: document.getElementById('setting-currency').value,
-      particleFx: document.getElementById('setting-particle-fx').checked,
+      particleFx: Boolean(document.getElementById('setting-particle-fx')?.checked ?? true),
       maintenanceMode: document.getElementById('setting-maintenance-mode').checked,
       promoFreeOfferMode: Boolean(document.getElementById('setting-promo-free-mode')?.checked),
       promoDiscountEnabled: Boolean(document.getElementById('setting-promo-enabled')?.checked),
@@ -1556,10 +1380,9 @@
       try { localStorage.setItem('wishmagic_site_settings_v1', JSON.stringify(persisted)); } catch (e) {}
       if (persisted.heroHeadline !== undefined) document.getElementById('setting-hero-headline').value = persisted.heroHeadline;
       if (persisted.heroSubheadline !== undefined) document.getElementById('setting-hero-subheadline').value = persisted.heroSubheadline;
-      if (persisted.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = persisted.heroGiftIcon;
+      if (persisted.heroGiftIcon !== undefined && document.getElementById('setting-hero-gift-icon')) document.getElementById('setting-hero-gift-icon').value = persisted.heroGiftIcon;
       if (persisted.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = persisted.heroBgMode;
       if (persisted.pageBgMode !== undefined && document.getElementById('setting-page-bg-mode')) document.getElementById('setting-page-bg-mode').value = persisted.pageBgMode;
-      if (persisted.pageBgBlur !== undefined) syncPageBgBlurInputs(persisted.pageBgBlur, false);
       if (persisted.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = persisted.heroImageUrl;
       if (persisted.heroStyle !== undefined) document.getElementById('setting-hero-style').value = persisted.heroStyle;
       if (persisted.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = persisted.heroCta1;
@@ -1567,10 +1390,9 @@
       if (persisted.brandName !== undefined) document.getElementById('setting-brand-name').value = persisted.brandName;
       if (persisted.supportWa !== undefined) document.getElementById('setting-support-wa').value = persisted.supportWa;
       if (persisted.currency !== undefined) document.getElementById('setting-currency').value = persisted.currency;
-      if (persisted.particleFx !== undefined) document.getElementById('setting-particle-fx').checked = Boolean(persisted.particleFx);
+      if (persisted.particleFx !== undefined && document.getElementById('setting-particle-fx')) document.getElementById('setting-particle-fx').checked = Boolean(persisted.particleFx);
       if (persisted.maintenanceMode !== undefined) document.getElementById('setting-maintenance-mode').checked = Boolean(persisted.maintenanceMode);
 
-      updateHeroPreview();
       updatePromoPreview();
       notifyLiveStorefrontSettingsUpdated();
       const toastMsg = (typeof customToastMessage === 'string' && customToastMessage) ? customToastMessage : '✨ Settings saved & published to live site!';
@@ -1758,17 +1580,6 @@
     }
   };
 
-  window.toggleMaintenanceModeWithConfirm = async function() {
-    const chk = document.getElementById('setting-maintenance-mode');
-    if (!chk) return;
-    const nextState = !chk.checked;
-    const confirmed = confirm(nextState
-      ? 'Enable Storefront Maintenance Mode? Public visitors will see a maintenance notice until you disable it.'
-      : 'Disable Storefront Maintenance Mode and restore public access?');
-    if (!confirmed) return;
-    chk.checked = nextState;
-    await saveAllSiteSettings(nextState ? '⚠️ Storefront Maintenance Mode enabled!' : '✅ Storefront is now Live & Public!');
-  };
 
   window.quickLaunchFestivalFromSettings = async function(festivalId = 'fest_diwali', applyTheme = true) {
     try {
@@ -1825,8 +1636,6 @@
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('change', () => {
-        updateHeroPreview();
-        updatePageBgPreview();
         updatePromoPreview();
         scheduleAutoSaveSiteSettings('✅ Ho Gaya! Setting saved & applied to Main Website!', 250);
       });

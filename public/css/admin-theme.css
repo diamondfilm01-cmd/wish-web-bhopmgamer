@@ -206,11 +206,6 @@ header.wm-top-header {
   flex-shrink: 0;
 }
 
-html.dark .vessa-brand-logo-circle {
-  background: #38c976;
-  color: #0b1911;
-}
-
 .vessa-brand-title {
   font-size: 16px;
   font-weight: 800;
@@ -225,43 +220,6 @@ html.dark .vessa-brand-logo-circle {
   color: var(--vessa-text-soft);
   line-height: 1.15;
   margin-top: 1px;
-}
-
-/* Zone 2: Center Segmented Sub-Tab Pill Switcher */
-.vessa-center-tabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 9999px;
-  background: var(--vessa-pill-track);
-  border: 1px solid var(--vessa-card-border);
-}
-
-.vessa-center-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 15px;
-  border-radius: 9999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--vessa-text-muted) !important;
-  text-decoration: none !important;
-  transition: background-color 0.16s ease, color 0.16s ease;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.vessa-center-tab:hover:not(.active) {
-  color: var(--vessa-text-main) !important;
-}
-
-.vessa-center-tab.active {
-  background: var(--vessa-pill-active-bg) !important;
-  color: var(--vessa-pill-active-text) !important;
-  font-weight: 700;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
 }
 
 /* Zone 3: Right Search, Quick Icons, + New Button & Greeting Profile Pill */
@@ -360,11 +318,6 @@ html.dark .vessa-brand-logo-circle {
   flex-shrink: 0;
 }
 
-html.dark .vessa-new-btn {
-  background: #38c976 !important;
-  color: #0b1911 !important;
-}
-
 .vessa-new-btn:hover {
   background: var(--vessa-emerald-hover) !important;
 }
@@ -396,11 +349,6 @@ html.dark .vessa-new-btn {
   flex-shrink: 0;
 }
 
-html.dark .vessa-avatar-circle {
-  background: #254433;
-  color: #6ee7b7;
-}
-
 /* ==========================================================================
    3. UNIFIED SIDE PANEL (aside#admin-sidebar)
       - Desktop Collapsed Icon Rail (68px resting, matches reference video 1:1)
@@ -425,20 +373,6 @@ aside#admin-sidebar::before {
   display: none !important;
 }
 
-/* Active Sun in Light Mode: Dark Forest Circle (#141E18) with White Sun Icon */
-html:not(.dark) .vessa-theme-circle-btn[data-theme-target="light"] {
-  background: #141e18 !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(20, 30, 24, 0.22);
-}
-
-/* Active Moon in Dark Mode: Crisp White Circle (#EFF5F1) with Dark Moon Icon */
-html.dark .vessa-theme-circle-btn[data-theme-target="dark"] {
-  background: #eff5f1 !important;
-  color: #111c16 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
-}
-
 /* Single Unified Scroll Container Inside Sidebar */
 .vessa-sidebar-scroll {
   flex: 1 1 0% !important;
@@ -447,16 +381,6 @@ html.dark .vessa-theme-circle-btn[data-theme-target="dark"] {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-}
-
-/* Normalize #wm-sidebar-more-group so all 23 links are direct flex children of <nav> */
-#wm-sidebar-more-group,
-.vessa-more-group {
-  display: contents !important;
-}
-
-aside#admin-sidebar button[onclick*="toggleMoreSidebarSections"] {
-  display: none !important;
 }
 
 aside#admin-sidebar nav a .material-symbols-outlined {
@@ -480,21 +404,9 @@ aside#admin-sidebar nav a.active {
   font-weight: 700 !important;
 }
 
-html.dark aside#admin-sidebar nav a.wm-nav-active,
-html.dark aside#admin-sidebar nav a.active {
-  background: #38c976 !important;
-  color: #0b1911 !important;
-  box-shadow: 0 3px 12px rgba(56, 201, 118, 0.28) !important;
-}
-
 aside#admin-sidebar nav a.wm-nav-active .material-symbols-outlined,
 aside#admin-sidebar nav a.active .material-symbols-outlined {
   color: #ffffff !important;
-}
-
-html.dark aside#admin-sidebar nav a.wm-nav-active .material-symbols-outlined,
-html.dark aside#admin-sidebar nav a.active .material-symbols-outlined {
-  color: #0b1911 !important;
 }
 
 /* Body-level Floating Tooltip for Desktop Collapsed Rail */
@@ -513,11 +425,6 @@ html.dark aside#admin-sidebar nav a.active .material-symbols-outlined {
   transition: opacity 0.14s ease, transform 0.14s ease;
   z-index: 9999;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-}
-
-html.dark .vessa-rail-floating-tooltip {
-  background: #eff5f1;
-  color: #111c16;
 }
 
 .vessa-rail-floating-tooltip.visible {
@@ -565,64 +472,6 @@ html.dark .vessa-rail-floating-tooltip {
     display: flex !important;
   }
 
-  .vessa-theme-capsule {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    width: 40px;
-    height: 74px;
-    padding: 3px;
-    border-radius: 9999px;
-    background: var(--vessa-pill-track);
-    border: 1px solid var(--vessa-card-border);
-    margin: 0 auto 8px auto;
-    flex-shrink: 0;
-  }
-
-  .vessa-theme-btn-label {
-    display: none;
-    font-size: 11.5px;
-    font-weight: 700;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded .vessa-theme-capsule,
-  aside#admin-sidebar:hover .vessa-theme-capsule {
-    flex-direction: row;
-    width: calc(100% - 18px);
-    height: 34px;
-    margin: 7px 9px 4px 9px;
-    padding: 2.5px;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded .vessa-theme-btn-label,
-  aside#admin-sidebar:hover .vessa-theme-btn-label {
-    display: inline;
-  }
-
-  .vessa-theme-circle-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 9999px;
-    border: none;
-    background: transparent;
-    color: var(--vessa-text-soft);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    cursor: pointer;
-    transition: background-color 0.16s ease, color 0.16s ease;
-    padding: 0;
-  }
-
-  aside#admin-sidebar.vessa-rail-expanded .vessa-theme-circle-btn,
-  aside#admin-sidebar:hover .vessa-theme-circle-btn {
-    flex: 1;
-    width: auto;
-    height: 27px;
-  }
-
   .vessa-sidebar-scroll {
     padding: 2px 0 10px 0 !important;
     scrollbar-width: none;
@@ -640,8 +489,7 @@ html.dark .vessa-rail-floating-tooltip {
   }
 
   /* Collapsed 68px Rail State (when NOT expanded and NOT hovered) */
-  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) .wm-nav-section-label,
-  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) .wm-sidebar-section-label {
+  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) .wm-nav-section-label {
     display: none !important;
   }
 
@@ -679,9 +527,7 @@ html.dark .vessa-rail-floating-tooltip {
 
   /* Expanded / Hovered 216px Desktop Sidebar State */
   aside#admin-sidebar.vessa-rail-expanded .wm-nav-section-label,
-  aside#admin-sidebar.vessa-rail-expanded .wm-sidebar-section-label,
-  aside#admin-sidebar:hover .wm-nav-section-label,
-  aside#admin-sidebar:hover .wm-sidebar-section-label {
+  aside#admin-sidebar:hover .wm-nav-section-label {
     display: block !important;
     font-size: 9.5px !important;
     font-weight: 800 !important;
@@ -913,12 +759,6 @@ html.dark .vessa-rail-floating-tooltip {
   transition: background-color 0.16s ease;
 }
 
-html.dark .wm-btn-pink-pill,
-html.dark .vessa-btn-emerald {
-  background: #38c976 !important;
-  color: #0b1911 !important;
-}
-
 .wm-btn-pink-pill *,
 .vessa-btn-emerald * {
   color: inherit !important;
@@ -930,7 +770,6 @@ html.dark .vessa-btn-emerald {
 }
 
 .wm-btn-glass-pill,
-.wm-hero-pill-btn,
 .vessa-btn-white {
   display: inline-flex;
   align-items: center;
@@ -950,13 +789,11 @@ html.dark .vessa-btn-emerald {
 }
 
 .wm-btn-glass-pill *,
-.wm-hero-pill-btn *,
 .vessa-btn-white * {
   color: var(--vessa-text-main) !important;
 }
 
 .wm-btn-glass-pill:hover,
-.wm-hero-pill-btn:hover,
 .vessa-btn-white:hover {
   background: var(--vessa-pill-track) !important;
   border-color: var(--vessa-emerald) !important;
@@ -966,7 +803,6 @@ html.dark .vessa-btn-emerald {
    5. CARDS, STAT BOXES, TABLES & BADGES (Vessa Clean Botanical Surface)
    ========================================================================== */
 .wm-card,
-.wm-stat-card,
 .vessa-card {
   background: var(--vessa-card-bg) !important;
   border: 1px solid var(--vessa-card-border) !important;
@@ -986,19 +822,9 @@ html.dark .vessa-btn-emerald {
   flex-shrink: 0;
 }
 
-html.dark .vessa-kpi-icon-circle {
-  background: rgba(56, 201, 118, 0.18);
-  color: #5ce092;
-}
-
 .vessa-kpi-icon-circle.amber {
   background: #f5e6c8;
   color: #9a6715;
-}
-
-html.dark .vessa-kpi-icon-circle.amber {
-  background: rgba(245, 158, 11, 0.20);
-  color: #fbbf24;
 }
 
 .vessa-trend-pill {
@@ -1033,8 +859,7 @@ html.dark .vessa-kpi-icon-circle.amber {
   border-color: var(--vessa-emerald) !important;
 }
 
-.wm-status-active,
-.wm-badge-active {
+.wm-status-active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1047,8 +872,7 @@ html.dark .vessa-kpi-icon-circle.amber {
   border: 1px solid rgba(30, 127, 78, 0.25) !important;
 }
 
-.wm-status-expired,
-.wm-badge-expiring {
+.wm-status-expired {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1059,11 +883,6 @@ html.dark .vessa-kpi-icon-circle.amber {
   background: rgba(225, 29, 72, 0.12) !important;
   color: #be123c !important;
   border: 1px solid rgba(225, 29, 72, 0.24) !important;
-}
-
-html.dark .wm-status-expired,
-html.dark .wm-badge-expiring {
-  color: #fda4af !important;
 }
 
 .wm-table-action-btn {
@@ -1082,25 +901,6 @@ html.dark .wm-badge-expiring {
 .wm-table-action-btn:hover {
   background: var(--vessa-emerald-soft) !important;
   color: var(--vessa-emerald-text) !important;
-  border-color: var(--vessa-emerald) !important;
-}
-
-.wm-quick-action-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 8px;
-  border-radius: 16px;
-  background: var(--color-surface-container-low) !important;
-  border: 1px solid var(--vessa-card-border) !important;
-  color: var(--vessa-text-main) !important;
-  text-decoration: none;
-}
-
-.wm-quick-action-tile:hover {
-  background: var(--vessa-emerald-soft) !important;
   border-color: var(--vessa-emerald) !important;
 }
 
@@ -1168,50 +968,6 @@ main a[class*="bg-primary"],
   box-shadow: 0 2px 6px rgba(30, 127, 78, 0.20) !important;
 }
 
-html.dark main button[class*="from-pink-"],
-html.dark main button[class*="from-purple-"],
-html.dark main button[class*="to-pink-"],
-html.dark main button[class*="to-purple-"],
-html.dark main button[class*="via-pink-"],
-html.dark main button[class*="via-purple-"],
-html.dark main button[class*="from-[#ff2a85]"],
-html.dark main button[class*="bg-purple-6"],
-html.dark main button[class*="bg-primary"],
-html.dark main a[class*="from-pink-"],
-html.dark main a[class*="from-purple-"],
-html.dark main a[class*="to-pink-"],
-html.dark main a[class*="to-purple-"],
-html.dark [id*="modal"] button[class*="from-pink-"],
-html.dark [id*="modal"] button[class*="from-purple-"],
-html.dark [id*="modal"] button[class*="to-pink-"],
-html.dark [id*="modal"] button[class*="to-purple-"],
-html.dark [id*="modal"] button[class*="bg-primary"] {
-  background: #38c976 !important;
-  color: #0b1911 !important;
-}
-
-/* Convert purple/pink icon badges to soft Vessa Mint-Emerald circles */
-main div[class*="from-[#a855f7]"],
-main div[class*="from-[#d946ef]"],
-main div[class*="from-[#ff2a85]"],
-main div[class*="from-pink-500"],
-main div[class*="from-purple-500"],
-main div[class*="from-purple-600"] {
-  background: var(--vessa-emerald-soft) !important;
-  background-image: none !important;
-  color: var(--vessa-emerald-text) !important;
-  box-shadow: none !important;
-  border: 1px solid rgba(30, 127, 78, 0.20) !important;
-}
-
-main div[class*="from-[#a855f7]"] span,
-main div[class*="from-[#d946ef]"] span,
-main div[class*="from-[#ff2a85]"] span,
-main div[class*="from-pink-500"] span,
-main div[class*="from-purple-500"] span {
-  color: var(--vessa-emerald-text) !important;
-}
-
 /* Convert pastel & dark purple/pink containers to Botanical Sage */
 html:not(.dark) main [class*="bg-purple-50"],
 html:not(.dark) main [class*="bg-purple-100"],
@@ -1225,20 +981,6 @@ html:not(.dark) [id*="modal"] [class*="bg-purple-100"] {
   background-color: #eef4f0 !important;
   border-color: #d8e4dc !important;
   color: #15623b !important;
-}
-
-html.dark main [class*="bg-purple-950"],
-html.dark main [class*="bg-purple-900"],
-html.dark main [class*="bg-pink-950"],
-html.dark main [class*="bg-[#26164d]"],
-html.dark main [class*="bg-[#211342]"],
-html.dark main [class*="bg-[#1c103b]"],
-html.dark main [class*="bg-[#1a0e36]"],
-html.dark [id*="modal"] [class*="bg-purple-950"],
-html.dark [id*="modal"] [class*="bg-purple-900"] {
-  background-color: #212d26 !important;
-  border-color: #2d3e34 !important;
-  color: #eff5f1 !important;
 }
 
 html:not(.dark) main [class*="bg-purple-950"],
@@ -1257,14 +999,6 @@ html:not(.dark) main [class*="from-emerald-950"],
 html:not(.dark) [id*="modal"] [class*="from-purple-950"] {
   background-image: linear-gradient(135deg, #ffffff 0%, #f3f8f5 100%) !important;
   border-color: #dce6e0 !important;
-}
-
-html.dark main [class*="from-purple-950"],
-html.dark main [class*="from-pink-950"],
-html.dark main [class*="from-emerald-950"],
-html.dark [id*="modal"] [class*="from-purple-950"] {
-  background-image: linear-gradient(135deg, #1a231e 0%, #151d18 100%) !important;
-  border-color: #26342c !important;
 }
 
 main [class*="border-purple-"],
@@ -1343,23 +1077,6 @@ html:not(.dark) [id*="modal"] .bg-surface-container-high {
   color: #111c16 !important;
 }
 
-html.dark main .bg-surface-container,
-html.dark main .bg-surface-container-low,
-html.dark main .bg-surface-container-lowest,
-html.dark [id*="modal"] .bg-surface-container,
-html.dark [id*="modal"] .bg-surface-container-low {
-  background-color: #1a231e !important;
-  border-color: #26342c !important;
-  color: #eff5f1 !important;
-}
-
-html.dark main .bg-surface-container-high,
-html.dark [id*="modal"] .bg-surface-container-high {
-  background-color: #212d26 !important;
-  border-color: #2c3c33 !important;
-  color: #eff5f1 !important;
-}
-
 /* Inputs, Selects & Textareas */
 html:not(.dark) main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
 html:not(.dark) main select,
@@ -1370,17 +1087,6 @@ html:not(.dark) [id*="modal"] textarea {
   background-color: #ffffff !important;
   border: 1px solid #d5e0d9 !important;
   color: #111c16 !important;
-}
-
-html.dark main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
-html.dark main select,
-html.dark main textarea,
-html.dark [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
-html.dark [id*="modal"] select,
-html.dark [id*="modal"] textarea {
-  background-color: #141c18 !important;
-  border: 1px solid #2b3b32 !important;
-  color: #eff5f1 !important;
 }
 
 /* Checkboxes & Toggle Switches in Vessa Forest Emerald */
@@ -1445,14 +1151,6 @@ html:not(.dark) .fixed.inset-0:not(#sidebar-backdrop) > div:not(#preview-viewpor
   box-shadow: 0 20px 50px rgba(17, 28, 22, 0.18) !important;
 }
 
-html.dark [id*="modal"].fixed > div,
-html.dark .fixed.inset-0:not(#sidebar-backdrop) > div:not(#preview-viewport-shell) {
-  background-color: #1a231e !important;
-  border-color: #2b3b32 !important;
-  color: #eff5f1 !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65) !important;
-}
-
 /* Main Content Layout & Responsive Padding */
 main#admin-main-content {
   width: 100% !important;
@@ -1471,13 +1169,11 @@ main#admin-main-content {
 #btn-filter-featured,
 #filter-occasions-container button,
 #btn-range-today,
-#btn-range-yesterday,
 #btn-range-7d,
 #btn-range-30d,
 #btn-range-90d,
 #btn-range-this_month,
-#btn-range-this_year,
-#btn-range-custom {
+#btn-range-this_year {
   border-radius: 9999px !important;
   padding: 6px 13px !important;
   font-size: 12px !important;
@@ -1496,13 +1192,11 @@ main#admin-main-content {
 #btn-filter-featured.bg-primary-container,
 #filter-occasions-container button.bg-primary-container,
 #btn-range-today.bg-primary,
-#btn-range-yesterday.bg-primary,
 #btn-range-7d.bg-primary,
 #btn-range-30d.bg-primary,
 #btn-range-90d.bg-primary,
 #btn-range-this_month.bg-primary,
-#btn-range-this_year.bg-primary,
-#btn-range-custom.bg-primary {
+#btn-range-this_year.bg-primary {
   background: var(--vessa-pill-active-bg) !important;
   color: var(--vessa-pill-active-text) !important;
   border-color: var(--vessa-pill-active-bg) !important;
@@ -1533,46 +1227,14 @@ main#admin-main-content {
 /* ==========================================================================
    7. COMPLETE MOBILE & TABLET VIEW OPTIMIZATION (<1024px & <768px)
       Fixes Side Panel Drawer (Compact 216px + 100% Visible Section Names),
-      Sub-Tabs, Hero Banners, 2-Col Mobile KPI Cards, Tables, Grids & Modals
+      Hero Banners, 2-Col Mobile KPI Cards, Tables, Grids & Modals
    ========================================================================== */
 
-/* Mobile Sub-Navigation Pill Strip (Visible on <1024px when center header tabs are hidden) */
-.vessa-mobile-subtabs-bar {
-  display: none;
-}
-
 @media (max-width: 1023px) {
-  .vessa-mobile-subtabs-bar {
-    display: flex !important;
-    align-items: center;
-    gap: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 6px 12px;
-    background: var(--vessa-header-bg) !important;
-    border-bottom: 1px solid var(--vessa-card-border) !important;
-    position: fixed !important;
-    top: 64px !important;
-    left: 68px !important;
-    right: 0 !important;
-    height: 44px !important;
-    z-index: 55 !important;
-  }
-  .vessa-mobile-subtabs-bar::-webkit-scrollbar {
-    display: none;
-  }
-  .vessa-mobile-subtabs-bar .vessa-center-tab {
-    flex-shrink: 0;
-    white-space: nowrap;
-    font-size: 11.5px !important;
-    padding: 5px 12px !important;
-  }
-
   main#admin-main-content,
   body > div > main,
   main.flex-1 {
-    padding-top: 120px !important;
+    padding-top: 80px !important;
   }
 }
 
@@ -1609,7 +1271,6 @@ main#admin-main-content {
   }
 
   .vessa-brand-sub,
-  .vessa-center-tabs,
   .wm-ctrl-k-badge {
     display: none !important;
   }
@@ -1658,19 +1319,7 @@ main#admin-main-content {
     font-size: 10px !important;
   }
 
-  /* 2. Mobile Sub-Tabs Bar right under 56px Top Header */
-  .vessa-mobile-subtabs-bar {
-    top: 56px !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 40px !important;
-    padding: 4px 10px !important;
-    z-index: 58 !important;
-  }
-
-  /* 3. Compact Mobile Side Panel Drawer (aside#admin-sidebar)
-        - Compact 216px width (max-width: 66vw) so it never takes too much screen space
-        - Unbeatable specificity so EVERY section's Icon + Name + Group Label is 100% visible */
+  /* Compact Mobile Side Panel Drawer (aside#admin-sidebar) */
   #sidebar-backdrop {
     z-index: 190 !important;
     background: rgba(10, 18, 14, 0.52) !important;
@@ -1708,42 +1357,6 @@ main#admin-main-content {
     width: 100% !important;
   }
 
-  aside#admin-sidebar .vessa-theme-capsule {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    width: calc(100% - 16px) !important;
-    height: 32px !important;
-    margin: 6px 8px 3px 8px !important;
-    padding: 2.5px !important;
-    border-radius: 9999px !important;
-    background: var(--vessa-pill-track) !important;
-    border: 1px solid var(--vessa-card-border) !important;
-    flex-shrink: 0 !important;
-  }
-
-  aside#admin-sidebar .vessa-theme-circle-btn {
-    flex: 1 !important;
-    width: auto !important;
-    height: 25px !important;
-    border-radius: 9999px !important;
-    border: none !important;
-    background: transparent;
-    color: var(--vessa-text-soft);
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 4px !important;
-    padding: 0 6px !important;
-  }
-
-  aside#admin-sidebar .vessa-theme-btn-label {
-    display: inline-block !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-  }
-
   aside#admin-sidebar .vessa-sidebar-scroll {
     flex: 1 1 0% !important;
     min-height: 0 !important;
@@ -1766,9 +1379,7 @@ main#admin-main-content {
   }
 
   aside#admin-sidebar .wm-nav-section-label,
-  aside#admin-sidebar .wm-sidebar-section-label,
-  aside#admin-sidebar:not(.vessa-rail-expanded) .wm-nav-section-label,
-  aside#admin-sidebar:not(.vessa-rail-expanded) .wm-sidebar-section-label {
+  aside#admin-sidebar:not(.vessa-rail-expanded) .wm-nav-section-label {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -1827,11 +1438,11 @@ main#admin-main-content {
     display: none !important;
   }
 
-  /* 4. Main Content Offset & Clean Full-Width Mobile Alignment */
+  /* Main Content Offset & Clean Full-Width Mobile Alignment */
   main#admin-main-content,
   body > div > main,
   main.flex-1 {
-    padding-top: 104px !important;
+    padding-top: 72px !important;
     padding-left: 10px !important;
     padding-right: 10px !important;
     padding-bottom: 68px !important;
@@ -1848,7 +1459,7 @@ main#admin-main-content {
     padding-right: 2px !important;
   }
 
-  /* 5. Hero Banner on Mobile (<768px) */
+  /* Hero Banner on Mobile (<768px) */
   .wm-hero-banner {
     padding: 13px 14px !important;
     border-radius: 16px !important;
@@ -1878,23 +1489,20 @@ main#admin-main-content {
     padding: 7px 11px !important;
   }
 
-  /* 6. Overview Bar Chart Callout & Compact 2-Col Mobile KPI Cards */
+  /* Overview Bar Chart Callout & Compact 2-Col Mobile KPI Cards */
   .wm-card,
-  .wm-stat-card,
   .vessa-card,
   .vessa-welcome-card {
     padding: 12px 13px !important;
     border-radius: 16px !important;
   }
 
-
   /* Make 5th card in 5-card KPI grids span full width cleanly on 2-col mobile/tablet layouts */
   main .grid-cols-2.lg\:grid-cols-5 > *:nth-child(5):last-child {
     grid-column: span 2 / span 2 !important;
   }
 
-  main .grid-cols-2 > .wm-card,
-  main .grid-cols-2 > .wm-stat-card {
+  main .grid-cols-2 > .wm-card {
     padding: 10px 11px !important;
     border-radius: 14px !important;
   }
@@ -1983,7 +1591,6 @@ main#admin-main-content {
   }
 
   /* 9. Dropdowns, Modals & Toast Placement on Mobile */
-  #wm-admin-notif-dropdown,
   #wm-admin-profile-dropdown,
   #wm-global-command-dropdown {
     position: fixed !important;
@@ -2071,47 +1678,6 @@ main canvas,
   border-radius: 14px;
 }
 
-.vessa-pwa-install-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 36px;
-  padding: 0 13px;
-  border-radius: 9999px;
-  background: var(--vessa-emerald-soft) !important;
-  border: 1px solid rgba(30, 127, 78, 0.32) !important;
-  color: var(--vessa-emerald-text) !important;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background-color 0.16s ease, transform 0.14s ease;
-}
-
-.vessa-pwa-install-btn:hover {
-  background: var(--vessa-emerald) !important;
-  color: #ffffff !important;
-}
-
-html.dark .vessa-pwa-install-btn:hover {
-  background: #38c976 !important;
-  color: #0b1911 !important;
-}
-
-html.wm-pwa-standalone .vessa-pwa-install-btn,
-html.wm-pwa-standalone #wm-drawer-pwa-install-btn {
-  display: none !important;
-}
-
-@media (display-mode: standalone) {
-  .vessa-pwa-install-btn,
-  #wm-drawer-pwa-install-btn {
-    display: none !important;
-  }
-}
-
 #wm-pwa-update-banner {
   position: fixed;
   bottom: 18px;
@@ -2130,11 +1696,6 @@ html.wm-pwa-standalone #wm-drawer-pwa-install-btn {
   font-size: 12.5px;
   font-weight: 700;
   max-width: calc(100vw - 24px);
-}
-
-html.dark #wm-pwa-update-banner {
-  background: #1f2e26;
-  color: #eff5f1;
 }
 
 #wm-pwa-update-banner button.wm-pwa-update-now {
@@ -2224,23 +1785,9 @@ html.dark #wm-pwa-update-banner {
     overflow-y: auto !important;
     padding-bottom: 24px !important;
   }
-
-  .vessa-pwa-install-btn {
-    height: 32px !important;
-    padding: 0 9px !important;
-    font-size: 11px !important;
-    gap: 3px !important;
-  }
 }
 
 @media (max-width: 380px) {
-  .vessa-pwa-install-btn span:not(.material-symbols-outlined) {
-    display: none !important;
-  }
-  .vessa-pwa-install-btn {
-    width: 32px !important;
-    padding: 0 !important;
-  }
   .wm-header-search-wrap {
     width: clamp(72px, 26vw, 110px) !important;
   }
@@ -2250,20 +1797,15 @@ html.dark #wm-pwa-update-banner {
   header.wm-top-header {
     height: 48px !important;
   }
-  .vessa-mobile-subtabs-bar {
-    top: 48px !important;
-    height: 36px !important;
-  }
   main#admin-main-content,
   body > div > main {
-    padding-top: 92px !important;
+    padding-top: 62px !important;
   }
   [id*="modal"].fixed > div:not(#preview-viewport-shell) {
     max-height: 92dvh !important;
     overflow-y: auto !important;
   }
 }
-
 
 /* Command Search & Accessibility Reduced-Motion Support */
 .wm-cmd-result-item {
@@ -2290,11 +1832,9 @@ html.dark #wm-pwa-update-banner {
   }
 }
 
-.vessa-theme-capsule,
 .wm-theme-pill-btn,
 button[onclick*="toggleAdminTheme"],
-button[onclick*="toggleSiteTheme"],
-#vessa-mobile-top-theme-icon {
+button[onclick*="toggleSiteTheme"] {
   display: none !important;
 }
 

@@ -2,14 +2,6 @@
 (function() {
   'use strict';
 
-  function getSystemTheme() {
-    return 'light';
-  }
-
-  function getActiveTheme() {
-    return 'light';
-  }
-
   function updateThemeUI() {
     document.querySelectorAll('.wm-theme-pill-btn, .vessa-theme-capsule, #clay-theme-toggle-btn, #theme-toggle-btn, button[onclick*="toggleSiteTheme"], button[onclick*="toggleAdminTheme"], button[onclick*="toggleTheme"]').forEach(btn => {
       btn.remove();
@@ -46,11 +38,7 @@
     applyTheme('light');
   };
 
-  window.resetThemeToAuto = function() {
-    applyTheme('light');
-  };
-
-  // Single Mutual-Exclusion Dropdown Coordinator (Profile, Notifications, and 3-Line Menu NEVER open together!)
+  // Single Mutual-Exclusion Dropdown Coordinator (Profile and 3-Line Menu NEVER open together)
   window.closeAllHeaderDropdowns = function(exceptId) {
     if (exceptId !== 'account-dropdown-menu') {
       const acc = document.getElementById('account-dropdown-menu');
@@ -59,14 +47,6 @@
     if (exceptId !== 'wm-mobile-nav-drawer') {
       const mob = document.getElementById('wm-mobile-nav-drawer');
       if (mob) mob.classList.add('hidden');
-    }
-    if (exceptId !== 'wishmagic-notification-popover') {
-      if (window.WishNotificationCenter && typeof window.WishNotificationCenter.close === 'function') {
-        window.WishNotificationCenter.close();
-      } else {
-        const notif = document.getElementById('wishmagic-notification-popover');
-        if (notif) notif.classList.add('hidden');
-      }
     }
   };
 
@@ -143,10 +123,6 @@
     });
   }
 
-  function getThemePillButtonHTML() {
-    return '';
-  }
-
   // 4. Unified Header Across All Storefront Pages:
   //    - Desktop (>= 768px): Shows the 5 Options (Home, Templates, How It Works, Pricing, About) directly in the header, NO 3-line button, ZERO overflow!
   //    - Mobile (< 768px): Hides the 5 options from the bar, shows compact icon buttons + the 3-line button whose dropdown has the 5 options!
@@ -184,10 +160,6 @@
     }
 
     if (pathname.includes('customize')) {
-      const devToggle = document.getElementById('dev-toggle-entitlement-btn');
-      if (devToggle && devToggle.parentElement) {
-        devToggle.parentElement.remove();
-      }
       document.querySelectorAll('header button[onclick*="toggleSiteTheme"], .wm-theme-pill-btn').forEach(btn => btn.remove());
       const customizerHeader = document.querySelector('header');
       if (customizerHeader) {
@@ -247,9 +219,7 @@
           </a>
         </nav>
 
-        <!-- Right: Compact Icon Controls on Mobile, Balanced Controls on Desktop -->
         <div class="wm-header-actions flex items-center flex-shrink-0">
-          ${getThemePillButtonHTML()}
 
           <!-- Create Wish: Icon-only circle on Mobile (<640px), Compact Pill on Desktop -->
           <a href="/create.html" class="wm-header-create-btn inline-flex items-center justify-center rounded-full font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.3)] transition-all flex-shrink-0 whitespace-nowrap" title="Create Wish">
@@ -324,18 +294,6 @@
     if (mainEl && mainEl.classList.contains('pt-20')) {
       mainEl.classList.remove('pt-20');
       mainEl.classList.add('pt-4');
-    }
-
-    if (window.WishNotificationCenter && typeof window.WishNotificationCenter._renderNotificationCenter === 'function') {
-      try {
-        window.WishNotificationCenter._renderNotificationCenter();
-        window.WishNotificationCenter.refreshBadgeCount();
-      } catch (_) {}
-    }
-    if (window.WishAuth && typeof window.WishAuth.onAuthStateChange === 'function') {
-      try {
-        window.WishAuth.onAuthStateChange(() => {});
-      } catch (_) {}
     }
   }
 

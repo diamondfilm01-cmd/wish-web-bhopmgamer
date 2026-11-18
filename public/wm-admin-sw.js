@@ -19,7 +19,6 @@ const STATIC_CACHE_NAME = `wishmagic-admin-static-${SW_VERSION}`;
 const SAFE_STATIC_PRECACHE_URLS = [
   '/wm-clay-admin.webmanifest',
   '/css/admin-theme.css',
-  '/css/clay-admin-app.css',
   '/js/tailwind-config.js',
   '/js/admin-theme.js',
   '/js/WishMagicCore.js',
@@ -33,7 +32,6 @@ const SAFE_STATIC_PRECACHE_URLS = [
 const SAFE_STATIC_PATH_ALLOWLIST = new Set([
   '/wm-clay-admin.webmanifest',
   '/css/admin-theme.css',
-  '/css/clay-admin-app.css',
   '/css/cloud-background.css',
   '/js/tailwind-config.js',
   '/js/admin-theme.js',
@@ -46,7 +44,6 @@ const SAFE_STATIC_PATH_ALLOWLIST = new Set([
   '/js/share-system.js',
   '/js/security-hardening.js',
   '/js/admin-template-uploader.js',
-  '/js/clay-admin-app.js',
   '/assets/icons/admin-icon-192.png',
   '/assets/icons/admin-icon-512.png',
   '/assets/icons/admin-icon-maskable-192.png',

@@ -1281,13 +1281,6 @@ window.confirmAllSuggestedFieldSlots = function() {
   renderDetectedFieldsBadges();
 };
 
-window.updateDetectedFieldType = function(idx, newType) {
-  if (idx >= 0 && idx < detectedDynamicFields.length) {
-    detectedDynamicFields[idx].type = newType;
-    renderDetectedFieldsBadges();
-  }
-};
-
 window.promptAddCustomFieldSlot = function() {
   const rawKey = prompt("Enter field key (e.g. partner_name, hero_photo, background_music):", "custom_field_" + (detectedDynamicFields.length + 1));
   if (!rawKey) return;
@@ -5813,44 +5806,6 @@ window.handleUtpV12ActionChange = function(modePrefix, actionId, prop, value) {
     renderEditUtpV12ConfigPanel();
   }
 };
-
-function applyUtpV12StateToPreviewIframe(doc, state) {
-  if (!doc) return;
-  const isSingle = state.activeScope !== "all";
-  const varVis = isSingle ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].visibility) || {}) : {};
-  const varActs = isSingle ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].actions) || {}) : {};
-  const evalTree = evaluateClientSectionTree(state.sections || state.manifestSections || [], state.visibilityConfig, varVis, isSingle, true);
-  const disabledIds = [];
-  const walk = (nodes) => {
-    nodes.forEach(n => {
-      if (!n.effectiveEnabled) disabledIds.push(n.id);
-      if (Array.isArray(n.subsections)) walk(n.subsections);
-    });
-  };
-  walk(evalTree);
-  const evalActs = evaluateClientActions(state.actions || state.manifestActions || [], state.actionsConfig, varActs, isSingle, new Set(disabledIds));
-
-  // Physical removal of disabled sections & subsections in preview
-  disabledIds.forEach(secId => {
-    doc.querySelectorAll(`[data-wm-section="${secId}"], [data-wm-subsection="${secId}"], #section-${secId}`).forEach(el => el.remove());
-  });
-
-  // Apply button labels & action states in preview
-  evalActs.forEach(act => {
-    doc.querySelectorAll(`[data-wm-action="${act.id}"], [data-wm-button="${act.id}"]`).forEach(el => {
-      if (!act.effectiveEnabled) {
-        if (act.fallbackBehavior === "disable") {
-          el.setAttribute("disabled", "disabled");
-          el.style.opacity = "0.5";
-        } else {
-          el.remove();
-        }
-        return;
-      }
-      if (act.effectiveLabel) el.textContent = act.effectiveLabel;
-    });
-  });
-}
 
 window.previewUtpV12SelectedRelationship = function(modePrefix) {
   if (modePrefix === "upload") {

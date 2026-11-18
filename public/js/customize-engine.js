@@ -753,7 +753,6 @@ async function loadTemplateData(templateId) {
     }
     populateFormValuesFromState();
     validateDraftEntitlements(currentCustomData);
-    updateDevEntitlementUI();
     loadTemplateInSandbox();
 
     // Rule D: If multi-variant template opened in Customizer without a chosen relation, prompt immediately
@@ -1350,37 +1349,6 @@ function validateDraftEntitlements(data) {
   }
 }
 
-// Development Entitlement Switcher (Section 17)
-window.toggleDevelopmentEntitlement = function() {
-  if (!window.WishEntitlement) return;
-  const currentIsPrem = window.WishEntitlement.isPremium();
-  const nextPlan = currentIsPrem ? 'free' : 'premium';
-  window.WishEntitlement.setDevelopmentPlan(nextPlan);
-
-  updateDevEntitlementUI();
-  updateMediaCapabilitiesUI();
-  renderPhotosUI();
-  renderSectionsUI();
-  renderStep4Summary();
-  renderCustomizerHeader();
-  syncDataToIframe();
-
-  showToast(`🧪 Switched to ${nextPlan.toUpperCase()} Entitlement (Dev Mode)`);
-};
-
-function updateDevEntitlementUI() {
-  const btn = document.getElementById('dev-toggle-entitlement-btn');
-  if (!btn) return;
-  const isPrem = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
-  if (isPrem) {
-    btn.textContent = '👑 VIP PASS (ACTIVE)';
-    btn.className = 'px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-amber-400 text-purple-950 shadow-sm transition cursor-pointer';
-  } else {
-    btn.textContent = 'FREE TIER';
-    btn.className = 'px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-emerald-500/30 text-emerald-300 hover:bg-emerald-500 hover:text-white transition cursor-pointer';
-  }
-}
-
 // Apply sensible template-specific defaults
 function applyTemplateDefaults(tpl) {
   const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
@@ -1629,15 +1597,6 @@ function setupStepNavigation() {
 
     currentStep = stepNum;
     updateStepVisibility();
-  };
-
-  window.handleNextStep = function() {
-    if (currentStep < TOTAL_STEPS) {
-      window.goToStep(currentStep + 1);
-    } else {
-      // Step 4 final action
-      publishWishAndGetLink();
-    }
   };
 
   window.handlePrevStep = function() {
@@ -3516,55 +3475,6 @@ window.selectThemePreset = function(themeKey, sync = true) {
   }
 };
 
-window.resetThemeToDefaults = function() {
-  const currentKey = currentCustomData.theme || 'magical';
-  selectThemePreset(currentKey, true);
-  showToast(`↺ Restored default settings for ${currentKey}`);
-};
-
-window.selectColorPalette = function(paletteId) {
-  const engine = window.WishThemeEngine;
-  if (!engine || !engine.palettes) return;
-
-  const found = engine.palettes.find(p => p.id === paletteId);
-  if (!found) return;
-
-  currentCustomData.activePalette = paletteId;
-  currentCustomData.colors.primary = found.primary;
-  currentCustomData.colors.secondary = found.secondary;
-  currentCustomData.colors.accent = found.accent || '#fbbf24';
-
-  // Highlight active palette chip
-  document.querySelectorAll('.palette-choice-chip').forEach(chip => {
-    if (chip.getAttribute('data-palette') === paletteId) {
-      chip.className = 'palette-choice-chip p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 shadow-sm flex items-center gap-2 text-left cursor-pointer';
-    } else {
-      chip.className = 'palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer';
-    }
-  });
-
-  // Update input pickers
-  const colPrimary = document.getElementById('color-primary-input');
-  if (colPrimary) colPrimary.value = found.primary;
-  const hexPrimary = document.getElementById('hex-primary-label');
-  if (hexPrimary) hexPrimary.textContent = found.primary;
-
-  const colSecondary = document.getElementById('color-secondary-input');
-  if (colSecondary) colSecondary.value = found.secondary;
-  const hexSecondary = document.getElementById('hex-secondary-label');
-  if (hexSecondary) hexSecondary.textContent = found.secondary;
-
-  const colAccent = document.getElementById('color-accent-input');
-  if (colAccent) colAccent.value = found.accent || '#fbbf24';
-  const hexAccent = document.getElementById('hex-accent-label');
-  if (hexAccent) hexAccent.textContent = found.accent || '#fbbf24';
-
-  updateContrastBadge();
-  triggerAutosave();
-  syncDataToIframe();
-  showToast(`🎨 Applied ${found.name} Palette`);
-};
-
 window.handlePrimaryColorChange = function(color) {
   currentCustomData.colors.primary = color;
   const hexLabel = document.getElementById('hex-primary-label');
@@ -3907,37 +3817,6 @@ window.loadWishLinkStudioSettings = async function() {
 window.selectCustomizerPack = function(packType) {
   selectedCustomizerPack = packType || 'combo';
   window.renderPersonalizedPaymentCallout();
-};
-
-window.redeemReferralCreditAndPublish = async function() {
-  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById('wish-slug-input')?.value || '').toLowerCase().trim();
-  if (!chosenSlug) {
-    showToast('⚠️ Please choose or type your Custom Link name first');
-    const input = document.getElementById('wish-slug-input');
-    if (input) input.focus();
-    return;
-  }
-  currentCustomData.customSlug = chosenSlug;
-  currentCustomData.slug = chosenSlug;
-  currentCustomData.linkType = 'personalized';
-  currentCustomData.link_type = 'personalized';
-  currentCustomData.useReferralCredit = true;
-
-  await executeWishCreation({
-    slug: chosenSlug,
-    linkType: 'personalized',
-    useReferralCredit: true,
-    tier: 'free',
-    price: 0,
-    customData: {
-      ...currentCustomData,
-      customSlug: chosenSlug,
-      slug: chosenSlug,
-      linkType: 'personalized',
-      link_type: 'personalized',
-      useReferralCredit: true
-    }
-  });
 };
 
 window.renderPersonalizedPaymentCallout = function(overrideState = null) {
@@ -4574,11 +4453,6 @@ window.handleSlugInputChange = function(val) {
   }, 350);
 
   triggerAutosave();
-};
-
-// Legacy compatibility
-window.handleCustomSlugInput = function(val) {
-  window.handleSlugInputChange(val);
 };
 
 window.checkSlugAvailability = async function(slug, immediate = false) {
@@ -7149,21 +7023,6 @@ window.selectDynamicFieldSection = function(secId) {
   }
 };
 
-window.stepDynamicFieldSection = function(dir) {
-  const container = document.getElementById('template-dynamic-fields-container');
-  if (!container) return;
-  const secSet = new Set();
-  container.querySelectorAll('[data-field-section]').forEach(el => {
-    const s = el.getAttribute('data-field-section');
-    if (s) secSet.add(s);
-  });
-  const order = Array.from(secSet);
-  if (order.length === 0) return;
-  const curIdx = Math.max(0, order.indexOf(window._activeDynamicFieldSection));
-  const nextIdx = Math.min(order.length - 1, Math.max(0, curIdx + dir));
-  window.selectDynamicFieldSection(order[nextIdx]);
-};
-
 window.scrollIframeToSection = function(sectionId) {
   if (!sectionId) return;
   try {
@@ -7420,57 +7279,6 @@ window.renderTemplatePhotoSlotsManager = function() {
       </div>
     ` : ''}
   `;
-};
-
-window.autoHideUnusedPhotoSlots = function() {
-  const slots = getTemplateDeclaredPhotoSlots();
-  const uploadedPhotos = (currentCustomData.media && Array.isArray(currentCustomData.media.photos))
-    ? currentCustomData.media.photos
-    : (Array.isArray(currentCustomData.photos) ? currentCustomData.photos : []);
-  if (!Array.isArray(currentCustomData._hiddenFields)) currentCustomData._hiddenFields = [];
-
-  let hiddenNow = 0;
-  slots.forEach((slot, idx) => {
-    const photoNumMatch = slot.key.match(/^photo_(\d+)$/i);
-    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : (idx + 1);
-    const uploadedForOrder = uploadedPhotos[slotNum - 1];
-    const directVal = currentCustomData[slot.key];
-    const hasCustomUpload = Boolean(
-      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== 'photo_default_1') ||
-      (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
-    );
-    if (!hasCustomUpload && !currentCustomData._hiddenFields.includes(slot.key)) {
-      currentCustomData._hiddenFields.push(slot.key);
-      if (photoNumMatch) {
-        const n = photoNumMatch[1];
-        [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach(capKey => {
-          if (!currentCustomData._hiddenFields.includes(capKey)) currentCustomData._hiddenFields.push(capKey);
-        });
-      }
-      hiddenNow++;
-    }
-  });
-  currentCustomData.hiddenFields = [...currentCustomData._hiddenFields];
-  if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
-  renderTemplatePhotoSlotsManager();
-  triggerAutosave();
-  syncDataToIframe();
-  showToast(`🙈 Hid ${hiddenNow} unused photo slot${hiddenNow === 1 ? '' : 's'} from your website!`);
-};
-
-window.restoreAllHiddenPhotoSlots = function() {
-  if (!Array.isArray(currentCustomData._hiddenFields)) return;
-  const slots = new Set(getTemplateDeclaredPhotoSlots().map(s => s.key));
-  currentCustomData._hiddenFields = currentCustomData._hiddenFields.filter(k => {
-    if (slots.has(k) || /^photo_\d+/i.test(k) || /^caption_\d+/i.test(k) || /^memory_\d+_caption/i.test(k)) return false;
-    return true;
-  });
-  currentCustomData.hiddenFields = [...currentCustomData._hiddenFields];
-  if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
-  renderTemplatePhotoSlotsManager();
-  triggerAutosave();
-  syncDataToIframe();
-  showToast('👁️ Restored all photo slots on your website!');
 };
 
 window.triggerSlotSpecificPhotoUpload = function(slotKey) {

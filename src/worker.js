@@ -14,8 +14,6 @@ function safeJsonParse(val, fallback = null) {
 import {
   executeB2TemplateIngestPipeline,
   ensureTemplateIngestionSchema,
-  validateZipMagicBytes,
-  extractAndVerifyZip,
   createZipFromFiles
 } from './template-ingest-pipeline.js';
 import {
@@ -28,19 +26,15 @@ import {
   FESTIVAL_CALCULATION_METHODS,
   FESTIVAL_VERIFICATION_STATUS,
   CAMPAIGN_STATUS,
-  VALID_CAMPAIGN_STATUSES,
   VALID_VERIFICATION_STATUSES,
   VALID_CALCULATION_METHODS,
-  CANONICAL_FESTIVAL_CATALOG,
   isValidIanaTimezone,
   parseDateOnlyStrict,
-  addCalendarDays,
   startOfDay,
   calculatePublicationWindow,
   isTimestampWithinPublicationWindow,
   resolveAutomaticFestivalDateForYear,
   resolveEffectiveFestivalDate,
-  evaluateCampaignEligibility,
   syncFestivalDatesFromExternalProvider,
   ensureFestivalSchedulerSchema,
   recordFestivalAuditLog,
@@ -52,8 +46,7 @@ import {
   removeTemplateFromFestivalCampaign,
   loadFestivalSchedulerState,
   validateWishCreationAgainstFestivalSchedule,
-  applyFestivalScheduleToPublicGallery,
-  invalidateFestivalSchedulerCache
+  applyFestivalScheduleToPublicGallery
 } from './festival-scheduler-engine.js';
 
 function resolveAuthoritativeServerNowMs(request, env) {
@@ -71,18 +64,13 @@ function resolveAuthoritativeServerNowMs(request, env) {
   return Date.now();
 }
 import {
-  VARIANT_STATUS,
-  STANDARD_IMAGE_SLOTS,
-  STANDARD_MESSAGE_FIELDS,
   validateVariantConfiguration,
   resolveVariantHierarchy,
   resolveEffectiveTemplateConfiguration,
   sanitizeCustomerWishDataAgainstConfig,
   extractVisibilityMap,
   extractActionsOverrideMap,
-  buildVariantRecordFromUtpDeclaration,
   filterPublicAvailableVariants,
-  extractAuthoritativeEnabledRelationshipSet,
   mergeTemplateAndVariantFields,
   getDefaultRelationshipVariantConfig,
   cloneVariant
@@ -97,18 +85,13 @@ import {
   saveCentralLinkSettings,
   resetCentralLinkSettings,
   resolveLogicalLink,
-  detectAndClassifyPackageButtons,
   scanTemplateForLinkMigration,
   applySafeLinkNormalizationToTemplate
 } from './template-link-resolver.js';
 import {
-  RECOGNITION_OUTCOME,
   IMPORT_SESSION_STATE,
   IMPORT_DECISION_MODE,
   SANDBOXED_PREVIEW_CSP,
-  inspectAndValidateTemplateZip,
-  recognizeTemplatePackage,
-  compareExistingTemplateWithStagedPackage,
   buildSandboxedTemplatePreviewHtml,
   deserializeStagedFilesBundle,
   stageAndRecognizeTemplateZip,
@@ -133,14 +116,10 @@ import {
   ImgBBProvider,
   getImgBBConfig,
   validateImageBuffer,
-  parseImageDimensions,
   resolveSlotImage,
-  checkImageDeletionSafety,
-  IMAGE_LIMITS,
-  uint8ArrayToBase64
+  IMAGE_LIMITS
 } from './imgbb-provider.js';
 import {
-  evaluateTemplateCompatibility,
   planWishMigration,
   checkTemplateVersionReferences
 } from './template-compatibility-engine.js';
@@ -150,104 +129,50 @@ import {
   isValidVersionLabel,
   generateNextVersion,
   validateTemplateVersionForRelease,
-  executeVersionPublish,
-  executeVersionRollback,
   compareTemplateVersions,
   verifyVersionIntegrity
 } from './template-version-engine.js';
 import {
-  STORAGE_HEALTH_STATUS,
-  ASSET_TYPES,
   evaluateAssetProtection,
-  verifyB2ObjectHealth,
-  verifyImgBBImageHealth,
-  auditTemplateVersionsIntegrity,
-  auditMusicAssetsIntegrity,
-  auditImageAssetsHealth,
   detectStorageOrphans,
   executeSafeCleanup,
-  restoreQuarantinedAsset,
   generateComprehensiveStorageHealthReport
 } from './storage-health-engine.js';
 import {
   PRIMARY_ADMIN_EMAIL,
   USER_STATUS,
-  WISH_MODERATION_STATUS,
   TICKET_STATUS,
-  TICKET_PRIORITY,
-  ADMIN_PERMISSIONS,
   isAuthoritativeAdmin,
-  hasAdminPermission,
   createAuditLogEntry,
   listUsersEnriched,
   updateUserStatus,
-  updateUserRole,
-  revokeUserSessions,
-  safeDeleteOrArchiveUser,
   listAdminWishesEnriched,
   diagnoseWishDeepHealth,
   moderateWish,
   extendWishExpiry,
-  transferWishOwnership,
-  safeDeleteWish,
   createModerationReport,
-  resolveModerationReport,
-  universalLookup,
-  createSupportTicket,
-  updateSupportTicket,
   filterAuditLogs,
   exportAuditLogsCsv,
-  recordAdminErrorLog,
-  recordIngestionJob,
   getCentralizedDashboardSummary
 } from './admin-operations-engine.js';
 import {
-  NOTIFICATION_CHANNELS,
   NOTIFICATION_TYPES,
   JOB_STATUS,
   ANNOUNCEMENT_STATUS,
-  ANNOUNCEMENT_AUDIENCE,
   DEFAULT_NOTIFICATION_PREFERENCES,
-  ERROR_CODES as NOTIF_ERROR_CODES,
   sanitizeNotificationPreferences,
-  evaluateNotificationEligibility,
   createInAppNotification,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  calculateUnreadCount,
-  createDeliveryJob,
-  claimEligibleJobs,
-  recoverStaleClaimedJobs,
   executeDeliveryJob,
-  handleWishPublishedEvent,
-  evaluateScheduledRemindersForWish,
   createAnnouncementDraft,
-  publishAnnouncement,
   resolveEmailProvider
 } from './notification-engine.js';
 import {
-  ORDER_STATUS as COMMERCE_ORDER_STATUS,
-  PAYMENT_STATUS as COMMERCE_PAYMENT_STATUS,
-  REFUND_STATUS as COMMERCE_REFUND_STATUS,
-  PRODUCT_TYPES as COMMERCE_PRODUCT_TYPES,
-  PAYMENT_PROVIDERS,
   ERROR_CODES as COMMERCE_ERROR_CODES,
   RazorpayAdapter,
-  resolveAuthoritativeProduct,
-  evaluateUserEntitlement,
-  createCheckoutSession,
-  verifyAndFinalizePayment,
-  processRazorpayWebhook,
-  processAdminRefund,
-  reconcileUnresolvedOrders
+  resolveAuthoritativeProduct
 } from './commerce-engine.js';
 import {
-  REPORTING_TIMEZONE as BI_REPORTING_TIMEZONE,
-  ANALYTICS_EVENT_TYPES as BI_EVENT_TYPES,
-  DATE_RANGE_PRESETS as BI_DATE_RANGES,
-  ERROR_CODES as BI_ERROR_CODES,
   getDateRangeBounds as biGetDateRangeBounds,
-  calculateComparison as biCalculateComparison,
   calculateExecutiveOverview as biCalculateExecutiveOverview,
   calculateUserAnalytics as biCalculateUserAnalytics,
   calculateWishFunnel as biCalculateWishFunnel,
@@ -257,13 +182,11 @@ import {
   validateAndSanitizeAnalyticsEvent as biValidateEvent
 } from './analytics-bi-engine.js';
 import {
-  TICKET_CATEGORIES,
+  MESSAGE_SENDER_TYPE,
   DEFAULT_HELP_ARTICLES,
   getHelpCategories,
   listHelpArticles,
   getHelpArticleBySlug,
-  generateTicketNumber,
-  validateTicketInput,
   createSupportTicketRecord,
   addTicketMessage,
   updateTicketStatus as updateTicketStatusP34,
@@ -271,15 +194,10 @@ import {
   sanitizeTicketForUser
 } from './support-desk-engine.js';
 import {
-  PRIVACY_VISIBILITY,
   DEFAULT_PRIVACY_SETTINGS,
   SECURITY_EVENT_TYPES,
   EXPORT_STATUS,
-  DELETION_STATUS,
-  DELETION_CONFIRMATION_PHRASE,
-  ACCOUNT_LIFECYCLE_STATE,
   LIFECYCLE_JOB_TYPES,
-  LIFECYCLE_JOB_STATUSES,
   parseUserAgent,
   maskIpAddress,
   validateProfileUpdate,
@@ -288,18 +206,12 @@ import {
   createSecurityEventRecord,
   compileUserDataExport,
   processAccountDeletionRequest,
-  restoreDeactivatedAccount,
   computeAccountOverviewStats,
-  evaluateUserStorageDependencies,
   getAccountDeletionConsequences,
-  createLifecycleJobRecord,
-  processLifecycleJobsQueue
+  createLifecycleJobRecord
 } from './account-privacy-engine.js';
 import {
   QUALIFYING_EVENTS as REF_QUALIFYING_EVENTS,
-  REWARD_TYPES as REF_REWARD_TYPES,
-  LEDGER_STATUS as REF_LEDGER_STATUS,
-  ATTRIBUTION_STATUS as REF_ATTRIBUTION_STATUS,
   ensureUserReferralCode,
   trackReferralClick,
   linkRefereeSignup,
@@ -313,36 +225,19 @@ import {
   adminRejectReferral,
   updateProgramConfig as updateReferralProgramConfig,
   getAdminFraudLogs,
-  getProgramConfig as getReferralProgramConfig,
-  validateCustomReferralSlug
+  getProgramConfig as getReferralProgramConfig
 } from './referral-engine.js';
 import {
   SEARCH_ENTITY_TYPES,
   SORT_OPTIONS,
-  TIER_FILTERS,
-  SUPPORTED_FEATURES,
   DEFAULT_SYNONYMS,
-  normalizeQuery,
-  tokenizeQuery,
-  expandQueryTokens,
-  extractTemplateFeatures,
-  createTemplateSearchDocument,
-  createMusicSearchDocument,
-  createArticleSearchDocument,
-  calculateRelevanceScore,
   escapeHtml,
-  generateSafeHighlights,
-  filterAndSortTemplates,
-  computeFacets,
   executeGlobalSearch,
   generateSearchSuggestions,
   findRelatedTemplates,
-  findAlternativeSuggestions,
-  hashClientIp as hashSearchClientIp,
   createSearchAnalyticsRecord,
   computeSearchDiagnostics
 } from './search-discovery-engine.js';
-
 import {
   MODERATION_STATUS,
   MODERATION_CATEGORIES,
@@ -352,25 +247,17 @@ import {
   moderateWishPayloadFields,
   moderateImageAsset,
   moderateAudioVideoAsset,
-  validateTemplateSecurityAndModeration,
   checkUserModerationStanding,
   recordModerationViolationAndEnforceStrike,
   recordModerationItemAndScan,
   sanitizeModerationItemForAdmin
 } from './content-moderation-engine.js';
-
 import {
   authenticateWithPassword,
   registerWithPassword,
-  verifyToken as verifyAuthProviderToken,
-  hashPassword,
-  verifyPassword
+  verifyToken as verifyAuthProviderToken
 } from './auth/auth-provider.js';
 import {
-  createSession,
-  getSessionUser,
-  revokeSession,
-  revokeAllUserSessions,
   MASTER_ADMIN_EMAILS
 } from './auth/session-service.js';
 
@@ -1477,25 +1364,6 @@ function createSessionCookie(token, maxAgeSeconds = 30 * 24 * 60 * 60) {
 
 function clearSessionCookie() {
   return `wm_session=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-}
-
-// Firebase ID Token Claim Extractor and Validator
-function parseJwtClaims(token) {
-  if (!token || typeof token !== 'string') return null;
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  try {
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    return null;
-  }
 }
 
 async function verifyFirebaseIdToken(idToken, env) {
@@ -5085,106 +4953,6 @@ async function buildWishPublicationSnapshot(env, wishRow, customData = {}, optio
     is_private: wishRow.is_private ? 1 : 0,
     published_at: nowIso,
     created_at: nowIso
-  };
-}
-
-/**
- * Normalizes an immutable snapshot record into a clean PublishedWishRenderModel for the public viewer.
- */
-function buildPublishedWishRenderModel(snapshotRecord, lifecycleState = 'active') {
-  if (!snapshotRecord) return null;
-
-  let theme = {};
-  let content = {};
-  let sections = [];
-  let media = {};
-  let music = {};
-  let effects = {};
-  let capabilities = {};
-
-  try { theme = JSON.parse(snapshotRecord.theme_config_json || '{}'); } catch (e) {}
-  try { content = JSON.parse(snapshotRecord.content_json || '{}'); } catch (e) {}
-  try { sections = JSON.parse(snapshotRecord.sections_json || '[]'); } catch (e) {}
-  try { media = JSON.parse(snapshotRecord.media_manifest_json || '{}'); } catch (e) {}
-  try { music = JSON.parse(snapshotRecord.music_manifest_json || '{}'); } catch (e) {}
-  try { effects = JSON.parse(snapshotRecord.effects_config_json || '{}'); } catch (e) {}
-  try { capabilities = JSON.parse(snapshotRecord.capabilities_json || '{}'); } catch (e) {}
-
-  const recipientName = sanitizeString(snapshotRecord.recipient_name || content.recipient_name || 'Someone Special', 80);
-  const senderName = sanitizeString(snapshotRecord.sender_name || content.sender_name || 'A Loved One', 80);
-
-  // If upcoming: redact private messages & surprise details
-  if (lifecycleState === 'upcoming') {
-    return {
-      slug: snapshotRecord.slug,
-      state: 'UPCOMING',
-      lifecycleStatus: 'upcoming',
-      recipientName,
-      senderName,
-      eventDate: snapshotRecord.event_date,
-      timezone: snapshotRecord.timezone || 'Asia/Kolkata',
-      templateId: snapshotRecord.template_id,
-      templateVersionId: snapshotRecord.template_version_id,
-      theme,
-      isLocked: true,
-      lockMessage: 'This magical surprise will automatically unlock when the clock strikes midnight on the celebration day! ✨',
-      countdownTarget: snapshotRecord.event_date,
-      tier: snapshotRecord.tier || 'free',
-      isPrivate: Boolean(snapshotRecord.is_private),
-      publishedAt: snapshotRecord.published_at
-    };
-  }
-
-  // If expired: redact full active story content, keep respectful conclusion
-  if (lifecycleState === 'expired') {
-    return {
-      slug: snapshotRecord.slug,
-      state: 'EXPIRED',
-      lifecycleStatus: 'expired',
-      recipientName,
-      senderName,
-      eventDate: snapshotRecord.event_date,
-      timezone: snapshotRecord.timezone || 'Asia/Kolkata',
-      templateId: snapshotRecord.template_id,
-      templateVersionId: snapshotRecord.template_version_id,
-      isExpired: true,
-      expiredMessage: 'This celebration keepsake has completed its active celebration cycle.',
-      tier: snapshotRecord.tier || 'free',
-      isPrivate: Boolean(snapshotRecord.is_private),
-      publishedAt: snapshotRecord.published_at
-    };
-  }
-
-  // ACTIVE state: Return full frozen render model
-  return {
-    slug: snapshotRecord.slug,
-    state: 'ACTIVE',
-    lifecycleStatus: 'active',
-    recipientName,
-    senderName,
-    eventDate: snapshotRecord.event_date,
-    expiryDate: snapshotRecord.expiry_date,
-    timezone: snapshotRecord.timezone || 'Asia/Kolkata',
-    template: {
-      id: snapshotRecord.template_id,
-      versionId: snapshotRecord.template_version_id,
-      familyId: snapshotRecord.template_family_id,
-      capabilities
-    },
-    relationship: {
-      id: snapshotRecord.relationship_id,
-      variantId: snapshotRecord.relationship_variant_id
-    },
-    theme,
-    content,
-    sections,
-    media,
-    music,
-    effects,
-    tier: snapshotRecord.tier || 'free',
-    isPrivate: Boolean(snapshotRecord.is_private),
-    publishedAt: snapshotRecord.published_at,
-    snapshotVersion: snapshotRecord.snapshot_version || 1
   };
 }
 

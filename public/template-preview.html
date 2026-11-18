@@ -14,7 +14,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="/js/firebase-auth.js?v=20261027_mobile2col_v1"></script>
   <script src="/js/auth-service.js?v=20261027_mobile2col_v1"></script>
-  <script src="/js/repositories.js?v=20261027_mobile2col_v1"></script>
   <script src="/js/feature-access-service.js?v=20261027_mobile2col_v1"></script>
   <script src="/js/premium-lock-modal.js?v=20261027_mobile2col_v1"></script>
   <script src="/js/wishmagic-template-protocol.js?v=20261027_mobile2col_v1"></script>
@@ -183,23 +182,6 @@
     let activeSelectedVariant = null;
     let allTemplatesList = [];
     const DESKTOP_W = 1280;
-    const defaultPreviewDeviceMode = typeof window !== 'undefined' && (window.innerWidth >= 1024 ? 'desktop' : 'mobile');
-    function syncPreviewViewportFrame(mode) {
-      const normalizedMode = mode || defaultPreviewDeviceMode;
-      const frame = document.getElementById('live-template-viewport');
-      const iframe = document.getElementById('live-template-iframe');
-      const targetStageHeight = (typeof window !== 'undefined' && window.innerHeight) || 800;
-      if (frame && iframe) {
-        // Native full-screen viewport (desktop-frame-shell / btn-device-tablet / VARIANT_UNAVAILABLE compatible)
-        if (normalizedMode === 'tablet' || normalizedMode === 'desktop' || normalizedMode === 'mobile') {
-          frame.style.maxWidth = '100%';
-          iframe.style.width = '100%';
-          iframe.style.transform = 'none';
-        } else {
-          frame.style.height = (targetStageHeight + 48) + 'px';
-        }
-      }
-    }
 
     const WM_BUILTIN_TEMPLATE_FOLDERS = {
       'tpl_glitter_birthday': 'tpl_glitter_birthday',

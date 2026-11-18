@@ -30,7 +30,6 @@
   <script src="js/admin-theme.js?v=20261028_pwa_v1"></script>
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
-  <script src="js/repositories.js"></script>
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
 
@@ -169,16 +168,6 @@
       </div>
 
       <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-
-        <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 border border-purple-200/80 flex items-center justify-center text-[#2b194d] shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
-            <span class="material-symbols-outlined text-[20px]">notifications</span>
-            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
-          </button>
-          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
-          </div>
-        </div>
 
         <div class="relative">
           <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">

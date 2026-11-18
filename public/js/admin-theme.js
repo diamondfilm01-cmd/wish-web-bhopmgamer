@@ -1132,13 +1132,6 @@ function rewriteAdminSidebarLinks() {
     }
   });
 
-  const moreSections = ['user-creations', 'search', 'referrals', 'moderation', 'support', 'staff', 'legal', 'announcements', 'notifications'];
-  if (moreSections.includes(currentSection)) {
-    const extra = document.getElementById('wm-sidebar-more-group');
-    const chevron = document.getElementById('wm-sidebar-more-chevron');
-    if (extra) extra.classList.remove('hidden');
-    if (chevron) chevron.style.transform = 'rotate(180deg)';
-  }
 
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav) {
@@ -1233,12 +1226,6 @@ function handleAdminQueryActions() {
     }, 250);
   }
 
-  if (params.get('tab') === 'backups' || hash === '#backups' || path.endsWith('/backups')) {
-    setTimeout(() => {
-      const backupEl = document.getElementById('backups-section') || document.getElementById('btn-open-cleanup');
-      if (backupEl) backupEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 250);
-  }
 }
 
 function escapeAdminHtml(str) {
@@ -1802,26 +1789,6 @@ function mountVessaAdminShell() {
         existingNav.insertBefore(dashLink, wrapperDiv);
         wrapperDiv.remove();
       }
-
-      // Hide legacy "More Studio Sections" button and unused enterprise governance group
-      const moreBtn = existingNav.querySelector('button[onclick*="toggleMoreSidebarSections"]');
-      if (moreBtn) {
-        moreBtn.style.display = 'none';
-      }
-
-      const moreGroup = existingNav.querySelector('#wm-sidebar-more-group');
-      if (moreGroup) {
-        moreGroup.style.display = 'none';
-      }
-
-      // Hide any standalone links to unused enterprise pages
-      const unusedPaths = ['/user-creations', '/search', '/moderation', '/staff', '/support', '/announcements', '/audit-logs', '/legal', '/storage-health', '/notifications', '/referrals'];
-      existingNav.querySelectorAll('a[href]').forEach((link) => {
-        const href = String(link.getAttribute('href') || '').toLowerCase();
-        if (unusedPaths.some((p) => href.includes(p))) {
-          link.style.display = 'none';
-        }
-      });
     }
 
     // Drawer Header (Visible on Mobile <768px and Desktop Expanded Mode)
@@ -2186,130 +2153,8 @@ window.AdminStudio = AdminStudio;
   if (typeof window === 'undefined' || window.__wmAdminPwaInitialized) return;
   window.__wmAdminPwaInitialized = true;
 
-  let deferredInstallPrompt = null;
   let swRegistration = null;
   let isRefreshingForSwUpdate = false;
-
-  function isRunningStandalone() {
-    try {
-      return Boolean(
-        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-        (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) ||
-        window.navigator.standalone === true
-      );
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function syncStandaloneClass() {
-    const standalone = isRunningStandalone();
-    document.documentElement.classList.toggle('wm-pwa-standalone', standalone);
-    const installBtn = document.getElementById('wm-pwa-install-btn');
-    if (installBtn) {
-      installBtn.style.display = standalone ? 'none' : '';
-    }
-  }
-
-  syncStandaloneClass();
-  try {
-    if (window.matchMedia) {
-      const mq = window.matchMedia('(display-mode: standalone)');
-      if (typeof mq.addEventListener === 'function') {
-        mq.addEventListener('change', syncStandaloneClass);
-      }
-    }
-  } catch (_) {}
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    window.__wmDeferredPwaPrompt = e;
-    syncStandaloneClass();
-  });
-
-  window.addEventListener('appinstalled', () => {
-    deferredInstallPrompt = null;
-    window.__wmDeferredPwaPrompt = null;
-    syncStandaloneClass();
-    if (typeof window.showToast === 'function') {
-      window.showToast('✨ WishMagic Admin App installed! Open it anytime from your Home Screen.', 'success');
-    }
-  });
-
-  function showPwaInstallGuideModal() {
-    let modal = document.getElementById('wm-pwa-install-guide-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'wm-pwa-install-guide-modal';
-      modal.className = 'fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/60';
-      modal.innerHTML = `
-        <div class="w-full max-w-md rounded-2xl p-5 border shadow-2xl" style="background:var(--vessa-card-bg);border-color:var(--vessa-card-border);color:var(--vessa-text-main);">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2.5">
-              <div class="vessa-brand-logo-circle !w-9 !h-9">
-                <span class="material-symbols-outlined text-[19px]">install_mobile</span>
-              </div>
-              <div>
-                <h3 class="text-base font-extrabold leading-tight m-0">Install WishMagic Admin App</h3>
-                <p class="text-[11px] m-0" style="color:var(--vessa-text-muted);">Add to Home Screen for 1-tap standalone access</p>
-              </div>
-            </div>
-            <button type="button" class="vessa-icon-circle-btn !w-8 !h-8" onclick="document.getElementById('wm-pwa-install-guide-modal').classList.add('hidden')" aria-label="Close">
-              <span class="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-          <div class="space-y-2.5 text-xs leading-relaxed my-3">
-            <div class="p-3 rounded-xl border" style="background:var(--vessa-pill-track);border-color:var(--vessa-card-border);">
-              <div class="font-bold mb-1">📱 Android (Chrome / Samsung Internet / Brave):</div>
-              <div>Tap the browser menu <strong>(⋮ or ≡)</strong> and select <strong>"Install app"</strong> or <strong>"Add page to → Home screen"</strong>.</div>
-            </div>
-            <div class="p-3 rounded-xl border" style="background:var(--vessa-pill-track);border-color:var(--vessa-card-border);">
-              <div class="font-bold mb-1">🍎 iPhone / iPad (Safari):</div>
-              <div>Tap the <strong>Share</strong> button at the bottom and choose <strong>"Add to Home Screen"</strong>.</div>
-            </div>
-            <div class="p-3 rounded-xl border" style="background:var(--vessa-pill-track);border-color:var(--vessa-card-border);">
-              <div class="font-bold mb-1">💻 Desktop (Chrome / Edge):</div>
-              <div>Click the <strong>Install icon</strong> on the right side of the address bar.</div>
-            </div>
-          </div>
-          <div class="flex justify-end pt-2">
-            <button type="button" class="vessa-new-btn !h-9 !px-5" onclick="document.getElementById('wm-pwa-install-guide-modal').classList.add('hidden')">Got it</button>
-          </div>
-        </div>
-      `;
-      modal.addEventListener('click', (ev) => {
-        if (ev.target === modal) modal.classList.add('hidden');
-      });
-      document.body.appendChild(modal);
-    }
-    modal.classList.remove('hidden');
-  }
-
-  window.triggerAdminPwaInstall = async function triggerAdminPwaInstall(ev) {
-    if (ev) ev.preventDefault();
-    if (isRunningStandalone()) {
-      if (typeof window.showToast === 'function') {
-        window.showToast('✅ You are already using the installed WishMagic Admin App.', 'success');
-      }
-      return;
-    }
-    const promptEvent = deferredInstallPrompt || window.__wmDeferredPwaPrompt;
-    if (promptEvent && typeof promptEvent.prompt === 'function') {
-      try {
-        promptEvent.prompt();
-        const choice = await promptEvent.userChoice;
-        if (choice && choice.outcome === 'accepted') {
-          deferredInstallPrompt = null;
-          window.__wmDeferredPwaPrompt = null;
-        }
-      } catch (_) {
-        showPwaInstallGuideModal();
-      }
-    } else {
-      showPwaInstallGuideModal();
-    }
-  };
 
   function showServiceWorkerUpdateBanner(waitingWorker) {
     if (!waitingWorker || !document.body) return;
@@ -2412,8 +2257,6 @@ window.AdminStudio = AdminStudio;
       if (typeof window.clearAdminApiCache === 'function') window.clearAdminApiCache();
       if (typeof window.triggerAdminLiveSync === 'function') {
         window.triggerAdminLiveSync(true, { showToastFeedback: true });
-      } else {
-        loadLiveAdminHeaderNotifications(true);
       }
     });
   }

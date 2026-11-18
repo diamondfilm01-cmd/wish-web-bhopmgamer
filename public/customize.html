@@ -975,22 +975,6 @@
   </main>
 
   <script>
-    function triggerConfettiExplosionInsidePreview() {
-      const iframe = document.getElementById('live-custom-iframe');
-      if (iframe && iframe.contentWindow) {
-        if (typeof iframe.contentWindow.blowCandle === 'function') {
-          iframe.contentWindow.blowCandle();
-        } else if (typeof iframe.contentWindow.triggerFireworks === 'function') {
-          iframe.contentWindow.triggerFireworks();
-        } else if (typeof iframe.contentWindow.openEnvelope === 'function') {
-          iframe.contentWindow.openEnvelope();
-        }
-      }
-      if (typeof confetti === 'function') {
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-      }
-    }
-
     // Mobile View Toggle Controller (Customize vs Live Preview)
     let currentMobileView = 'customize';
 
