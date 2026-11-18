@@ -3845,10 +3845,7 @@ function getCurrencySymbol(curr) {
 
 window.loadWishLinkStudioSettings = async function() {
   try {
-    const [res, refRes] = await Promise.all([
-      fetch('/api/settings/wish-links', { credentials: 'include', cache: 'no-store' }).catch(() => null),
-      fetch('/api/referrals/dashboard', { credentials: 'include' }).catch(() => null)
-    ]);
+    const res = await fetch('/api/settings/wish-links', { credentials: 'include', cache: 'no-store' }).catch(() => null);
     if (res) {
       const data = await res.json().catch(() => ({}));
       const s = (data && data.data && data.data.settings) || (data && data.settings);
@@ -3859,13 +3856,6 @@ window.loadWishLinkStudioSettings = async function() {
           addons: { ...(currentWishLinkSettings.addons || {}), ...(s.addons || {}) },
           referral: { ...(currentWishLinkSettings.referral || {}), ...(s.referral || {}) }
         };
-      }
-    }
-    if (refRes && refRes.ok) {
-      const refData = await refRes.json().catch(() => ({}));
-      if (refData && refData.success && refData.metrics) {
-        userAvailableReferralCredits = Number(refData.metrics.freeCustomLinkCreditsAvailable || 0) || 0;
-        try { localStorage.setItem('wm_free_custom_link_credits', String(userAvailableReferralCredits)); } catch (_) {}
       }
     }
   } catch (e) {
@@ -3987,13 +3977,12 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
         <span class="material-symbols-outlined text-amber-500 text-lg shrink-0">info</span>
         <div>
           <span class="font-bold block">Payment Gateway Currently Unavailable (NOT_CONFIGURED)</span>
-          <p class="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
-            Live payment checkout (${sym}${overrideState.amount || clPrice}) is not configured in environment variables yet. You can continue with a Free Random Link or earn a Free Custom Link by referring 7 friends!
+          <p class="text-[11px] text-amber-800/80 mt-0.5 leading-relaxed">
+            Live payment checkout (${sym}${overrideState.amount || clPrice}) is not configured yet. You can continue instantly with a Free Random Link!
           </p>
         </div>
       </div>
-      <div class="pt-1 flex flex-wrap items-center justify-between gap-2">
-        <a href="/referrals.html" class="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-900 dark:text-amber-200 font-bold text-xs">🎁 Refer 7 Friends for Free Custom Link</a>
+      <div class="pt-1 flex flex-wrap items-center justify-end gap-2">
         <button type="button" onclick="publishFreeRandomWish()" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer">
           Continue with Free Random Link 🎲
         </button>
@@ -4019,23 +4008,7 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
     return;
   }
 
-  const referralBannerHtml = (!isPremTpl && userAvailableReferralCredits > 0) ? `
-    <div class="p-3.5 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500 text-emerald-950 dark:text-emerald-100 space-y-2 mb-3">
-      <div class="flex items-center justify-between">
-        <span class="font-extrabold text-xs flex items-center gap-1.5">🎁 7-Friends Referral Credit Unlocked (${userAvailableReferralCredits} Available)</span>
-        <span class="px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[10px]">₹0 FREE</span>
-      </div>
-      <p class="text-[11px] opacity-90">You referred 7 friends who created templates! Redeem 1 credit to publish your Custom Link on this Free template for ₹0.</p>
-      <button type="button" onclick="redeemReferralCreditAndPublish()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-xs shadow-md hover:brightness-110 transition cursor-pointer">
-        ✨ Redeem 1 Free Custom Link Credit &amp; Publish Now (₹0)
-      </button>
-    </div>
-  ` : `
-    <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2 mb-2 text-[11px]">
-      <span class="text-emerald-800 dark:text-emerald-200 font-semibold">🎁 Share with 7 friends &amp; get 1 Custom Link FREE on any Free template!</span>
-      <a href="/referrals.html" class="font-extrabold text-emerald-600 dark:text-emerald-400 underline whitespace-nowrap">Refer 7 Friends →</a>
-    </div>
-  `;
+  const referralBannerHtml = '';
 
   const opt1Price = isPremTpl ? (tplPrice + clPrice) : clPrice;
   const opt2Price = isPremTpl ? (tplPrice + hdPrice) : hdPrice;
@@ -6688,23 +6661,13 @@ async function executeWishCreation(extraPayload = {}) {
         });
       }
 
-      // Part 17: Notification Dispatch & Floating Toast
-      if (window.WishNotificationService) {
-        window.WishNotificationService.notify(window.WishNotificationService.TYPES.WISH_PUBLISHED, {
-          userId: currentUserId,
-          wishId: data.wishId,
-          slug: wishSlug,
-          recipientName: currentCustomData.recipient_name,
-          templateName: activeTemplate.name,
-          actionUrl: `/w/${wishSlug}`
+      // Celebration toast
+      if (window.WishToast) {
+        window.WishToast.show({
+          title: 'Celebration Published! ✨',
+          message: `Your wish for ${currentCustomData.recipient_name || 'your loved one'} is now live and ready to share!`,
+          type: 'success'
         });
-        if (window.WishToast) {
-          window.WishToast.show({
-            title: 'Celebration Published! ✨',
-            message: `Your wish for ${currentCustomData.recipient_name || 'your loved one'} is now live and ready to share!`,
-            type: 'success'
-          });
-        }
       }
 
       if (window.WishShareSystem) {

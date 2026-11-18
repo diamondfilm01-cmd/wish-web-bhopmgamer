@@ -215,11 +215,11 @@
   <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
     <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
       <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
           <input id="global-admin-search-input" class="wm-header-search-input" placeholder="Search templates, categories, dynamic tokens..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
         </div>
@@ -228,11 +228,11 @@
       <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
 
         <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 border border-purple-200/80 flex items-center justify-center text-[#2b194d] shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
             <span class="material-symbols-outlined text-[20px]">notifications</span>
             <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
-          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
         </div>
@@ -249,25 +249,25 @@
             <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
           </div>
 
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 mb-1">
               <div class="font-bold text-sm text-on-surface">Admin Studio</div>
               <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
               <span>Main Website &amp; Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/templates" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/templates" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-pink-500">grid_view</span>
               <span>All Templates Library</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
               <span>View Live Website</span>
             </a>
-            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
-            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+            <div class="border-t border-purple-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition text-left cursor-pointer">
               <span class="material-symbols-outlined text-[17px]">logout</span>
               <span>Sign Out</span>
             </button>
@@ -367,7 +367,7 @@
 
         <!-- STEP 1: DRAG & DROP FOLDER OR ZIP ARCHIVE -->
         <section class="wm-card p-5 sm:p-6 flex flex-col gap-5">
-          <div class="flex items-center justify-between border-b border-purple-100 dark:border-purple-800/40 pb-3.5">
+          <div class="flex items-center justify-between border-b border-purple-100 pb-3.5">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#7c3aed] flex items-center justify-center text-white shadow-md">
                 <span class="material-symbols-outlined text-[22px]">folder_zip</span>
@@ -377,11 +377,11 @@
                 <p class="text-xs text-on-surface-variant">Supports complete multi-file HTML, CSS, JS, images, and background audio packages</p>
               </div>
             </div>
-            <span class="px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[11px] font-bold">Auto-Ingest v4.9</span>
+            <span class="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold">Auto-Ingest v4.9</span>
           </div>
 
           <!-- 2-Option Template Upload / Update Mode Selector -->
-          <div id="template-upload-update-mode-bar" class="p-3.5 rounded-2xl bg-surface-container-high border border-purple-300 dark:border-purple-500/35 flex flex-col gap-2.5">
+          <div id="template-upload-update-mode-bar" class="p-3.5 rounded-2xl bg-surface-container-high border border-purple-300 flex flex-col gap-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-extrabold text-on-surface flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-primary text-[18px]">system_update_alt</span>
@@ -436,7 +436,7 @@
                 <span>Select Website Folder</span>
               </button>
               <span class="text-outline text-xs font-bold uppercase">OR</span>
-              <button type="button" onclick="document.getElementById('zip-input').click()" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs sm:text-sm border border-purple-300 dark:border-purple-500/40 flex items-center gap-2 transition cursor-pointer">
+              <button type="button" onclick="document.getElementById('zip-input').click()" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs sm:text-sm border border-purple-300 flex items-center gap-2 transition cursor-pointer">
                 <span class="material-symbols-outlined text-[18px] text-primary">archive</span>
                 <span>Select .ZIP Archive</span>
               </button>
@@ -452,17 +452,17 @@
               <span id="upload-status-text">Processing files...</span>
             </div>
 
-            <div id="upload-files-summary" class="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1"></div>
+            <div id="upload-files-summary" class="text-xs text-emerald-600 font-bold mt-1"></div>
           </div>
 
           <!-- Auto-Detected Dynamic Customization Slots -->
-          <div class="p-4 rounded-2xl bg-surface-container-high border border-purple-200/80 dark:border-purple-500/30 flex flex-col gap-2.5">
+          <div class="p-4 rounded-2xl bg-surface-container-high border border-purple-200/80 flex flex-col gap-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="flex items-center gap-2 text-on-surface font-bold text-xs sm:text-sm">
                 <span class="material-symbols-outlined text-primary text-[19px]">auto_awesome</span>
                 <span>Step 2: Auto-Detected Dynamic Customization Slots</span>
               </div>
-              <span id="detected-fields-count" class="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
+              <span id="detected-fields-count" class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs">
                 Ready to Scan
               </span>
             </div>
@@ -476,7 +476,7 @@
         <!-- STEP 3: TEMPLATE STORE METADATA, PRICING & HOMEPAGE PLACEMENT (Always Visible Inline!) -->
         <div id="smart-import-studio-workspace" class="hidden wm-card bg-surface-container-lowest p-4 sm:p-5 rounded-2xl border border-purple-500/40 flex flex-col gap-5 shadow-xl" role="region" aria-label="Smart Template Recognition and Side-by-Side Comparison Studio"></div>
         <section id="upload-step-config" class="wm-card p-5 sm:p-6 flex flex-col gap-5">
-          <div class="flex items-center justify-between border-b border-purple-100 dark:border-purple-800/40 pb-3.5">
+          <div class="flex items-center justify-between border-b border-purple-100 pb-3.5">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#6d28d9] flex items-center justify-center text-white shadow-md">
                 <span class="material-symbols-outlined text-[22px]">tune</span>
@@ -558,12 +558,12 @@
               <label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 Cover Thumbnail Image
               </label>
-              <div class="flex flex-wrap items-center gap-4 p-3 rounded-2xl bg-surface-container-high border border-purple-200/70 dark:border-purple-500/25">
-                <div class="w-28 h-18 rounded-xl bg-surface-container-lowest border border-purple-300 dark:border-purple-500/30 overflow-hidden flex-shrink-0">
+              <div class="flex flex-wrap items-center gap-4 p-3 rounded-2xl bg-surface-container-high border border-purple-200/70">
+                <div class="w-28 h-18 rounded-xl bg-surface-container-lowest border border-purple-300 overflow-hidden flex-shrink-0">
                   <img id="thumbnail-preview-img" src="/assets/admin-tpl-thumb-1.png" alt="Cover Preview" class="w-full h-full object-cover" onerror="this.src='/assets/file_ab2082.png'"/>
                 </div>
                 <div class="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-                  <button type="button" onclick="document.getElementById('custom-thumb-input').click()" class="self-start px-4 py-2 rounded-xl bg-white dark:bg-purple-900/60 hover:bg-purple-50 text-on-surface text-xs font-bold border border-purple-300 dark:border-purple-500/40 shadow-xs transition cursor-pointer">
+                  <button type="button" onclick="document.getElementById('custom-thumb-input').click()" class="self-start px-4 py-2 rounded-xl bg-white hover:bg-purple-50 text-on-surface text-xs font-bold border border-purple-300 shadow-xs transition cursor-pointer">
                     + Upload Custom Cover Photo
                   </button>
                   <span class="text-[11px] text-on-surface-variant">Automatically extracted from your uploaded package or upload any custom JPG/PNG/WebP cover.</span>
@@ -585,7 +585,7 @@
           </div>
 
           <!-- Deploy Action Bar -->
-          <div class="pt-3 border-t border-purple-100 dark:border-purple-800/40 flex flex-wrap items-center justify-between gap-3">
+          <div class="pt-3 border-t border-purple-100 flex flex-wrap items-center justify-between gap-3">
             <a href="/admin/anktech/anktech/admin/templates" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs sm:text-sm transition">
               ← View All Templates
             </a>
@@ -620,7 +620,7 @@
             </div>
           </div>
 
-          <div id="sandbox-iframe-wrapper" class="w-full h-[360px] sm:h-[420px] rounded-2xl border border-purple-300 dark:border-purple-500/40 overflow-hidden bg-[#120924] relative shadow-inner transition-all">
+          <div id="sandbox-iframe-wrapper" class="w-full h-[360px] sm:h-[420px] rounded-2xl border border-purple-300 overflow-hidden bg-[#120924] relative shadow-inner transition-all">
             <iframe id="upload-preview-iframe" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
           </div>
           <p class="text-[11px] text-on-surface-variant">

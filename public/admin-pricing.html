@@ -217,15 +217,15 @@
     <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
       <!-- Left: Hamburger + Search Pill with Ctrl K -->
       <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
           <input class="wm-header-search-input" placeholder="Search pricing tiers, coupons, gateways..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
           <!-- Search Dropdown Results Container -->
-          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
 
@@ -234,13 +234,13 @@
 
         <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 border border-purple-200/80 flex items-center justify-center text-[#2b194d] shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
             <span class="material-symbols-outlined text-[20px]">notifications</span>
             <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
 
           <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js?v=20261025_vessa_mobile_v11) -->
-          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
         </div>
@@ -259,29 +259,29 @@
           </div>
 
           <!-- Profile Dropdown Menu -->
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 mb-1">
               <div class="font-bold text-sm text-on-surface">Admin Studio</div>
               <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
               <span>Main Website &amp; Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
               <span>Upload &amp; Set New Template</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
               <span>Hero Photo &amp; Media Vault</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
               <span>View Live Website</span>
             </a>
-            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
-            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+            <div class="border-t border-purple-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition text-left cursor-pointer">
               <span class="material-symbols-outlined text-[17px]">logout</span>
               <span>Sign Out</span>
             </button>
@@ -355,8 +355,8 @@
             <span class="material-symbols-outlined text-[24px]">stars</span>
           </div>
           <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Primary Tier</div>
-            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-primary-tier-price">₹59 / ₹99</div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">Primary Tier</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="stat-primary-tier-price">₹59 / ₹99</div>
             <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ Most popular plan</div>
           </div>
         </div>
@@ -380,8 +380,8 @@
             <span class="material-symbols-outlined text-[24px]">pie_chart</span>
           </div>
           <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Conversion Rate</div>
-            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-conversion-rate">0.0%</div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">Conversion Rate</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="stat-conversion-rate">0.0%</div>
             <div class="text-[11px] font-bold text-emerald-600 mt-1" id="stat-conversion-sub">From created wishes</div>
           </div>
         </div>
@@ -405,8 +405,8 @@
             <span class="text-[22px] font-extrabold">₹</span>
           </div>
           <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">VIP Revenue</div>
-            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-vip-revenue">₹0</div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">VIP Revenue</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="stat-vip-revenue">₹0</div>
             <div class="text-[11px] font-bold text-emerald-600 mt-1" id="stat-vip-orders-count">0 paid passes</div>
           </div>
         </div>
@@ -430,7 +430,7 @@
             <span class="material-symbols-outlined text-[24px]">local_offer</span>
           </div>
           <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Active Coupons</div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">Active Coupons</div>
             <div class="text-[24px] font-extrabold text-on-surface leading-tight mt-0.5" id="stat-active-coupons">Live</div>
             <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ Instant checkout</div>
           </div>
@@ -696,8 +696,8 @@
       </div>
     </div>
 
-    <!-- TEMPLATE TIER PRESETS & 7-FRIENDS REFERRAL RULE CONTROL -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <!-- TEMPLATE TIER PRESETS -->
+    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl">
       <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/20 flex flex-col justify-between gap-3">
         <div>
           <div class="flex items-center justify-between mb-1">
@@ -723,39 +723,6 @@
         <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs">
           <span class="text-on-surface-variant font-semibold">Creator Bulk Pack Price (₹):</span>
           <input id="creator-price-input" type="number" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container text-on-surface border border-purple-900/40 font-black text-sm text-right" value="199"/>
-        </div>
-      </div>
-
-      <div class="lg:col-span-2 p-4 rounded-xl bg-surface-container-low border border-emerald-500/30 flex flex-col justify-between gap-3">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider">🎁 7-Friends Referral Program Control</span>
-            <h3 class="text-sm sm:text-base font-extrabold text-on-surface mt-1">Share with 7 Friends (Even Free Templates Count) → Get 1 Free Custom Link</h3>
-          </div>
-          <a href="/admin/anktech/anktech/admin/referrals" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 transition self-start">Open Referral Ledger →</a>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div>
-            <label class="block font-bold text-outline mb-1">Friends Required for Free Link</label>
-            <input id="ref-required-friends-input" type="number" min="1" max="100" value="7" class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 font-black text-sm"/>
-          </div>
-          <div>
-            <label class="block font-bold text-outline mb-1">Count Free (₹0) Templates?</label>
-            <select id="ref-count-free-select" class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 font-bold text-xs">
-              <option value="true" selected>Yes — Free &amp; Paid Both Count</option>
-              <option value="false">No — Only Paid Templates Count</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-outline mb-1">Free Custom Links Earned</label>
-            <input id="ref-reward-credits-input" type="number" min="1" max="20" value="1" class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 font-black text-sm"/>
-          </div>
-        </div>
-        <div class="flex items-center justify-between pt-2 border-t border-purple-900/20">
-          <span class="text-[11px] text-emerald-400 font-semibold">✓ Changes sync immediately to Main Website, Customizer, Checkout &amp; Referral Dashboard</span>
-          <button type="button" onclick="savePricingConfig()" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs transition cursor-pointer">
-            Save All Pricing &amp; Referral Rules
-          </button>
         </div>
       </div>
     </div>
@@ -1385,11 +1352,6 @@
     if (!pa.valid) return pa;
     const cp = parseNonNegNumberInput('creator-price-input', 'Creator Bulk Pack Price', 0, 100000);
     if (!cp.valid) return cp;
-    const rf = parseNonNegNumberInput('ref-required-friends-input', 'Friends Required for Referral', 1, 1000, true);
-    if (!rf.valid) return rf;
-    const rc = parseNonNegNumberInput('ref-reward-credits-input', 'Free Custom Links Earned', 1, 100, true);
-    if (!rc.valid) return rc;
-    const countFreeTemplates = document.getElementById('ref-count-free-select')?.value !== 'false';
 
     return {
       valid: true,
@@ -1400,9 +1362,9 @@
         premiumComboAddonPrice: pa.value,
         creatorPackPrice: cp.value,
         templatePriceTiers: authoritativeSavedPricing.templatePriceTiers || [0, 59, 149],
-        requiredReferrals: rf.value,
-        countFreeTemplates,
-        rewardCredits: rc.value
+        requiredReferrals: authoritativeSavedPricing.requiredReferrals || 7,
+        countFreeTemplates: authoritativeSavedPricing.countFreeTemplates !== false,
+        rewardCredits: authoritativeSavedPricing.rewardCredits || 1
       }
     };
   }
@@ -1414,15 +1376,11 @@
     const fcRaw = Number(document.getElementById('free-combo-price-input')?.value);
     const paRaw = Number(document.getElementById('premium-combo-addon-input')?.value);
     const cpRaw = Number(document.getElementById('creator-price-input')?.value);
-    const rfRaw = Number(document.getElementById('ref-required-friends-input')?.value);
-    const rcRaw = Number(document.getElementById('ref-reward-credits-input')?.value);
-    const cfRaw = document.getElementById('ref-count-free-select')?.value !== 'false';
 
     const cl = Number.isFinite(clRaw) && clRaw >= 0 ? clRaw : saved.customLinkPrice;
     const hd = Number.isFinite(hdRaw) && hdRaw >= 0 ? hdRaw : saved.hdImageStylePrice;
     const fc = Number.isFinite(fcRaw) && fcRaw >= 0 ? fcRaw : saved.freeTemplateComboPrice;
     const pa = Number.isFinite(paRaw) && paRaw >= 0 ? paRaw : saved.premiumComboAddonPrice;
-    const rf = Number.isFinite(rfRaw) && rfRaw >= 1 ? rfRaw : saved.requiredReferrals;
 
     const tiers = Array.isArray(saved.templatePriceTiers) && saved.templatePriceTiers.length >= 3
       ? saved.templatePriceTiers
@@ -1490,15 +1448,12 @@
       hd !== saved.hdImageStylePrice ||
       fc !== saved.freeTemplateComboPrice ||
       pa !== saved.premiumComboAddonPrice ||
-      (Number.isFinite(cpRaw) && cpRaw !== saved.creatorPackPrice) ||
-      rf !== saved.requiredReferrals ||
-      (Number.isFinite(rcRaw) && rcRaw !== saved.rewardCredits) ||
-      cfRaw !== saved.countFreeTemplates
+      (Number.isFinite(cpRaw) && cpRaw !== saved.creatorPackPrice)
     );
 
     const heroSub = document.getElementById('pricing-hero-subtitle');
     if (heroSub) {
-      heroSub.textContent = `Control ₹${saved.customLinkPrice} Custom Link Only, ₹${saved.hdImageStylePrice} HD Images + Style, ₹${saved.freeTemplateComboPrice} Free Template Combo, Template + ₹${saved.premiumComboAddonPrice} Premium Combo, and ${saved.requiredReferrals}-Friends Referral rules.`;
+      heroSub.textContent = `Control ₹${saved.customLinkPrice} Custom Link Only, ₹${saved.hdImageStylePrice} HD Images + Style, ₹${saved.freeTemplateComboPrice} Free Template Combo, and Template + ₹${saved.premiumComboAddonPrice} Premium Combo.`;
     }
 
     const tierLabel = document.getElementById('stat-primary-tier-price');
@@ -1558,9 +1513,6 @@
     if (document.getElementById('free-combo-price-input')) document.getElementById('free-combo-price-input').value = authoritativeSavedPricing.freeTemplateComboPrice;
     if (document.getElementById('premium-combo-addon-input')) document.getElementById('premium-combo-addon-input').value = authoritativeSavedPricing.premiumComboAddonPrice;
     if (document.getElementById('creator-price-input')) document.getElementById('creator-price-input').value = authoritativeSavedPricing.creatorPackPrice;
-    if (document.getElementById('ref-required-friends-input')) document.getElementById('ref-required-friends-input').value = authoritativeSavedPricing.requiredReferrals;
-    if (document.getElementById('ref-count-free-select')) document.getElementById('ref-count-free-select').value = authoritativeSavedPricing.countFreeTemplates ? 'true' : 'false';
-    if (document.getElementById('ref-reward-credits-input')) document.getElementById('ref-reward-credits-input').value = authoritativeSavedPricing.rewardCredits;
 
     syncPricingDynamicLabelsAndTotals();
   }
@@ -1598,63 +1550,38 @@
 
     window.__wmAdminMutationInFlight = true;
     try {
-      const [wishLinksRes] = await Promise.all([
-        fetch('/api/admin/settings/wish-links', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            settings: {
-              personalized: {
-                enabled: true,
-                price: customLinkPrice
-              },
-              addons: {
-                vipPassPrice: (() => {
-                  const vp = (authoritativeSavedPricing.vipPlans || []).find(p => p && p.id === "vip_pass");
-                  return vp ? Number(vp.price) : (authoritativeSavedPricing.vipPassPrice ?? 49);
-                })(),
-                customLinkPrice,
-                hdImageStylePrice,
-                freeTemplateComboPrice,
-                premiumComboAddonPrice,
-                creatorPackPrice,
-                templatePriceTiers
-              },
-              vipPlans: (authoritativeSavedPricing.vipPlans || []).map(p => {
-                if (p.id === "personalized_link") return { ...p, price: customLinkPrice };
-                if (p.id === "hd_image_style_pack") return { ...p, price: hdImageStylePrice };
-                if (p.id === "free_template_combo") return { ...p, price: freeTemplateComboPrice };
-                if (p.id === "premium_template_combo") return { ...p, price: premiumComboAddonPrice };
-                return p;
-              }),
-              referral: {
-                enabled: true,
-                requiredReferrals,
-                countFreeTemplates,
-                rewardType: 'FREE_CUSTOM_LINK',
-                rewardCredits
-              }
-            }
-          })
-        }),
-        fetch('/api/admin/referrals/config', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            name: `${requiredReferrals}-Friends Free Custom Link Referral Program`,
-            isActive: true,
-            qualifyingEvent: 'FIRST_WISH',
-            requiredReferralsForReward: requiredReferrals,
-            countFreeTemplates,
-            referrerRewardType: 'FREE_CUSTOM_LINK',
-            referrerRewardAmount: rewardCredits,
-            refereeRewardType: 'NONE',
-            refereeRewardAmount: 0
-          })
-        }).catch(() => null)
-      ]);
+      const wishLinksRes = await fetch('/api/admin/settings/wish-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          settings: {
+            personalized: {
+              enabled: true,
+              price: customLinkPrice
+            },
+            addons: {
+              vipPassPrice: (() => {
+                const vp = (authoritativeSavedPricing.vipPlans || []).find(p => p && p.id === "vip_pass");
+                return vp ? Number(vp.price) : (authoritativeSavedPricing.vipPassPrice ?? 49);
+              })(),
+              customLinkPrice,
+              hdImageStylePrice,
+              freeTemplateComboPrice,
+              premiumComboAddonPrice,
+              creatorPackPrice,
+              templatePriceTiers
+            },
+            vipPlans: (authoritativeSavedPricing.vipPlans || []).map(p => {
+              if (p.id === "personalized_link") return { ...p, price: customLinkPrice };
+              if (p.id === "hd_image_style_pack") return { ...p, price: hdImageStylePrice };
+              if (p.id === "free_template_combo") return { ...p, price: freeTemplateComboPrice };
+              if (p.id === "premium_template_combo") return { ...p, price: premiumComboAddonPrice };
+              return p;
+            })
+          }
+        })
+      });
 
       const resData = wishLinksRes ? await wishLinksRes.json().catch(() => ({})) : {};
       if (!wishLinksRes || !wishLinksRes.ok || resData.success === false) {
@@ -1837,10 +1764,7 @@
       'hd-style-price-input',
       'free-combo-price-input',
       'premium-combo-addon-input',
-      'creator-price-input',
-      'ref-required-friends-input',
-      'ref-reward-credits-input',
-      'ref-count-free-select'
+      'creator-price-input'
     ];
     watchedInputs.forEach(id => {
       const el = document.getElementById(id);

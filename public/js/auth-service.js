@@ -876,17 +876,9 @@
                   <span class="material-symbols-outlined text-[18px] text-[#ec4899]">card_giftcard</span>
                   <span>My Celebration Wishes</span>
                 </a>
-                <a href="/account.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
+                <a href="/account.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
                   <span class="material-symbols-outlined text-[18px] text-[#8b5cf6]">manage_accounts</span>
                   <span>Profile &amp; Account Settings</span>
-                </a>
-                <a href="/favorites.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
-                  <span class="material-symbols-outlined text-[18px] text-[#ec4899]">favorite</span>
-                  <span>Saved Favorites</span>
-                </a>
-                <a href="/referrals.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
-                  <span class="material-symbols-outlined text-[18px] text-[#f59e0b]">redeem</span>
-                  <span>Referrals &amp; Rewards</span>
                 </a>
               </div>
 

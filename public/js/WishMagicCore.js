@@ -394,27 +394,9 @@ window.WishMagicCore = {
    * If a template has no variants, returns empty string to preserve existing legacy design.
    */
   function renderCardRelationTagsHtml(family, options = {}) {
-    const variants = getAvailablePublishedVariants(family);
-    if (!variants.length) return '';
-
-    const activeRel = normalizeRelationSlug(options.activeRelation || _activeExplicitRelationFilter);
-    const maxVisible = options.maxVisible || 6;
-    const shown = variants.slice(0, maxVisible);
-    const overflowCount = Math.max(0, variants.length - shown.length);
-
-    const pills = shown.map(v => {
-      const isHighlighted = activeRel && v.relationshipSlug === activeRel;
-      const pillStyle = isHighlighted
-        ? 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:0.7rem;font-weight:700;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;line-height:1.2;white-space:nowrap;'
-        : 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:0.7rem;font-weight:600;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;line-height:1.2;white-space:nowrap;';
-      return `<span class="wm-relation-tag" data-relation-slug="${escapeHtmlSafe(v.relationshipSlug)}" style="${pillStyle}">${escapeHtmlSafe(v.relationshipLabel)}</span>`;
-    }).join('');
-
-    const moreBadge = overflowCount > 0
-      ? `<span class="wm-relation-tag-more" style="display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;font-size:0.68rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;line-height:1.2;">+${overflowCount} more</span>`
-      : '';
-
-    return `<div class="wm-card-relation-tags" aria-label="Supported relationships" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;margin-bottom:4px;">${pills}${moreBadge}</div>`;
+    // Keep gallery cards clean and uncluttered on mobile/desktop; relation/theme selection
+    // is presented smoothly in the selection modal when Preview or Customize is tapped.
+    return '';
   }
 
   /**

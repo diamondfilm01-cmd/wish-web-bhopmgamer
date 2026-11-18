@@ -197,9 +197,9 @@
       </div>
       <div class="flex flex-col min-w-0">
         <span id="navbar-brand-name" class="brand-name-text font-display font-extrabold text-[15px] sm:text-[17px] lg:text-[19px] tracking-tight leading-none truncate">
-          <span class="text-[#1a0f30] dark:text-white">Wish</span><span class="wm-brand-magic">Magic</span>
+          <span class="text-[#1a0f30]">Wish</span><span class="wm-brand-magic">Magic</span>
         </span>
-        <span class="wm-brand-tagline text-[9px] font-semibold text-[#6e5d8f] dark:text-[#cfc2eb] tracking-wide mt-0.5 hidden 2xl:inline-block whitespace-nowrap">Create. Personalize. Celebrate.</span>
+        <span class="wm-brand-tagline text-[9px] font-semibold text-[#6e5d8f] tracking-wide mt-0.5 hidden 2xl:inline-block whitespace-nowrap">Create. Personalize. Celebrate.</span>
       </div>
     </a>
 
@@ -238,7 +238,7 @@
       <div data-purpose="navbar-notifications" class="relative inline-flex items-center flex-shrink-0"></div>
       <div data-purpose="navbar-auth" class="navbar-auth-container flex-shrink-0"></div>
 
-      <button type="button" id="wm-mobile-menu-btn" onclick="window.toggleMobileStorefrontNav && window.toggleMobileStorefrontNav(event)" class="wm-mobile-only-btn rounded-full bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 items-center justify-center text-[#1a0f30] dark:text-white cursor-pointer flex-shrink-0" aria-label="Open Navigation Menu">
+      <button type="button" id="wm-mobile-menu-btn" onclick="window.toggleMobileStorefrontNav && window.toggleMobileStorefrontNav(event)" class="wm-mobile-only-btn rounded-full bg-[#f4effc] border border-[#d6c8f2] items-center justify-center text-[#1a0f30] cursor-pointer flex-shrink-0" aria-label="Open Navigation Menu">
         <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
     </div>
@@ -266,12 +266,12 @@
       <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span>About</span>
     </a>
-    <div class="pt-2 mt-1 border-t border-[#e2d6f8] dark:border-purple-800/60 flex items-center gap-2">
+    <div class="pt-2 mt-1 border-t border-[#e2d6f8] flex items-center gap-2">
       <a href="/templates.html" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm">
         <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
         <span>Create Wish</span>
       </a>
-      <a href="/my-wishes.html" class="flex-1 py-2.5 px-3 rounded-xl bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 text-[#1a0f30] dark:text-white font-extrabold text-xs flex items-center justify-center gap-1.5">
+      <a href="/my-wishes.html" class="flex-1 py-2.5 px-3 rounded-xl bg-[#f4effc] border border-[#d6c8f2] text-[#1a0f30] font-extrabold text-xs flex items-center justify-center gap-1.5">
         <span>🎁</span>
         <span>My Wishes</span>
       </a>
@@ -344,14 +344,14 @@
     </div>
 
     <!-- Tier Filter Tabs (All / Free / VIP) -->
-    <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-purple-100/80 dark:bg-purple-900/50 backdrop-blur-md border border-purple-200/60 dark:border-purple-800/60 self-start md:self-auto">
-      <button type="button" onclick="filterByTier('all', this)" data-tier="all" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-sm">
+    <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-purple-100/80 backdrop-blur-md border border-purple-200/60 self-start md:self-auto">
+      <button type="button" onclick="filterByTier('all', this)" data-tier="all" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-white text-purple-950 shadow-sm">
         All
       </button>
-      <button type="button" onclick="filterByTier('free', this)" data-tier="free" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white">
+      <button type="button" onclick="filterByTier('free', this)" data-tier="free" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-purple-700 hover:text-purple-950">
         Free
       </button>
-      <button type="button" id="home-vip-tier-filter-btn" onclick="filterByTier('vip', this)" data-tier="vip" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white flex items-center gap-1">
+      <button type="button" id="home-vip-tier-filter-btn" onclick="filterByTier('vip', this)" data-tier="vip" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-purple-700 hover:text-purple-950 flex items-center gap-1">
         <span>👑</span> <span id="home-vip-tier-filter-label">VIP ₹49</span>
       </button>
     </div>
@@ -363,8 +363,8 @@
       <svg width="16" height="16" class="w-4 h-4 text-purple-500 absolute left-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
       </svg>
-      <input type="text" id="marketplace-search-box" oninput="handleMarketplaceSearch(this.value)" placeholder="Search templates by name, theme or mood (e.g. Birthday, Anniversary, Romance)..." class="w-full pl-11 pr-10 py-3 rounded-2xl bg-white/90 dark:bg-purple-950/70 backdrop-blur-xl border border-purple-200/80 dark:border-purple-800/80 text-xs sm:text-sm text-purple-950 dark:text-white placeholder-purple-400 dark:placeholder-purple-400/60 focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm transition">
-      <button type="button" id="marketplace-search-clear" onclick="clearMarketplaceSearch()" class="hidden absolute right-3 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-200 flex items-center justify-center text-xs font-bold transition">
+      <input type="text" id="marketplace-search-box" oninput="handleMarketplaceSearch(this.value)" placeholder="Search templates by name, theme or mood (e.g. Birthday, Anniversary, Romance)..." class="w-full pl-11 pr-10 py-3 rounded-2xl bg-white/90 backdrop-blur-xl border border-purple-200/80 text-xs sm:text-sm text-purple-950 placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm transition">
+      <button type="button" id="marketplace-search-clear" onclick="clearMarketplaceSearch()" class="hidden absolute right-3 w-6 h-6 rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center justify-center text-xs font-bold transition">
         ✕
       </button>
     </div>
@@ -376,72 +376,72 @@
     <button type="button" onclick="filterTemplates('all', this)" data-category="all" class="category-btn pill-active px-5 py-2 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap">
       <span>✨</span> All Occasions
     </button>
-    <button type="button" onclick="filterTemplates('birthday', this)" data-category="birthday" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('birthday', this)" data-category="birthday" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🎂</span> Birthdays
     </button>
-    <button type="button" onclick="filterTemplates('anniversary', this)" data-category="anniversary" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('anniversary', this)" data-category="anniversary" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>💍</span> Anniversaries
     </button>
-    <button type="button" onclick="filterTemplates('love', this)" data-category="love" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('love', this)" data-category="love" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>💖</span> Love & Romance
     </button>
-    <button type="button" onclick="filterTemplates('crush', this)" data-category="crush" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('crush', this)" data-category="crush" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>💌</span> Crush
     </button>
-    <button type="button" onclick="filterTemplates('girlfriend', this)" data-category="girlfriend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('girlfriend', this)" data-category="girlfriend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🌹</span> Girlfriend
     </button>
-    <button type="button" onclick="filterTemplates('boyfriend', this)" data-category="boyfriend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('boyfriend', this)" data-category="boyfriend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>✨</span> Boyfriend
     </button>
-    <button type="button" onclick="filterTemplates('wife', this)" data-category="wife" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('wife', this)" data-category="wife" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>👑</span> Wife
     </button>
-    <button type="button" onclick="filterTemplates('husband', this)" data-category="husband" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('husband', this)" data-category="husband" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>👔</span> Husband
     </button>
-    <button type="button" onclick="filterTemplates('mother', this)" data-category="mother" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('mother', this)" data-category="mother" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🌸</span> Mother
     </button>
-    <button type="button" onclick="filterTemplates('father', this)" data-category="father" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('father', this)" data-category="father" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🌟</span> Father
     </button>
-    <button type="button" onclick="filterTemplates('brother', this)" data-category="brother" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('brother', this)" data-category="brother" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>⚡</span> Brother
     </button>
-    <button type="button" onclick="filterTemplates('sister', this)" data-category="sister" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('sister', this)" data-category="sister" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🦋</span> Sister
     </button>
-    <button type="button" onclick="filterTemplates('best friend', this)" data-category="best friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('best friend', this)" data-category="best friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>👯</span> Best Friend
     </button>
-    <button type="button" onclick="filterTemplates('female friend', this)" data-category="female friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('female friend', this)" data-category="female friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>💖</span> Female Friend
     </button>
-    <button type="button" onclick="filterTemplates('male friend', this)" data-category="male friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('male friend', this)" data-category="male friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🤝</span> Male Friend
     </button>
-    <button type="button" onclick="filterTemplates('family', this)" data-category="family" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('family', this)" data-category="family" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🏡</span> Family
     </button>
-    <button type="button" onclick="filterTemplates('festive', this)" data-category="festive" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('festive', this)" data-category="festive" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🎉</span> Festivals
     </button>
-    <button type="button" onclick="filterTemplates('friendship', this)" data-category="friendship" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('friendship', this)" data-category="friendship" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🤝</span> Friendship
     </button>
-    <button type="button" onclick="filterTemplates('congratulations', this)" data-category="congratulations" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+    <button type="button" onclick="filterTemplates('congratulations', this)" data-category="congratulations" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 flex items-center gap-1.5 transition whitespace-nowrap">
       <span>🎓</span> Congratulations
     </button>
   </div>
 
   <!-- Filter Feedback Banner -->
-  <div id="search-feedback" class="hidden mb-6 px-4 py-2.5 rounded-xl bg-purple-100/90 dark:bg-purple-900/60 border border-purple-200 dark:border-purple-800 flex items-center justify-between gap-3 text-xs text-purple-900 dark:text-purple-200 font-semibold">
+  <div id="search-feedback" class="hidden mb-6 px-4 py-2.5 rounded-xl bg-purple-100/90 border border-purple-200 flex items-center justify-between gap-3 text-xs text-purple-900 font-semibold">
     <div class="flex items-center gap-2">
-      <span class="text-purple-600 dark:text-purple-400">🔍</span>
+      <span class="text-purple-600">🔍</span>
       <span id="active-query-text">Active Filter</span>
     </div>
-    <button type="button" onclick="resetAllFilters()" class="text-xs font-bold text-pink-600 dark:text-pink-400 hover:underline">
+    <button type="button" onclick="resetAllFilters()" class="text-xs font-bold text-pink-600 hover:underline">
       Clear all filters
     </button>
   </div>
@@ -449,10 +449,10 @@
   <!-- Templates Grid (Populated dynamically by initHomepageTemplates / renderTemplateCards) -->
   <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5" id="templates-grid">
     <!-- Skeleton loader cards while templates load -->
-    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
-    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
-    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
-    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
+    <div class="animate-pulse bg-white/60 rounded-2xl p-4 sm:p-5 border border-purple-100 h-80"></div>
+    <div class="animate-pulse bg-white/60 rounded-2xl p-4 sm:p-5 border border-purple-100 h-80"></div>
+    <div class="animate-pulse bg-white/60 rounded-2xl p-4 sm:p-5 border border-purple-100 h-80"></div>
+    <div class="animate-pulse bg-white/60 rounded-2xl p-4 sm:p-5 border border-purple-100 h-80"></div>
   </div>
   <script>
     // Instant synchronous first-paint right as #templates-grid enters the DOM (only for real uploaded templates cached locally)
@@ -504,9 +504,9 @@
 
   <!-- No Results Found State -->
   <div id="no-results-msg" class="hidden py-16 text-center">
-    <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center text-3xl">🪄</div>
-    <h3 class="font-display font-bold text-lg text-purple-950 dark:text-white">No matching templates found</h3>
-    <p class="text-xs sm:text-sm text-purple-800/70 dark:text-purple-300 mt-1 max-w-md mx-auto">Try a different search keyword or select another occasion filter.</p>
+    <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-purple-100 flex items-center justify-center text-3xl">🪄</div>
+    <h3 class="font-display font-bold text-lg text-purple-950">No matching templates found</h3>
+    <p class="text-xs sm:text-sm text-purple-800/70 mt-1 max-w-md mx-auto">Try a different search keyword or select another occasion filter.</p>
     <button type="button" onclick="resetAllFilters()" class="mt-4 px-6 py-2.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md transition">
       Reset Filters
     </button>
@@ -523,36 +523,36 @@
 <!-- END: CategoryNavigationBar & Templates Marketplace -->
 <!-- BEGIN: Clean Normal How It Works Section -->
 <section id="how-it-works" class="py-10 sm:py-14 px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full" data-purpose="how-it-works-steps">
-  <div class="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 border border-slate-200 shadow-sm">
     <div class="text-center max-w-2xl mx-auto mb-8">
-      <span class="inline-block px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-2">Simple 4-Step Process</span>
-      <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">How WishMagic Works</h2>
-      <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">Create and share a personalized digital celebration link in just a few minutes.</p>
+      <span class="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-bold uppercase tracking-wider mb-2">Simple 4-Step Process</span>
+      <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-slate-900">How WishMagic Works</h2>
+      <p class="text-xs sm:text-sm text-slate-600 mt-1">Create and share a personalized digital celebration link in just a few minutes.</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-      <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col">
+      <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col">
         <div class="w-9 h-9 rounded-xl bg-purple-600 text-white font-display font-bold text-sm flex items-center justify-center mb-3">1</div>
-        <h3 class="font-display font-bold text-base text-slate-900 dark:text-white mb-1">Choose a Template</h3>
-        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Browse templates for birthdays, anniversaries, festivals, and special relations.</p>
+        <h3 class="font-display font-bold text-base text-slate-900 mb-1">Choose a Template</h3>
+        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">Browse templates for birthdays, anniversaries, festivals, and special relations.</p>
       </div>
 
-      <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col">
+      <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col">
         <div class="w-9 h-9 rounded-xl bg-pink-600 text-white font-display font-bold text-sm flex items-center justify-center mb-3">2</div>
-        <h3 class="font-display font-bold text-base text-slate-900 dark:text-white mb-1">Personalize Details</h3>
-        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Add recipient and sender names, your message, photos, and background music.</p>
+        <h3 class="font-display font-bold text-base text-slate-900 mb-1">Personalize Details</h3>
+        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">Add recipient and sender names, your message, photos, and background music.</p>
       </div>
 
-      <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col">
+      <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col">
         <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white font-display font-bold text-sm flex items-center justify-center mb-3">3</div>
-        <h3 class="font-display font-bold text-base text-slate-900 dark:text-white mb-1">Preview Instantly</h3>
-        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Check how your customized wish looks on mobile and desktop before generating the link.</p>
+        <h3 class="font-display font-bold text-base text-slate-900 mb-1">Preview Instantly</h3>
+        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">Check how your customized wish looks on mobile and desktop before generating the link.</p>
       </div>
 
-      <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col">
+      <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col">
         <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white font-display font-bold text-sm flex items-center justify-center mb-3">4</div>
-        <h3 class="font-display font-bold text-base text-slate-900 dark:text-white mb-1">Share the Link</h3>
-        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Send your unique celebration link on WhatsApp, Instagram, or via QR code.</p>
+        <h3 class="font-display font-bold text-base text-slate-900 mb-1">Share the Link</h3>
+        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">Send your unique celebration link on WhatsApp, Instagram, or via QR code.</p>
       </div>
     </div>
   </div>
@@ -563,14 +563,7 @@
 <footer class="bg-white text-slate-800 pt-14 pb-10 px-6 md:px-12 mt-auto border-t border-slate-200" data-purpose="site-footer" id="about-section">
 <div class="max-w-7xl mx-auto">
 <!-- Trust & Support Horizontal Bar -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-5 pb-10 border-b border-slate-200">
-<a href="/referrals.html" class="p-4 rounded-2xl bg-slate-50 hover:bg-purple-50/60 border border-slate-200 hover:border-purple-300 shadow-xs flex items-start gap-4 transition-all group">
-<div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0 text-base">🎁</div>
-<div>
-<p class="font-bold text-slate-900 text-base group-hover:text-purple-700 transition-colors">Refer 7 Friends • Free Custom Link ↗</p>
-<p class="text-slate-600 mt-1 leading-relaxed text-xs sm:text-sm">Share with 7 friends! When they create any template (even Free), get 1 Custom Link Free.</p>
-</div>
-</a>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 pb-10 border-b border-slate-200">
 <a href="/pricing.html" class="p-4 rounded-2xl bg-slate-50 hover:bg-purple-50/60 border border-slate-200 hover:border-purple-300 shadow-xs flex items-start gap-4 transition-all group">
 <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center flex-shrink-0 text-base">👑</div>
 <div>
@@ -626,17 +619,15 @@
 <li><a class="hover:text-purple-600 transition" href="/templates.html">Create a Wish</a></li>
 <li><a class="hover:text-purple-600 transition" href="/pricing.html">Pricing &amp; Plans</a></li>
 <li><a class="hover:text-purple-600 transition" href="/my-wishes.html">My Wishes</a></li>
-<li><a class="hover:text-purple-600 transition" href="/favorites.html">Saved Favorites</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-extrabold text-slate-900 mb-4 uppercase tracking-wider text-xs">Rewards &amp; Account</h4>
+<h4 class="font-extrabold text-slate-900 mb-4 uppercase tracking-wider text-xs">Account &amp; Support</h4>
 <ul class="space-y-2.5 text-slate-600 font-medium">
-<li><a class="hover:text-purple-600 transition font-bold text-purple-600" href="/referrals.html">7-Friends Free Link ↗</a></li>
 <li><a class="hover:text-purple-600 transition" href="/pricing.html">Pricing &amp; Combos</a></li>
 <li><a class="hover:text-purple-600 transition" href="/my-wishes.html">My Wishes</a></li>
 <li><a class="hover:text-purple-600 transition" href="/account.html">Account Settings</a></li>
-<li><a class="hover:text-purple-600 transition" href="/help.html">Help &amp; Support</a></li>
+<li><a class="hover:text-purple-600 transition" href="/#about-section">WhatsApp Support</a></li>
 </ul>
 </div>
 </div>
@@ -651,15 +642,15 @@
 </div>
 <!-- Auth Modal (Pure Firebase Google Sign-In Only) -->
 <div class="fixed inset-0 z-[150] bg-black/75 backdrop-blur-md hidden items-center justify-center p-4" id="auth-modal">
-<div class="wm-card bg-white dark:bg-[#1f123e] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border-2 border-[#d6c8f2] dark:border-purple-500/40 text-center">
-<button class="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#f4effc] dark:bg-purple-900/70 text-[#4c1d95] dark:text-purple-200 hover:bg-[#e9defa] flex items-center justify-center font-extrabold" onclick="closeModal('auth-modal')">
+<div class="wm-card bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border-2 border-[#d6c8f2] text-center">
+<button class="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#f4effc] text-[#4c1d95] hover:bg-[#e9defa] flex items-center justify-center font-extrabold" onclick="closeModal('auth-modal')">
         ✕
       </button>
 <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mx-auto text-2xl mb-4 shadow-lg shadow-pink-500/30">
         <span class="material-symbols-outlined text-[32px]">auto_fix_high</span>
       </div>
-<h3 class="font-display font-extrabold text-2xl text-[#1a0f30] dark:text-white" id="auth-title">Welcome to WishMagic</h3>
-<p class="text-xs sm:text-sm text-[#533f78] dark:text-[#cfc2eb] mt-1.5 mb-6 font-medium" id="auth-subtitle">Continue with Google to create, customize, and save your celebration websites.</p>
+<h3 class="font-display font-extrabold text-2xl text-[#1a0f30]" id="auth-title">Welcome to WishMagic</h3>
+<p class="text-xs sm:text-sm text-[#533f78] mt-1.5 mb-6 font-medium" id="auth-subtitle">Continue with Google to create, customize, and save your celebration websites.</p>
 <div class="space-y-3">
 <button type="button" class="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-xs sm:text-sm font-extrabold text-white flex items-center justify-center gap-3 transition shadow-[0_10px_28px_rgba(236,72,153,0.38)] cursor-pointer" onclick="if (window.handleGoogleSignInClick) { handleGoogleSignInClick(); } else if (window.WishAuth) { window.WishAuth.signInWithGoogle(); }">
   <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-xs">
@@ -667,7 +658,7 @@
   </span>
   <span>Continue with Google</span>
 </button>
-<p class="text-[11px] font-semibold text-[#6e5d8f] dark:text-[#a594c9] pt-3 border-t border-[#e5daf8] dark:border-purple-800/60 mt-4">🔒 Secured by Firebase Google Authentication</p>
+<p class="text-[11px] font-semibold text-[#6e5d8f] pt-3 border-t border-[#e5daf8] mt-4">🔒 Secured by Firebase Google Authentication</p>
 </div>
 </div>
 </div>
@@ -761,66 +752,14 @@
       });
     })();
 
-    function getSavedFavorites() {
-      const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-      if (!user) return [];
-      if (window.WishRepositories) {
-        return WishRepositories.favoriteRepository.getByUser(user.id);
-      }
-      try {
-        return JSON.parse(localStorage.getItem(`wishmagic_favs_${user.id}`) || '[]');
-      } catch (e) {
-        return [];
-      }
-    }
-
-    function toggleFavorite(templateId, btn) {
-      const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-      if (!user) {
-        if (window.WishAuth) {
-          window.WishAuth.requireAuth({ message: 'Sign in to bookmark your favorite templates ❤️' });
-        }
-        return;
-      }
-
-      let isFav = false;
-      if (window.WishRepositories) {
-        isFav = WishRepositories.favoriteRepository.toggle(user.id, templateId);
-      } else {
-        const favs = getSavedFavorites();
-        const index = favs.indexOf(templateId);
-        if (index !== -1) {
-          favs.splice(index, 1);
-          isFav = false;
-        } else {
-          favs.push(templateId);
-          isFav = true;
-        }
-        localStorage.setItem(`wishmagic_favs_${user.id}`, JSON.stringify(favs));
-      }
-
-      if (isFav) {
-        btn.setAttribute('data-saved', 'true');
-        btn.querySelector('svg').classList.remove('fill-none', 'text-white/80');
-        btn.querySelector('svg').classList.add('fill-pink-500', 'text-pink-500');
-      } else {
-        btn.setAttribute('data-saved', 'false');
-        btn.querySelector('svg').classList.remove('fill-pink-500', 'text-pink-500');
-        btn.querySelector('svg').classList.add('fill-none', 'text-white/80');
-      }
-    }
-
     function renderTemplateCards(templates) {
       const grid = document.getElementById("templates-grid");
       if (!grid) return;
       grid.innerHTML = "";
 
-      const favs = getSavedFavorites();
-
       templates.forEach(tpl => {
-        const isFav = favs.includes(tpl.id);
         const card = document.createElement("div");
-        card.className = "template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between";
+        card.className = "template-card group relative bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-200 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between";
         
         // Data attributes for multi-axis filtering & UTP v1.1.0 variant awareness
         const availVariants = window.WishMagicVariantFlow ? window.WishMagicVariantFlow.getAvailablePublishedVariants(tpl) : [];
@@ -912,20 +851,15 @@
             ${ratingMarkup}
           </div>
 
-          <!-- Bottom Action Buttons: Preview, Customize & Bookmark -->
-          <div class="flex items-center gap-2 mt-auto pt-1">
-            <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${tpl.id}', 'preview', { openPreviewModal: openTemplatePreview }) : openTemplatePreview('${tpl.id}')" class="px-3.5 py-2.5 sm:py-3 rounded-full border border-purple-200 dark:border-purple-700/80 bg-purple-50/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-800 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer">
+          <!-- Bottom Action Buttons: Preview & Customize -->
+          <div class="flex items-center gap-1.5 sm:gap-2 mt-auto pt-1">
+            <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${tpl.id}', 'preview', { openPreviewModal: openTemplatePreview }) : openTemplatePreview('${tpl.id}')" class="px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 text-[11px] sm:text-sm font-bold transition active:scale-95 cursor-pointer shrink-0">
               Preview
             </button>
-            <a href="/customize.html?template=${tpl.id}${tpl.festivalCampaign && tpl.festivalCampaign.campaignId ? ('&campaign=' + encodeURIComponent(tpl.festivalCampaign.campaignId)) : ''}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${tpl.id}','customize');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-extrabold rounded-full shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
-              <span>Customize</span>
+            <a href="/customize.html?template=${tpl.id}${tpl.festivalCampaign && tpl.festivalCampaign.campaignId ? ('&campaign=' + encodeURIComponent(tpl.festivalCampaign.campaignId)) : ''}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${tpl.id}','customize');return false;}" class="flex-1 min-w-0 py-2 sm:py-2.5 px-2.5 sm:px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-[11px] sm:text-sm font-extrabold shadow-sm active:scale-95 transition-all text-center flex items-center justify-center gap-1">
+              <span class="truncate">Customize</span>
               <span>✨</span>
             </a>
-            <button type="button" onclick="toggleFavorite('${tpl.id}', this)" data-saved="${isFav}" class="w-11 sm:w-12 h-11 sm:h-12 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-800 flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer shadow-sm" title="Save to bookmarks" aria-label="Bookmark">
-              <svg class="w-5 h-5 ${isFav ? 'fill-[#6c5ce7] text-[#6c5ce7]' : 'fill-none text-purple-600 dark:text-purple-300'} transition-colors" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-              </svg>
-            </button>
           </div>
         `;
         grid.appendChild(card);

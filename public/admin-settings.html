@@ -219,15 +219,15 @@
     <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
       <!-- Left: Hamburger + Search Pill with Ctrl K -->
       <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
           <input id="header-settings-search-input" class="wm-header-search-input" placeholder="Search settings, CMS sections, hero controls..." type="text" oninput="handleSettingsSearchInput(this.value)"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
           <!-- Search Dropdown Results Container -->
-          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
 
@@ -236,13 +236,13 @@
 
         <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 border border-purple-200/80 flex items-center justify-center text-[#2b194d] shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
             <span class="material-symbols-outlined text-[20px]">notifications</span>
             <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
 
           <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js?v=20261025_vessa_mobile_v11) -->
-          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
         </div>
@@ -261,29 +261,29 @@
           </div>
 
           <!-- Profile Dropdown Menu -->
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 mb-1">
               <div class="font-bold text-sm text-on-surface">Admin Studio</div>
               <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
               <span>Main Website &amp; Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
               <span>Upload &amp; Set New Template</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
               <span>Hero Photo &amp; Media Vault</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
               <span>View Live Website</span>
             </a>
-            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
-            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+            <div class="border-t border-purple-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition text-left cursor-pointer">
               <span class="material-symbols-outlined text-[17px]">logout</span>
               <span>Sign Out</span>
             </button>
@@ -807,7 +807,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center">
         <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
           <div class="text-[10px] font-bold uppercase text-outline">Custom Link Only</div>
           <div id="summary-price-custom-link" class="text-lg font-black text-on-surface mt-1">₹59</div>
@@ -827,10 +827,6 @@
         <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
           <div class="text-[10px] font-bold uppercase text-outline">Base Template Tiers</div>
           <div id="summary-price-base-tiers" class="text-sm font-black text-on-surface mt-1.5">₹0 / ₹59 / ₹149</div>
-        </div>
-        <div class="p-3.5 rounded-xl bg-surface-container-low border border-emerald-500/30">
-          <div class="text-[10px] font-bold uppercase text-emerald-400">Referral Free Link</div>
-          <div id="summary-price-referral-rule" class="text-sm font-black text-emerald-400 mt-1.5">7 Friends → 1 Free</div>
         </div>
       </div>
     </div>
@@ -1059,7 +1055,7 @@
             </div>
             <div>
               <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-global-help"><code>global.help</code></label>
-              <input id="setting-link-global-help" value="/help.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+              <input id="setting-link-global-help" value="/#about-section" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
             </div>
           </div>
           <div>
@@ -1580,7 +1576,6 @@
         setTxt('summary-price-free-combo', `₹${fcPrice}`);
         setTxt('summary-price-premium-addon', `+₹${paPrice}`);
         setTxt('summary-price-base-tiers', tiers.map(t => `₹${t}`).join(' / '));
-        setTxt('summary-price-referral-rule', `${reqRefs} Friends → ${rewCreds} Free`);
 
         handleCurrencyChange();
         updateWishLinkPreview();
@@ -1865,9 +1860,6 @@
     }
   }
 
-  async function loadStaffDirectory() {}
-  async function runSecurityAudit() {}
-
 
   async function loadCentralLinkSettings() {
     try {
@@ -1914,7 +1906,7 @@
         'global.browseTemplates': document.getElementById('setting-link-global-browse')?.value?.trim() || '/templates.html',
         'global.createWish': document.getElementById('setting-link-global-create')?.value?.trim() || '/create.html',
         'global.pricing': document.getElementById('setting-link-global-pricing')?.value?.trim() || '/pricing.html',
-        'global.help': document.getElementById('setting-link-global-help')?.value?.trim() || '/help.html'
+        'global.help': document.getElementById('setting-link-global-help')?.value?.trim() || '/#about-section'
       },
       templateRoutes: {
         'template.create': document.getElementById('setting-link-template-create')?.value?.trim() || '/customize.html',
@@ -2250,7 +2242,6 @@
       loadSiteSettings(),
       loadWishLinkSettings(),
       loadCentralLinkSettings(),
-      loadStaffDirectory(),
       loadSettingsCategoryTelemetry()
     ]);
     _isInitialSettingsLoad = false;
@@ -2289,8 +2280,6 @@
         saveWishLinkSettings(false);
       });
     });
-
-    setTimeout(runSecurityAudit, 300);
   });
 </script>
 </body>

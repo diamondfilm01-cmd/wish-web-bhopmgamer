@@ -220,15 +220,15 @@
     <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
       <!-- Left: Hamburger + Search Pill with Ctrl K -->
       <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
-        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
           <input id="global-admin-search-input" oninput="handleGlobalSearch(this.value)" class="wm-header-search-input" placeholder="Search templates, wishes, users..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
           <!-- Search Dropdown Results Container -->
-          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
 
@@ -237,13 +237,13 @@
 
         <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 border border-purple-200/80 flex items-center justify-center text-[#2b194d] shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
             <span class="material-symbols-outlined text-[20px]">notifications</span>
             <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
 
           <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js?v=20261025_vessa_mobile_v11) -->
-          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
         </div>
@@ -262,29 +262,29 @@
           </div>
 
           <!-- Profile Dropdown Menu -->
-          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-purple-200 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 mb-1">
               <div class="font-bold text-sm text-on-surface">Admin Studio</div>
               <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
               <span>Main Website &amp; Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
               <span>Upload &amp; Set New Template</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
               <span>Hero Photo &amp; Media Vault</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
               <span>View Live Website</span>
             </a>
-            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
-            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+            <div class="border-t border-purple-100 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition text-left cursor-pointer">
               <span class="material-symbols-outlined text-[17px]">logout</span>
               <span>Sign Out</span>
             </button>
@@ -303,8 +303,8 @@
       <!-- Card 1: Vessa Mint-Sage Welcome Hero Card -->
       <div class="vessa-welcome-card">
         <div>
-          <div class="flex items-center gap-2 text-[11.5px] font-semibold text-[#15623b] dark:text-[#5ce092]">
-            <span class="w-2 h-2 rounded-full bg-[#1e7f4e] dark:bg-[#38c976] animate-pulse"></span>
+          <div class="flex items-center gap-2 text-[11.5px] font-semibold text-[#15623b]">
+            <span class="w-2 h-2 rounded-full bg-[#1e7f4e] animate-pulse"></span>
             <span id="dashboard-live-sync-status">Live Telemetry • Ready</span>
           </div>
           <h1 class="vessa-welcome-greeting">
@@ -342,7 +342,7 @@
             <span class="material-symbols-outlined text-[20px]">inventory_2</span>
           </div>
         </div>
-        <div class="flex items-end justify-between gap-3 pt-6 mt-2 border-t border-[#eef3f0] dark:border-[#24322b]">
+        <div class="flex items-end justify-between gap-3 pt-6 mt-2 border-t border-[#eef3f0]">
           <div class="text-[11.5px] font-medium text-on-surface-variant">
             <strong id="stat-active-wishes" class="text-on-surface font-bold">0</strong> Active ·
             <strong id="stat-upcoming-wishes" class="text-on-surface font-bold">0</strong> Upcoming ·
@@ -370,7 +370,7 @@
             <span class="material-symbols-outlined text-[20px]">paid</span>
           </div>
         </div>
-        <div class="flex items-end justify-between gap-3 pt-6 mt-2 border-t border-[#eef3f0] dark:border-[#24322b]">
+        <div class="flex items-end justify-between gap-3 pt-6 mt-2 border-t border-[#eef3f0]">
           <div class="text-[11.5px] font-medium text-on-surface-variant">
             <strong id="stat-users" class="text-on-surface font-bold">0</strong> Users (<span id="stat-users-sub">0 VIP</span>)
           </div>
@@ -396,24 +396,24 @@
             <div class="text-[12.5px] font-semibold text-on-surface-variant">Templates catalog</div>
             <div class="flex items-baseline gap-2.5 mt-2">
               <div id="stat-templates" class="text-[28px] font-extrabold text-on-surface tracking-tight leading-none">0</div>
-              <span id="stat-templates-sub" class="text-[11.5px] font-bold text-amber-700 dark:text-amber-400">▲ Live UTP</span>
+              <span id="stat-templates-sub" class="text-[11.5px] font-bold text-amber-700">▲ Live UTP</span>
             </div>
           </div>
           <div class="vessa-kpi-icon-circle amber">
             <span class="material-symbols-outlined text-[20px]">auto_awesome_mosaic</span>
           </div>
         </div>
-        <div class="flex items-center justify-between gap-2 pt-5 mt-2 border-t border-[#eef3f0] dark:border-[#24322b]">
+        <div class="flex items-center justify-between gap-2 pt-5 mt-2 border-t border-[#eef3f0]">
           <div class="text-[11.5px] font-medium text-on-surface-variant leading-tight">
             <strong id="stat-views" class="text-on-surface font-bold">0</strong> views ·
             <strong id="stat-shares" class="text-on-surface font-bold">0</strong> shares ·
             <strong id="stat-favorites" class="hidden">0</strong>
-            <button type="button" onclick="loadDashboard(false)" class="underline font-bold text-[#1e7f4e] dark:text-[#38c976] ml-1 cursor-pointer">Sync</button>
+            <button type="button" onclick="loadDashboard(false)" class="underline font-bold text-[#1e7f4e] ml-1 cursor-pointer">Sync</button>
           </div>
           <div class="flex items-center -space-x-1.5">
-            <img src="/assets/admin-tpl-thumb-1.png" alt="T1" class="w-8 h-8 rounded-lg object-cover border-2 border-white dark:border-[#1a231e] shadow-xs" onerror="this.style.display='none'"/>
-            <img src="/assets/admin-tpl-thumb-2.png" alt="T2" class="w-8 h-8 rounded-lg object-cover border-2 border-white dark:border-[#1a231e] shadow-xs" onerror="this.style.display='none'"/>
-            <img src="/assets/admin-tpl-thumb-3.png" alt="T3" class="w-8 h-8 rounded-lg object-cover border-2 border-white dark:border-[#1a231e] shadow-xs" onerror="this.style.display='none'"/>
+            <img src="/assets/admin-tpl-thumb-1.png" alt="T1" class="w-8 h-8 rounded-lg object-cover border-2 border-white shadow-xs" onerror="this.style.display='none'"/>
+            <img src="/assets/admin-tpl-thumb-2.png" alt="T2" class="w-8 h-8 rounded-lg object-cover border-2 border-white shadow-xs" onerror="this.style.display='none'"/>
+            <img src="/assets/admin-tpl-thumb-3.png" alt="T3" class="w-8 h-8 rounded-lg object-cover border-2 border-white shadow-xs" onerror="this.style.display='none'"/>
           </div>
         </div>
       </div>
@@ -441,7 +441,7 @@
 
             <!-- Range Dropdown Pill -->
             <div class="relative">
-              <select id="perf-range-select" onchange="setAnalyticsRange(this.value)" class="appearance-none bg-[#eef3f0] dark:bg-[#222e27] border border-[#dce6e0] dark:border-[#2d3e34] text-on-surface text-[11.5px] font-bold rounded-full pl-3.5 pr-7 py-1.5 cursor-pointer focus:outline-none">
+              <select id="perf-range-select" onchange="setAnalyticsRange(this.value)" class="appearance-none bg-[#eef3f0] border border-[#dce6e0] text-on-surface text-[11.5px] font-bold rounded-full pl-3.5 pr-7 py-1.5 cursor-pointer focus:outline-none">
                 <option value="30d" selected>Monthly</option>
                 <option value="7d">Weekly (7d)</option>
                 <option value="90d">Quarterly (90d)</option>
@@ -457,7 +457,7 @@
         </div>
 
         <!-- Floating Callout Card (Matches "Oct: Stock in / Stock out / Stock value" floating card in frame_001.jpg) -->
-        <div class="hidden md:flex flex-col gap-1.5 absolute right-8 top-16 z-20 bg-white/95 dark:bg-[#161f1a]/95 border border-[#dce6e0] dark:border-[#2b3c33] rounded-2xl shadow-lg px-4 py-3 min-w-[175px]">
+        <div class="hidden md:flex flex-col gap-1.5 absolute right-8 top-16 z-20 bg-white/95 border border-[#dce6e0] rounded-2xl shadow-lg px-4 py-3 min-w-[175px]">
           <div class="text-[11px] font-extrabold text-on-surface mb-0.5">Live Snapshot</div>
           <div class="flex items-center justify-between gap-4 text-[11.5px]">
             <span class="inline-flex items-center gap-1.5 text-on-surface-variant"><span class="w-2 h-2 rounded-full bg-[#eab308]"></span>Wishes in</span>
@@ -485,11 +485,11 @@
             </div>
             <div class="flex-1 flex flex-col justify-between relative min-w-0">
               <div class="absolute inset-x-0 top-1 bottom-6 flex flex-col justify-between pointer-events-none">
-                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
-                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
-                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
-                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
-                <div class="border-b border-[#d8e3dc] dark:border-[#2d3e34] w-full"></div>
+                <div class="border-b border-dashed border-[#e5ede8] w-full"></div>
+                <div class="border-b border-dashed border-[#e5ede8] w-full"></div>
+                <div class="border-b border-dashed border-[#e5ede8] w-full"></div>
+                <div class="border-b border-dashed border-[#e5ede8] w-full"></div>
+                <div class="border-b border-[#d8e3dc] w-full"></div>
               </div>
               <div id="category-bars-container" class="relative z-10 flex-1 flex items-end justify-around gap-2 px-2 pt-2">
                 <!-- Dynamically populated dual-tone Vessa bars -->
@@ -520,7 +520,7 @@
         </div>
 
         <!-- Bottom Two-Column Stats + Mint Progress Pill -->
-        <div class="pt-3 border-t border-[#eef3f0] dark:border-[#24322b] flex flex-col gap-3">
+        <div class="pt-3 border-t border-[#eef3f0] flex flex-col gap-3">
           <div class="flex items-center justify-between">
             <div>
               <div class="text-[11px] font-medium text-on-surface-variant">Number of wishes</div>
@@ -531,7 +531,7 @@
               <div id="vessa-gauge-sales" class="text-[18px] font-extrabold text-on-surface mt-0.5">₹0</div>
             </div>
           </div>
-          <div class="px-3 py-1.5 rounded-xl bg-[#e6f4ec] dark:bg-[#1d3326] text-[#15623b] dark:text-[#6ee7b7] text-[11px] font-bold flex items-center justify-between">
+          <div class="px-3 py-1.5 rounded-xl bg-[#e6f4ec] text-[#15623b] text-[11px] font-bold flex items-center justify-between">
             <span>↗ Live Storefront &amp; D1 Sync Active</span>
             <button type="button" onclick="openHealthModal()" class="underline font-extrabold cursor-pointer">Health <span id="badge-health-summary">OK</span></button>
           </div>
@@ -581,7 +581,7 @@
                   <th class="py-2.5 px-3 rounded-r-xl text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody id="recent-wishes-tbody" class="divide-y divide-[#eef3f0] dark:divide-[#24322b]">
+              <tbody id="recent-wishes-tbody" class="divide-y divide-[#eef3f0]">
                 <tr>
                   <td colspan="8" class="py-8 text-center text-xs text-on-surface-variant">Loading real wishes from database...</td>
                 </tr>
@@ -595,7 +595,7 @@
           <section class="md:col-span-7 wm-card p-5">
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[#1e7f4e] dark:text-[#38c976] text-[20px]">workspace_premium</span>
+                <span class="material-symbols-outlined text-[#1e7f4e] text-[20px]">workspace_premium</span>
                 <h3 class="text-[15.5px] font-extrabold text-on-surface">Top performing templates</h3>
               </div>
               <a href="/admin/anktech/anktech/admin/templates" class="wm-view-all-pill">
@@ -603,31 +603,31 @@
                 <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
               </a>
             </div>
-            <div id="top-templates-list" class="flex flex-col divide-y divide-[#eef3f0] dark:divide-[#24322b]">
+            <div id="top-templates-list" class="flex flex-col divide-y divide-[#eef3f0]">
               <div class="py-6 text-center text-xs text-on-surface-variant">Loading real templates...</div>
             </div>
           </section>
 
           <section class="md:col-span-5 wm-card p-5">
             <div class="flex items-center gap-2 mb-3">
-              <span class="material-symbols-outlined text-[#1e7f4e] dark:text-[#38c976] text-[20px]">bolt</span>
+              <span class="material-symbols-outlined text-[#1e7f4e] text-[20px]">bolt</span>
               <h3 class="text-[15.5px] font-extrabold text-on-surface">Studio shortcuts</h3>
             </div>
             <div class="grid grid-cols-2 gap-2.5">
               <a href="/admin/anktech/anktech/admin/add-template" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">upload_file</span>
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">upload_file</span>
                 <span class="text-[11.5px] font-bold">Upload ZIP</span>
               </a>
               <a href="/admin/anktech/anktech/admin/templates" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">grid_view</span>
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">grid_view</span>
                 <span class="text-[11.5px] font-bold">Catalog</span>
               </a>
               <a href="/admin/anktech/anktech/admin/pricing" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">sell</span>
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">sell</span>
                 <span class="text-[11.5px] font-bold">VIP Plans</span>
               </a>
               <a href="/admin/anktech/anktech/admin/settings" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">settings</span>
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">settings</span>
                 <span class="text-[11.5px] font-bold">Site CMS</span>
               </a>
             </div>

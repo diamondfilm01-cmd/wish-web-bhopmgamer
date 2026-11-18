@@ -243,9 +243,7 @@
       <div class="flex flex-wrap items-center gap-4 font-semibold text-slate-600">
         <a href="/" class="hover:text-purple-600 transition">Home</a>
         <a href="/pricing.html" class="hover:text-purple-600 transition">Pricing</a>
-        <a href="/referrals.html" class="hover:text-purple-600 transition">Refer &amp; Earn</a>
         <a href="/my-wishes.html" class="hover:text-purple-600 transition">My Wishes</a>
-        <a href="/help.html" class="hover:text-purple-600 transition">Help</a>
       </div>
     </div>
   </footer>
@@ -382,41 +380,11 @@
       }
     }
 
-    function getSavedFavorites() {
-      try {
-        return JSON.parse(localStorage.getItem('wishmagic_favs') || '[]');
-      } catch (e) {
-        return [];
-      }
-    }
-
-    function toggleMarketplaceFavorite(templateId, btn) {
-      const favs = getSavedFavorites();
-      const index = favs.indexOf(templateId);
-      const isFav = index !== -1;
-
-      if (isFav) {
-        favs.splice(index, 1);
-        btn.setAttribute('data-saved', 'false');
-        btn.querySelector('svg').classList.remove('fill-[#6c5ce7]', 'text-[#6c5ce7]');
-        btn.querySelector('svg').classList.add('fill-none', 'text-purple-600');
-      } else {
-        favs.push(templateId);
-        btn.setAttribute('data-saved', 'true');
-        btn.querySelector('svg').classList.remove('fill-none', 'text-purple-600');
-        btn.querySelector('svg').classList.add('fill-[#6c5ce7]', 'text-[#6c5ce7]');
-      }
-      localStorage.setItem('wishmagic_favs', JSON.stringify(favs));
-    }
-
     function renderMarketplaceCards(templates) {
       const container = document.getElementById("templates-grid-container");
       if (!container) return;
 
-      const favs = getSavedFavorites();
-
       container.innerHTML = templates.map(t => {
-        const isFav = favs.includes(t.id);
         const isVip = t.tier === "vip" || (t.price && Number(t.price) > 0);
         const price = t.price || 59;
         const previewImg = t.thumbnail || t.previewImage || "/assets/file_ab2082.png";
@@ -481,17 +449,12 @@
             </div>
 
             <div class="flex items-center gap-2 mt-auto pt-1">
-              <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')" class="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer">
+              <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')" class="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer shrink-0">
                 Preview
               </button>
-              <a href="/customize.html?template=${t.id}${t.festivalCampaign && t.festivalCampaign.campaignId ? ('&campaign=' + encodeURIComponent(t.festivalCampaign.campaignId)) : ''}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','customize');return false;}" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-white text-xs sm:text-sm font-bold shadow-xs active:scale-95 transition-all text-center flex items-center justify-center gap-1">
-                <span>Customize</span>
+              <a href="/customize.html?template=${t.id}${t.festivalCampaign && t.festivalCampaign.campaignId ? ('&campaign=' + encodeURIComponent(t.festivalCampaign.campaignId)) : ''}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','customize');return false;}" class="flex-1 min-w-0 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-white text-xs sm:text-sm font-bold shadow-xs active:scale-95 transition-all text-center flex items-center justify-center gap-1">
+                <span class="truncate">Customize</span>
               </a>
-              <button type="button" onclick="toggleMarketplaceFavorite('${t.id}', this)" data-saved="${isFav}" class="w-10 h-10 rounded-xl border border-slate-200 bg-white text-purple-600 hover:bg-purple-50 flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer" title="Save to favorites" aria-label="Save to favorites">
-                <svg class="w-4 h-4 ${isFav ? 'fill-[#6c5ce7] text-[#6c5ce7]' : 'fill-none text-purple-600'} transition-colors" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-                </svg>
-              </button>
             </div>
           </div>
         `;

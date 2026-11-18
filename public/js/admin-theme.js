@@ -1364,7 +1364,6 @@ const ADMIN_COMMAND_DESTINATIONS = [
   { title: 'Orders & Commerce', sub: 'Payments, refunds, comp passes & reconciliation', href: `${SECRET_ADMIN_PREFIX}/orders`, icon: 'receipt_long', keywords: 'orders payments razorpay refunds vip pass commerce', perm: 'MANAGE_SETTINGS' },
   { title: 'Media, Music & Hero Banner', sub: 'ImgBB/B2 assets, background tracks & hero banner', href: `${SECRET_ADMIN_PREFIX}/media`, icon: 'library_music', keywords: 'media music audio hero banner imgbb b2 upload', perm: 'MANAGE_TEMPLATES' },
   { title: 'Pricing, Plans & Coupons', sub: 'Monetization tiers, link pricing & promo codes', href: `${SECRET_ADMIN_PREFIX}/pricing`, icon: 'sell', keywords: 'pricing plans coupons discounts monetization vip', perm: 'MANAGE_SETTINGS' },
-  { title: 'Referral Program & Credits', sub: 'Attributions & free custom link rewards', href: `${SECRET_ADMIN_PREFIX}/referrals`, icon: 'redeem', keywords: 'referrals rewards credits ledger', perm: 'MANAGE_USERS' },
   { title: 'Site Settings & Central Links', sub: 'Brand CMS, maintenance & UTP v1.3.0 Link Manager', href: `${SECRET_ADMIN_PREFIX}/settings`, icon: 'settings', keywords: 'settings cms domain central links maintenance', perm: 'MANAGE_SETTINGS' }
 ];
 
@@ -2127,7 +2126,7 @@ function mountVessaAdminShell() {
       }
 
       // Hide any standalone links to unused enterprise pages
-      const unusedPaths = ['/user-creations', '/search', '/moderation', '/staff', '/support', '/announcements', '/audit-logs', '/legal', '/storage-health', '/notifications'];
+      const unusedPaths = ['/user-creations', '/search', '/moderation', '/staff', '/support', '/announcements', '/audit-logs', '/legal', '/storage-health', '/notifications', '/referrals'];
       existingNav.querySelectorAll('a[href]').forEach((link) => {
         const href = String(link.getAttribute('href') || '').toLowerCase();
         if (unusedPaths.some((p) => href.includes(p))) {
