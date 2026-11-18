@@ -21343,7 +21343,7 @@ export default {
           currentHeroImage
         };
 
-        response = jsonSuccess({ summary, assets: results, users }, 200, {}, requestId);
+        response = jsonSuccess({ summary, assets: results, users }, 200, { 'Cache-Control': 'no-store, no-cache, must-revalidate' }, requestId);
       }
 
       // --- Part 21 & Part 41 & Part 44: Admin Universal & Bulk Media Uploader (B2 Audio/Video/Photos & ImgBB) ---
@@ -21957,8 +21957,10 @@ export default {
                 await env.DB.prepare('DELETE FROM moderation_items WHERE id = ? OR target_id = ?').bind(targetId, targetId).run().catch(() => {});
                 await env.DB.prepare('DELETE FROM storage_quarantine WHERE id = ?').bind(targetId).run().catch(() => {});
 
-                // If this is a synthesized customer wish custom_data media asset (usr_photo_<wishId>_<idx>, usr_voice_<wishId>, usr_video_<wishId>)
+                // Also scrub deleted wish_media URL or synthesized usr_* reference from wishes.custom_data so /api/admin/media/all cannot re-synthesize it
                 const usrMatch = targetId.match(/^(?:usr|wish)_(photo|voice|video|audio)_(.+)$/);
+                const linkedWishIdForScrub = itemObj.wishId || (mediaRecord && mediaRecord.wish_id) || null;
+                const scrubUrl = clientUrl || (mediaRecord && mediaRecord.playback_url) || null;
                 if (usrMatch) {
                   const mediaKind = usrMatch[1];
                   const rest = usrMatch[2];
@@ -22018,6 +22020,29 @@ export default {
                         }
                       } catch (_) {}
                     }
+                  }
+                } else if (linkedWishIdForScrub && scrubUrl) {
+                  const wRow = await env.DB.prepare('SELECT id, custom_data FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(linkedWishIdForScrub, linkedWishIdForScrub).first().catch(() => null);
+                  if (wRow && wRow.custom_data) {
+                    try {
+                      const cData = JSON.parse(wRow.custom_data);
+                      let modified = false;
+                      if (Array.isArray(cData.photos)) {
+                        const filtered = cData.photos.filter(p => (typeof p === 'string' ? p !== scrubUrl : (p?.url !== scrubUrl && p?.src !== scrubUrl && p?.displayUrl !== scrubUrl)));
+                        if (filtered.length !== cData.photos.length) {
+                          cData.photos = filtered;
+                          modified = true;
+                        }
+                      }
+                      if (cData.cover_photo === scrubUrl) { delete cData.cover_photo; modified = true; }
+                      if (cData.voice_note && cData.voice_note.url === scrubUrl) { delete cData.voice_note; modified = true; }
+                      if (cData.voiceNoteUrl === scrubUrl) { delete cData.voiceNoteUrl; modified = true; }
+                      if (cData.video === scrubUrl || (cData.video && cData.video.url === scrubUrl)) { delete cData.video; modified = true; }
+                      if (cData.videoUrl === scrubUrl) { delete cData.videoUrl; modified = true; }
+                      if (modified) {
+                        await env.DB.prepare('UPDATE wishes SET custom_data = ? WHERE id = ?').bind(JSON.stringify(cData), wRow.id).run().catch(() => {});
+                      }
+                    } catch (_) {}
                   }
                 }
               } else if (clientKey && !targetId) {
@@ -22322,12 +22347,14 @@ export default {
                 await env.DB.prepare('DELETE FROM moderation_items WHERE id = ? OR target_id = ?').bind(resolvedRowId, resolvedRowId).run().catch(() => {});
                 await env.DB.prepare('DELETE FROM storage_quarantine WHERE id = ?').bind(resolvedRowId).run().catch(() => {});
 
-                // Also handle customer wish custom_data asset if single-deleted (usr_photo_<wishId>_<idx>, usr_voice_<wishId>, usr_video_<wishId>)
+                // Also scrub deleted wish_media URL or synthesized usr_* reference from wishes.custom_data so /api/admin/media/all cannot re-synthesize it
                 const usrMatch = String(resolvedRowId).match(/^(?:usr|wish)_(photo|voice|video|audio)_(.+)$/);
+                const singleScrubWishId = body.wishId || (mediaRecord && mediaRecord.wish_id) || null;
+                const singleScrubUrl = clientUrl || (mediaRecord && mediaRecord.playback_url) || null;
                 if (usrMatch) {
                   const mediaKind = usrMatch[1];
                   const rest = usrMatch[2];
-                  let resolvedWishId = rest;
+                  let resolvedWishId = body.wishId || rest;
                   let photoIdx = null;
                   if (mediaKind === 'photo') {
                     const idxMatch = rest.match(/^(.*)_(\d+)$/);
@@ -22341,23 +22368,53 @@ export default {
                     try {
                       const cData = JSON.parse(wRow.custom_data);
                       let modified = false;
-                      if (mediaKind === 'photo' && Array.isArray(cData.photos)) {
-                        if (photoIdx !== null && photoIdx >= 0 && photoIdx < cData.photos.length) {
-                          cData.photos.splice(photoIdx, 1);
-                          modified = true;
-                        } else if (clientUrl) {
-                          const foundIdx = cData.photos.findIndex(p => (typeof p === 'string' ? p === clientUrl : (p?.url === clientUrl || p?.src === clientUrl)));
-                          if (foundIdx !== -1) {
-                            cData.photos.splice(foundIdx, 1);
+                      if (mediaKind === 'photo') {
+                        if (Array.isArray(cData.photos)) {
+                          if (photoIdx !== null && photoIdx >= 0 && photoIdx < cData.photos.length && (!singleScrubUrl || (typeof cData.photos[photoIdx] === 'string' ? cData.photos[photoIdx] === singleScrubUrl : (cData.photos[photoIdx]?.url === singleScrubUrl || cData.photos[photoIdx]?.src === singleScrubUrl)))) {
+                            cData.photos.splice(photoIdx, 1);
                             modified = true;
+                          } else if (singleScrubUrl) {
+                            const foundIdx = cData.photos.findIndex(p => (typeof p === 'string' ? p === singleScrubUrl : (p?.url === singleScrubUrl || p?.src === singleScrubUrl)));
+                            if (foundIdx !== -1) {
+                              cData.photos.splice(foundIdx, 1);
+                              modified = true;
+                            }
                           }
+                        }
+                        if (singleScrubUrl && cData.cover_photo === singleScrubUrl) {
+                          delete cData.cover_photo;
+                          modified = true;
                         }
                       } else if (mediaKind === 'voice' || mediaKind === 'audio') {
                         if (cData.voice_note) { delete cData.voice_note; modified = true; }
+                        if (singleScrubUrl && cData.voiceNoteUrl === singleScrubUrl) { delete cData.voiceNoteUrl; modified = true; }
                       } else if (mediaKind === 'video') {
                         if (cData.video) { delete cData.video; modified = true; }
                         if (cData.videoUrl) { delete cData.videoUrl; modified = true; }
                       }
+                      if (modified) {
+                        await env.DB.prepare('UPDATE wishes SET custom_data = ? WHERE id = ?').bind(JSON.stringify(cData), wRow.id).run().catch(() => {});
+                      }
+                    } catch (_) {}
+                  }
+                } else if (singleScrubWishId && singleScrubUrl) {
+                  const wRow = await env.DB.prepare('SELECT id, custom_data FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(singleScrubWishId, singleScrubWishId).first().catch(() => null);
+                  if (wRow && wRow.custom_data) {
+                    try {
+                      const cData = JSON.parse(wRow.custom_data);
+                      let modified = false;
+                      if (Array.isArray(cData.photos)) {
+                        const filtered = cData.photos.filter(p => (typeof p === 'string' ? p !== singleScrubUrl : (p?.url !== singleScrubUrl && p?.src !== singleScrubUrl && p?.displayUrl !== singleScrubUrl)));
+                        if (filtered.length !== cData.photos.length) {
+                          cData.photos = filtered;
+                          modified = true;
+                        }
+                      }
+                      if (cData.cover_photo === singleScrubUrl) { delete cData.cover_photo; modified = true; }
+                      if (cData.voice_note && cData.voice_note.url === singleScrubUrl) { delete cData.voice_note; modified = true; }
+                      if (cData.voiceNoteUrl === singleScrubUrl) { delete cData.voiceNoteUrl; modified = true; }
+                      if (cData.video === singleScrubUrl || (cData.video && cData.video.url === singleScrubUrl)) { delete cData.video; modified = true; }
+                      if (cData.videoUrl === singleScrubUrl) { delete cData.videoUrl; modified = true; }
                       if (modified) {
                         await env.DB.prepare('UPDATE wishes SET custom_data = ? WHERE id = ?').bind(JSON.stringify(cData), wRow.id).run().catch(() => {});
                       }

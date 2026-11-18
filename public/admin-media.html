@@ -329,164 +329,149 @@
       </div>
     </div>
 
-    <!-- Filter Pills, Uploader Source & User Filter Section -->
-    <div class="flex flex-col gap-3.5 bg-surface-container rounded-lg p-4 sm:p-5 border border-slate-200">
-      <!-- Row 1: Uploader Source (Admin vs User) & User Selector -->
-      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs font-bold text-outline uppercase tracking-wider mr-1">Section View:</span>
-          <button onclick="setUploaderRoleFilter('both')" id="role-both" class="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold transition shadow-sm cursor-pointer">
-            🌐 Both Sections (Admin &amp; User)
+    <!-- Filters & Bulk Actions -->
+    <div class="flex flex-col gap-2.5 bg-white rounded-lg p-3 border border-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-[11px] font-bold text-slate-500 uppercase mr-0.5">View:</span>
+          <button onclick="setUploaderRoleFilter('both')" id="role-both" class="px-3 py-1 rounded-lg bg-primary text-white text-xs font-bold transition shadow-sm cursor-pointer">
+            🌐 All
           </button>
-          <button onclick="setUploaderRoleFilter('admin')" id="role-admin" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            🛡️ Admin Uploads Only
+          <button onclick="setUploaderRoleFilter('admin')" id="role-admin" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+            🛡️ Admin
           </button>
-          <button onclick="setUploaderRoleFilter('user')" id="role-user" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            👤 User Uploads Only
+          <button onclick="setUploaderRoleFilter('user')" id="role-user" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+            👤 Users
           </button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">👤 Filter by User:</span>
-          <select id="filter-media-user" onchange="setUserMediaFilter(this.value)" class="px-3 py-1.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs font-bold focus:outline-none focus:border-primary">
-            <option value="all">👥 All Users (Show All Customer Uploads)</option>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-[11px] font-bold text-slate-500 uppercase">User:</span>
+          <select id="filter-media-user" onchange="setUserMediaFilter(this.value)" class="px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-xs font-semibold focus:outline-none focus:border-primary">
+            <option value="all">All Users</option>
           </select>
-          <button id="btn-clear-user-filter" onclick="setUserMediaFilter('all')" class="hidden px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold cursor-pointer">
-            ✕ Clear User
+          <button id="btn-clear-user-filter" onclick="setUserMediaFilter('all')" class="hidden px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold cursor-pointer">
+            ✕ Clear
           </button>
         </div>
       </div>
 
-      <!-- Row 2: Media Type (Photo / Audio / Video) & Storage Provider -->
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs font-bold text-outline uppercase tracking-wider mr-1">Media Type:</span>
-          <button onclick="setMediaFilter('all')" id="tab-all" class="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold transition shadow-sm cursor-pointer">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-[11px] font-bold text-slate-500 uppercase mr-0.5">Type:</span>
+          <button onclick="setMediaFilter('all')" id="tab-all" class="px-3 py-1 rounded-lg bg-primary text-white text-xs font-bold transition shadow-sm cursor-pointer">
             All
           </button>
-          <button onclick="setMediaFilter('image')" id="tab-image" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+          <button onclick="setMediaFilter('image')" id="tab-image" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
             📸 Photos
           </button>
-          <button onclick="setMediaFilter('audio')" id="tab-audio" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            🎵 Audios
+          <button onclick="setMediaFilter('audio')" id="tab-audio" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+            🎵 Audio
           </button>
-          <button onclick="setMediaFilter('video')" id="tab-video" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            🎬 Videos
+          <button onclick="setMediaFilter('video')" id="tab-video" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+            🎬 Video
           </button>
-          <button onclick="setMediaFilter('template')" id="tab-template" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            🖼️ Template Slots
+          <button onclick="setMediaFilter('template')" id="tab-template" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+            🖼️ Templates
           </button>
-          <button onclick="setMediaFilter('inuse')" id="tab-inuse" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+          <button onclick="setMediaFilter('inuse')" id="tab-inuse" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
             🌟 In-Use
           </button>
 
-          <span class="text-outline mx-1">•</span>
-          <span class="text-xs font-bold text-outline uppercase tracking-wider mr-1">Storage:</span>
-          <button onclick="setProviderFilter('all')" id="prov-all" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold transition cursor-pointer">
-            All Sources
+          <span class="text-slate-300 mx-0.5">•</span>
+          <button onclick="setProviderFilter('all')" id="prov-all" class="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-xs font-bold transition cursor-pointer">
+            All
           </button>
-          <button onclick="setProviderFilter('b2')" id="prov-b2" class="px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            ☁️ Backblaze B2
+          <button onclick="setProviderFilter('b2')" id="prov-b2" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+            ☁️ B2
           </button>
-          <button onclick="setProviderFilter('imgbb')" id="prov-imgbb" class="px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+          <button onclick="setProviderFilter('imgbb')" id="prov-imgbb" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
             🖼️ ImgBB
           </button>
-          <button onclick="setProviderFilter('d1')" id="prov-d1" class="px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            🗄️ D1 DB Records
+          <button onclick="setProviderFilter('d1')" id="prov-d1" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-slate-200 text-on-surface-variant hover:text-slate-900 text-xs font-bold transition cursor-pointer">
+            🗄️ D1
           </button>
         </div>
 
-        <div class="text-xs text-outline font-mono" id="results-count-text">
-          Loading media catalog...
+        <div class="text-xs text-slate-600 font-mono" id="results-count-text">
+          Loading...
         </div>
       </div>
 
-      <!-- MULTI-SELECT BULK ACTION BAR (Sticky & Always Accessible) -->
-      <div id="media-bulk-action-bar" class="mt-1 p-3.5 rounded-lg bg-surface-container-low border border-slate-200 flex flex-wrap items-center justify-between gap-3 transition-all">
-        <div class="flex flex-wrap items-center gap-2.5">
-          <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-container-high border border-slate-200 text-xs font-bold text-on-surface cursor-pointer select-none">
-            <input type="checkbox" id="chk-select-all-visible" onchange="toggleSelectAllVisibleMedia(this.checked)" class="w-4 h-4 rounded cursor-pointer"/>
-            <span>Select All Visible</span>
+      <!-- MULTI-SELECT BULK ACTION BAR -->
+      <div id="media-bulk-action-bar" class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 transition-all">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-800 cursor-pointer select-none">
+            <input type="checkbox" id="chk-select-all-visible" onchange="toggleSelectAllVisibleMedia(this.checked)" class="w-3.5 h-3.5 rounded cursor-pointer"/>
+            <span>Select All</span>
           </label>
-          <button type="button" onclick="selectSectionMedia('admin')" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition cursor-pointer">
-            🛡️ Select Admin Media
+          <button type="button" onclick="selectSectionMedia('admin')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition cursor-pointer">
+            🛡️ Admin
           </button>
-          <button type="button" onclick="selectSectionMedia('user')" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer">
-            👤 Select User Media
+          <button type="button" onclick="selectSectionMedia('user')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer">
+            👤 Users
           </button>
-          <button type="button" id="btn-clear-media-selection" onclick="clearMediaSelection()" class="hidden px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold transition cursor-pointer">
-            ✕ Clear Selection
+          <button type="button" id="btn-clear-media-selection" onclick="clearMediaSelection()" class="hidden px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer">
+            ✕ Clear
           </button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
-          <div id="media-bulk-selection-summary" class="text-xs font-mono text-outline">
-            0 items selected (Tick cards to multi-select)
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+          <div id="media-bulk-selection-summary" class="text-xs font-mono text-slate-600">
+            0 selected
           </div>
-          <button type="button" id="btn-bulk-delete-media" onclick="executeBulkDeleteSelectedMedia()" disabled class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition cursor-pointer">
+          <button type="button" id="btn-bulk-delete-media" onclick="executeBulkDeleteSelectedMedia()" disabled class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-bold flex items-center gap-1 transition cursor-pointer">
             <span class="material-symbols-outlined text-sm">delete_sweep</span>
-            <span id="btn-bulk-delete-media-label">Delete Selected (0)</span>
+            <span id="btn-bulk-delete-media-label">Delete (0)</span>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- =================================================================== -->
-    <!-- SECTION 1: 🛡️ ADMIN UPLOADED MEDIA (COMPLETELY SEPARATE SECTION) -->
-    <!-- =================================================================== -->
-    <div id="admin-uploads-section" class="flex flex-col gap-4">
-      <div class="flex flex-wrap items-center justify-between gap-2 p-4 rounded-lg bg-emerald-950/25 border border-emerald-500/30">
-        <div class="flex items-center gap-2.5">
-          <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-black uppercase">🛡️ SECTION 1</span>
+    <!-- SECTION 1: ADMIN UPLOADED MEDIA -->
+    <div id="admin-uploads-section" class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold uppercase">🛡️ Admin</span>
           <div>
-            <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">
-              Admin Uploaded Media (Storefront Photos, BGM Audios, Videos &amp; Template Slots)
-            </h2>
-            <p class="text-xs text-on-surface-variant" id="admin-media-summary-badge">Scanning Admin media vault...</p>
+            <h2 class="text-sm font-bold text-slate-900">Admin Media</h2>
+            <p class="text-[11px] text-slate-600" id="admin-media-summary-badge">Scanning...</p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" onclick="selectSectionMedia('admin')" class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 text-xs font-bold cursor-pointer transition flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">select_all</span>
-            <span>Select All in Section 1</span>
-          </button>
-        </div>
+        <button type="button" onclick="selectSectionMedia('admin')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold cursor-pointer transition flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm">select_all</span>
+          <span>Select All</span>
+        </button>
       </div>
 
-      <div id="media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="col-span-full p-5 text-center bg-surface-container rounded-lg border border-slate-200 text-on-surface-variant">
+      <div id="media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="col-span-full p-4 text-center bg-white rounded-lg border border-slate-200 text-slate-500">
           <span class="animate-spin material-symbols-outlined text-2xl mb-1 text-primary">progress_activity</span>
-          <p class="text-xs font-medium">Loading media...</p>
+          <p class="text-xs font-medium">Loading...</p>
         </div>
       </div>
     </div>
 
-    <!-- =================================================================== -->
-    <!-- SECTION 2: 👤 USER UPLOADED MEDIA (COMPLETELY SEPARATE SECTION) -->
-    <!-- =================================================================== -->
-    <div id="user-uploads-section" class="flex flex-col gap-4 mt-4">
-      <div class="flex flex-wrap items-center justify-between gap-2 p-4 rounded-lg bg-slate-100 border border-slate-200">
-        <div class="flex items-center gap-2.5">
-          <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 text-xs font-black uppercase">👤 SECTION 2</span>
+    <!-- SECTION 2: USER UPLOADED MEDIA -->
+    <div id="user-uploads-section" class="flex flex-col gap-3 mt-2">
+      <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg bg-slate-100 border border-slate-200">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md bg-white text-slate-700 border border-slate-200 text-[11px] font-bold uppercase">👤 Users</span>
           <div>
-            <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">
-              User Uploaded Media (Customer Wish Photos, Voice Notes/Audios &amp; Videos)
-            </h2>
-            <p class="text-xs text-on-surface-variant" id="user-media-summary-badge">Scanning Customer wish uploads...</p>
+            <h2 class="text-sm font-bold text-slate-900">User Media</h2>
+            <p class="text-[11px] text-slate-600" id="user-media-summary-badge">Scanning...</p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" onclick="selectSectionMedia('user')" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold cursor-pointer transition flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">select_all</span>
-            <span>Select All in Section 2</span>
-          </button>
-        </div>
+        <button type="button" onclick="selectSectionMedia('user')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm">select_all</span>
+          <span>Select All</span>
+        </button>
       </div>
 
-      <div id="user-media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="col-span-full p-5 text-center bg-surface-container rounded-lg border border-slate-200 text-on-surface-variant">
+      <div id="user-media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="col-span-full p-4 text-center bg-white rounded-lg border border-slate-200 text-slate-500">
           <span class="animate-spin material-symbols-outlined text-2xl mb-1 text-primary">progress_activity</span>
-          <p class="text-xs font-medium">Loading customer uploads...</p>
+          <p class="text-xs font-medium">Loading...</p>
         </div>
       </div>
     </div>
@@ -494,15 +479,15 @@
   </main>
 </div>
 
-<!-- Modal: Universal Upload (Photos, Videos, Audios) -->
-<div id="upload-media-modal" class="fixed inset-0 bg-black/80  z-50 hidden items-center justify-center p-4">
-  <div class="wm-card bg-surface-container w-full max-w-lg rounded-xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col gap-3.5">
-    <div class="flex items-center justify-between pb-2.5 border-b border-slate-200">
+<!-- Modal: Upload Media -->
+<div id="upload-media-modal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
+  <div class="wm-card bg-surface-container w-full max-w-lg rounded-xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-200">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-primary text-xl">cloud_upload</span>
         <h3 class="font-headline-sm text-base font-bold text-on-surface">Upload Media</h3>
       </div>
-      <button onclick="toggleModal('upload-media-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+      <button onclick="toggleModal('upload-media-modal')" class="text-slate-600 hover:text-slate-900 cursor-pointer">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
@@ -512,66 +497,62 @@
       <input id="upload-asset-title" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-sm focus:outline-none focus:border-primary" placeholder="Optional title"/>
     </div>
 
-    <!-- Storage Target Destination Indicator -->
-    <div id="storage-target-badge" class="p-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between text-xs">
-      <div class="flex items-center gap-2 text-slate-600">
-        <span class="material-symbols-outlined text-amber-400 text-sm">cloud</span>
-        <span id="storage-target-text" class="font-medium">Cloud Target: <strong class="text-amber-300">Backblaze B2 Audio Vault</strong> (Music &amp; SFX)</span>
+    <div id="storage-target-badge" class="p-2 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-between text-xs">
+      <div class="flex items-center gap-1.5 text-slate-700">
+        <span class="material-symbols-outlined text-amber-700 text-sm">cloud</span>
+        <span id="storage-target-text" class="font-medium">Target: <strong class="text-amber-800">Backblaze B2</strong></span>
       </div>
-      <span id="storage-target-limits" class="text-[10px] font-mono text-outline">Max 50 MB</span>
+      <span id="storage-target-limits" class="text-[10px] font-mono text-slate-600">Max 50 MB</span>
     </div>
 
-    <!-- Error / Status Alert Banner -->
     <div id="upload-status-banner" class="hidden p-3 rounded-xl text-xs font-semibold border flex items-center gap-2"></div>
 
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">Media Type <span class="text-rose-400">*</span></label>
-        <select id="upload-asset-type" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:border-primary" onchange="handleMediaTypeChange()">
-          <option value="auto" selected>✨ Auto-Detect Format (Bulk Upload Photos, Videos & Audios)</option>
-          <option value="audio">🎵 Audio Track / Music (Backblaze B2 Vault)</option>
-          <option value="image">📸 Photo / Graphic (ImgBB Cloud Storage Only)</option>
-          <option value="video">🎬 Video / Reel (Backblaze B2 Vault)</option>
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Type <span class="text-rose-600">*</span></label>
+        <select id="upload-asset-type" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:border-primary" onchange="handleMediaTypeChange()">
+          <option value="auto" selected>✨ Auto (Bulk)</option>
+          <option value="audio">🎵 Audio (B2)</option>
+          <option value="image">📸 Photo (ImgBB)</option>
+          <option value="video">🎬 Video (B2)</option>
         </select>
       </div>
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">Category / Tag</label>
-        <select id="upload-asset-category" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:border-primary">
-          <option value="celebration">Celebration &amp; Joyful BGM</option>
-          <option value="romantic">Romantic &amp; Intimate Strings</option>
-          <option value="acoustic">Acoustic &amp; Guitar Melody</option>
-          <option value="peaceful">Peaceful &amp; Nostalgic</option>
-          <option value="party">Party &amp; Energetic Beat</option>
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Tag</label>
+        <select id="upload-asset-category" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:border-primary">
+          <option value="celebration">Celebration</option>
+          <option value="romantic">Romantic</option>
+          <option value="acoustic">Acoustic</option>
+          <option value="peaceful">Peaceful</option>
+          <option value="party">Party</option>
         </select>
       </div>
     </div>
 
-    <!-- Artist input for Audio tracks -->
     <div id="audio-artist-container">
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Composer / Artist</label>
-      <input id="upload-asset-artist" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:border-primary" value="WishMagic Studio" placeholder="e.g. WishMagic Studio, Acoustic Ensemble"/>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Artist</label>
+      <input id="upload-asset-artist" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:border-primary" value="WishMagic Studio" placeholder="Artist name"/>
     </div>
 
-    <!-- Option to set as Hero Photo (Images only) -->
-    <div id="hero-checkbox-container" class="p-3 rounded-xl bg-slate-100 border border-slate-200 hidden items-center gap-2.5">
+    <div id="hero-checkbox-container" class="p-2.5 rounded-lg bg-slate-100 border border-slate-200 hidden items-center gap-2">
       <input type="checkbox" id="upload-set-as-hero" class="w-4 h-4 rounded text-slate-900 focus:ring-slate-300 cursor-pointer"/>
-      <label for="upload-set-as-hero" class="text-xs text-slate-600 font-semibold cursor-pointer">
-        🌟 Immediately set this image as Storefront Hero Section Photo
+      <label for="upload-set-as-hero" class="text-xs text-slate-700 font-semibold cursor-pointer">
+        🌟 Set as Hero Photo
       </label>
     </div>
 
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Select File(s) from Device <span class="text-rose-400">* (Bulk Selection Allowed)</span></label>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">File(s) <span class="text-rose-600">*</span></label>
       <input id="upload-asset-file" type="file" multiple accept="audio/*,video/*,image/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv,.3gp,.jpg,.jpeg,.png,.webp,.gif,.svg" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer" onchange="handleFileSelectionChange()"/>
-      <p id="upload-file-hint" class="text-[11px] text-outline mt-1 font-mono">Photos, Videos, Audio supported.</p>
+      <p id="upload-file-hint" class="text-[11px] text-slate-500 mt-1 font-mono">Photos, Video &amp; Audio supported.</p>
       <div id="upload-file-list-preview" class="hidden text-xs text-slate-600 mt-2 p-2.5 rounded-xl bg-slate-100 border border-slate-200 max-h-32 overflow-y-auto font-mono"></div>
     </div>
 
-    <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
-      <button onclick="toggleModal('upload-media-modal')" id="btn-cancel-upload" class="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
-      <button onclick="submitMediaUpload()" id="btn-submit-upload" class="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-sm">
+    <div class="flex justify-end gap-2 pt-2.5 border-t border-slate-200">
+      <button onclick="toggleModal('upload-media-modal')" id="btn-cancel-upload" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+      <button onclick="submitMediaUpload()" id="btn-submit-upload" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer">
         <span class="material-symbols-outlined text-sm">cloud_upload</span>
-        <span>Upload &amp; Save</span>
+        <span>Upload</span>
       </button>
     </div>
   </div>
@@ -705,7 +686,7 @@
 
     try {
       // 1. Fetch live Hero Image configuration
-      const heroRes = await fetch('/api/admin/hero-image', { credentials: 'include' });
+      const heroRes = await fetch('/api/admin/hero-image?t=' + Date.now(), { credentials: 'include', cache: 'no-store' });
       if (heroRes.ok) {
         const heroData = await heroRes.json();
         if (heroData.success) {
@@ -719,12 +700,12 @@
         }
       }
 
-      // 2. Fetch all media assets with live usage tracking
-      const res = await fetch('/api/admin/media/all', { credentials: 'include' });
+      // 2. Fetch all media assets with live usage tracking (no-store so deleted items never return from cache)
+      const res = await fetch('/api/admin/media/all?t=' + Date.now(), { credentials: 'include', cache: 'no-store' });
       const data = await res.json();
 
       if (!data.success) {
-        grid.innerHTML = `<div class="col-span-full p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm">Failed to load media assets: ${data.message || 'Error'}</div>`;
+        grid.innerHTML = `<div class="col-span-full p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold">Failed to load media: ${escapeHtml(data.message || 'Error')}</div>`;
         return;
       }
 
@@ -782,7 +763,7 @@
         }
       } catch (_) {}
     } catch (err) {
-      grid.innerHTML = `<div class="col-span-full p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm">Network error retrieving media assets: ${escapeHtml(err.message || 'Unknown error')}</div>`;
+      grid.innerHTML = `<div class="col-span-full p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold">Error loading media: ${escapeHtml(err.message || 'Unknown error')}</div>`;
     }
   }
 
@@ -821,10 +802,10 @@
       userMap.get(k).totalCount = (userMap.get(k).totalCount || 0) + 1;
     });
     const list = Array.from(userMap.values());
-    sel.innerHTML = `<option value="all">👥 All Users (${list.length} Customers)</option>` +
+    sel.innerHTML = `<option value="all">All Users (${list.length})</option>` +
       list.map(u => {
         const label = u.userEmail ? `${u.userName} (${u.userEmail})` : u.userName;
-        return `<option value="${escapeHtml(u.key)}" ${currentUserKeyFilter === u.key ? 'selected' : ''}>👤 ${escapeHtml(label)} — ${u.totalCount || 1} files</option>`;
+        return `<option value="${escapeHtml(u.key)}" ${currentUserKeyFilter === u.key ? 'selected' : ''}>${escapeHtml(label)} (${u.totalCount || 1})</option>`;
       }).join('');
   }
 
@@ -937,26 +918,7 @@
       return true;
     });
 
-    const admPhotos = adminFiltered.filter(a => a.type === 'image').length;
-    const admAudios = adminFiltered.filter(a => a.type === 'audio').length;
-    const admVideos = adminFiltered.filter(a => a.type === 'video').length;
-    const admBadge = document.getElementById('admin-media-summary-badge');
-    if (admBadge) {
-      admBadge.innerText = `${adminFiltered.length} Admin Assets — 📸 ${admPhotos} Photos • 🎵 ${admAudios} Audios • 🎬 ${admVideos} Videos`;
-    }
-
-    const usrPhotos = userFiltered.filter(a => a.type === 'image').length;
-    const usrAudios = userFiltered.filter(a => a.type === 'audio').length;
-    const usrVideos = userFiltered.filter(a => a.type === 'video').length;
-    const usrBadge = document.getElementById('user-media-summary-badge');
-    if (usrBadge) {
-      usrBadge.innerText = `${userFiltered.length} Customer Assets — 📸 ${usrPhotos} Photos • 🎵 ${usrAudios} Audios/Voice • 🎬 ${usrVideos} Videos`;
-    }
-
-    const resultsCountEl = document.getElementById('results-count-text');
-    if (resultsCountEl) {
-      resultsCountEl.innerText = `Admin: ${adminFiltered.length} | User: ${userFiltered.length} (Total: ${allMediaAssets.length})`;
-    }
+    updateMediaCountsAndBadges(adminFiltered, userFiltered);
 
     window.__lastFilteredAdminIds = adminFiltered.map(a => String(a.id));
     window.__lastFilteredUserIds = userFiltered.map(a => String(a.id));
@@ -974,173 +936,109 @@
       const isCurrentlyPlaying = activeTrackId === a.id && activeAudio && !activeAudio.paused;
 
       return `
-        <div id="media-card-${escapeHtml(assetIdStr)}" class="media-card-hover bg-surface-container rounded-2xl p-4 sm:p-5 border ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/70 bg-rose-950/10' : (isHero ? 'border-slate-200 shadow-lg shadow-sm' : (isTpl ? 'border-slate-200 shadow-md' : 'border-slate-200'))} flex flex-col justify-between gap-4 transition-all">
-          
-          <!-- Top: Thumbnail Preview & Type Badge -->
-          <div class="flex flex-col gap-3">
-            <div class="relative w-full h-32 rounded-xl overflow-hidden bg-surface-container-high border border-slate-200 flex items-center justify-center">
+        <div id="media-card-${escapeHtml(assetIdStr)}" class="media-card-hover bg-white rounded-xl p-3 border ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/70 bg-rose-50/40' : 'border-slate-200'} flex flex-col justify-between gap-2.5 transition-all">
+          <div class="flex flex-col gap-2">
+            <div class="relative w-full h-32 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
               ${isImage ? `
-                <img src="${a.url}" alt="${escapeHtml(a.title)}" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-300" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/icons/admin-icon-192.png';"/>
+                <img src="${a.url}" alt="${escapeHtml(a.title)}" class="w-full h-full object-cover cursor-pointer" loading="lazy" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/icons/admin-icon-192.png';"/>
               ` : isVideo ? `
                 <video src="${a.streamUrl || a.url}" class="w-full h-full object-cover cursor-pointer" controls preload="metadata" onclick="openLightboxVideo('${a.url}', '${escapeHtml(a.title)}', '${a.streamUrl || ''}')" onerror="if(this.src!=='${a.playbackUrl||a.url}')this.src='${a.playbackUrl||a.url}';"></video>
               ` : `
-                <div class="flex flex-col items-center justify-center gap-2 p-4 text-center">
-                  <div class="w-14 h-14 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-500/30 text-emerald-400 animate-pulse' : 'bg-primary/20 text-primary'} flex items-center justify-center shadow-inner">
-                    <span class="material-symbols-outlined text-3xl">${isCurrentlyPlaying ? 'graphic_eq' : 'music_note'}</span>
+                <div class="flex flex-col items-center justify-center gap-1.5 p-2.5 text-center">
+                  <div class="w-10 h-10 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-100 text-emerald-700 animate-pulse' : 'bg-blue-50 text-blue-700'} flex items-center justify-center">
+                    <span class="material-symbols-outlined text-2xl">${isCurrentlyPlaying ? 'graphic_eq' : 'music_note'}</span>
                   </div>
-                  <span class="font-mono text-xs text-slate-600 font-semibold truncate max-w-[200px]">${escapeHtml(a.title)}</span>
-                  <button onclick="playAudioItem('${a.id}')" class="mt-1 px-3.5 py-1.5 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-primary text-white'} text-xs font-bold flex items-center gap-1.5 hover:brightness-110 active:scale-95 transition cursor-pointer">
+                  <span class="font-mono text-[11px] text-slate-700 font-semibold truncate max-w-[180px]">${escapeHtml(a.title)}</span>
+                  <button data-audio-play-id="${escapeHtml(assetIdStr)}" onclick="playAudioItem('${a.id}')" class="px-3 py-1 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'} text-[11px] font-bold flex items-center gap-1 cursor-pointer">
                     <span class="material-symbols-outlined text-sm">${isCurrentlyPlaying ? 'pause' : 'play_arrow'}</span>
-                    <span>${isCurrentlyPlaying ? 'Pause Audio' : 'Play Audio Track'}</span>
+                    <span>${isCurrentlyPlaying ? 'Pause' : 'Play'}</span>
                   </button>
                 </div>
               `}
 
-              <!-- Top Left: Multi-Select Checkbox + Media Type Badge -->
-              <div class="absolute top-2 left-2 flex flex-wrap items-center gap-1.5 z-10">
-                <label onclick="event.stopPropagation()" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-black/80 hover:bg-black border ${isSelected ? 'border-rose-400 bg-rose-600/30' : 'border-white/30'} shadow-md cursor-pointer backdrop-blur-sm" title="Select this item for bulk delete">
-                  <input type="checkbox" class="media-card-select-chk w-4 h-4 rounded cursor-pointer" data-asset-id="${escapeHtml(assetIdStr)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectMediaAsset(this.dataset.assetId, this.checked)"/>
+              <div class="absolute top-1.5 left-1.5 flex flex-wrap items-center gap-1 z-10">
+                <label onclick="event.stopPropagation()" class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-900/85 hover:bg-slate-900 border ${isSelected ? 'border-rose-400 bg-rose-600' : 'border-white/30'} cursor-pointer" title="Select">
+                  <input type="checkbox" class="media-card-select-chk w-3.5 h-3.5 rounded cursor-pointer" data-asset-id="${escapeHtml(assetIdStr)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectMediaAsset(this.dataset.assetId, this.checked)"/>
                 </label>
-                <span class="px-2 py-0.5 rounded-md ${isTpl ? 'bg-slate-900 text-white' : (isImage ? 'bg-slate-100 text-slate-800 border border-slate-200' : (isVideo ? 'bg-indigo-600 text-white' : 'bg-amber-600 text-white'))} font-mono text-[10px] font-bold shadow uppercase">
-                  ${isTpl ? 'TEMPLATE IMAGE' : (a.format || a.type)}
+                <span class="px-1.5 py-0.5 rounded ${isTpl ? 'bg-slate-900 text-white' : (isImage ? 'bg-white/95 text-slate-800 border border-slate-200' : (isVideo ? 'bg-indigo-600 text-white' : 'bg-amber-600 text-white'))} font-mono text-[9px] font-bold uppercase">
+                  ${isTpl ? 'TEMPLATE' : (a.format || a.type)}
                 </span>
-                ${isHero ? `
-                  <span class="px-2 py-0.5 rounded-md bg-slate-900 text-white font-bold text-[10px] shadow flex items-center gap-1">
-                    <span>🌟 HERO BANNER</span>
-                  </span>
-                ` : ''}
+                ${isHero ? `<span class="px-1.5 py-0.5 rounded bg-slate-900 text-white font-bold text-[9px]">🌟 HERO</span>` : ''}
               </div>
 
-              <!-- Top Right: Provider or In-Use Indicator -->
-              <div class="absolute top-2 right-2 flex items-center gap-1">
+              <div class="absolute top-1.5 right-1.5 flex items-center gap-1">
                 ${a.storageProvider === 'imgbb' ? `
-                  <span class="px-2 py-0.5 rounded-full bg-black/75 text-slate-600 font-mono text-[10px] font-bold border border-slate-200 backdrop-blur-sm">
-                    ImgBB
-                  </span>
+                  <span class="px-1.5 py-0.5 rounded bg-slate-900/80 text-white font-mono text-[9px] font-semibold">ImgBB</span>
                 ` : a.storageProvider === 'b2' ? `
-                  <span class="px-2 py-0.5 rounded-full bg-black/75 text-amber-300 font-mono text-[10px] font-bold border border-amber-500/40 backdrop-blur-sm">
-                    Backblaze B2
-                  </span>
+                  <span class="px-1.5 py-0.5 rounded bg-slate-900/80 text-amber-200 font-mono text-[9px] font-semibold">B2</span>
                 ` : ''}
                 ${a.isInUse ? `
-                  <span class="px-2 py-0.5 rounded-full bg-emerald-500/90 text-white font-bold text-[10px] shadow flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                    <span>IN USE</span>
-                  </span>
-                ` : `
-                  <span class="px-2 py-0.5 rounded-full bg-black/60 text-outline text-[10px] font-medium backdrop-blur-sm">
-                    Vault
-                  </span>
-                `}
+                  <span class="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold text-[9px]">IN USE</span>
+                ` : ''}
               </div>
             </div>
 
-            <!-- Title & Metadata -->
-            <div>
-              <div class="flex items-center justify-between gap-2 mb-1">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${a.uploaderRole === 'user' ? 'bg-slate-100 text-slate-600 border border-slate-200' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">
-                  ${a.uploaderRole === 'user' ? '👤 USER UPLOAD' : '🛡️ ADMIN UPLOAD'}
+            <div class="min-w-0">
+              <div class="flex items-center justify-between gap-1.5 mb-0.5">
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${a.uploaderRole === 'user' ? 'bg-slate-100 text-slate-700 border border-slate-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}">
+                  ${a.uploaderRole === 'user' ? '👤 User' : '🛡️ Admin'}
                 </span>
                 ${a.uploaderRole === 'user' ? `
-                  <button onclick="setUserMediaFilter('${escapeHtml(String(a.userEmail || a.userId || a.userName || 'customer').toLowerCase())}')" class="text-[10px] font-bold text-amber-300 hover:underline cursor-pointer">
-                    Filter This User →
+                  <button onclick="setUserMediaFilter('${escapeHtml(String(a.userEmail || a.userId || a.userName || 'customer').toLowerCase())}')" class="text-[10px] font-bold text-blue-700 hover:underline cursor-pointer">
+                    Filter User
                   </button>
                 ` : ''}
               </div>
-              <h3 class="font-bold text-sm text-on-surface truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h3>
+              <h3 class="font-bold text-xs sm:text-sm text-slate-900 truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h3>
               ${a.uploaderRole === 'user' ? `
-                <div class="text-xs font-semibold text-slate-600 mt-0.5 truncate">
-                  👤 By: ${escapeHtml(a.userName || 'Customer')} ${a.userEmail ? `<span class="text-outline font-mono text-[11px]">(${escapeHtml(a.userEmail)})</span>` : ''}
+                <div class="text-[11px] text-slate-600 mt-0.5 truncate">
+                  ${escapeHtml(a.userName || 'Customer')}${a.wishSlug ? ` • <a href="/w/${encodeURIComponent(a.wishSlug)}" target="_blank" class="text-blue-700 hover:underline font-mono">/w/${escapeHtml(a.wishSlug)}</a>` : ''}
                 </div>
-                ${a.wishSlug ? `
-                  <div class="text-[11px] text-slate-600 mt-0.5 flex items-center gap-2">
-                    <span>🎁 Wish: <a href="/w/${encodeURIComponent(a.wishSlug)}" target="_blank" class="text-primary hover:underline font-mono">/w/${escapeHtml(a.wishSlug)}</a></span>
-                    ${a.recipientName ? `<span>• For ${escapeHtml(a.recipientName)}</span>` : ''}
-                  </div>
-                ` : ''}
               ` : ''}
-              <div class="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant mt-0.5">
-                <span>${a.category || 'Media'}</span>
-                <span>•</span>
-                <span class="font-mono text-[11px]">${a.fileSizeFormatted || 'Ready'}</span>
-                ${a.width && a.height ? `<span>•</span><span class="font-mono text-[11px]">${a.width}×${a.height}px</span>` : ''}
-                ${a.duration ? `<span>•</span><span class="font-mono text-[11px]">${a.duration}</span>` : ''}
+              <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                <span class="font-mono">${a.fileSizeFormatted || 'Ready'}</span>
+                ${a.width && a.height ? `<span>•</span><span class="font-mono">${a.width}×${a.height}</span>` : ''}
+                ${a.duration ? `<span>•</span><span class="font-mono">${a.duration}</span>` : ''}
+                ${isTpl ? `<span>•</span><span class="font-mono text-slate-600">${escapeHtml(a.assetKey || 'slot')}</span>` : ''}
               </div>
-              ${isTpl ? `
-                <div class="mt-2 flex flex-wrap gap-1">
-                  <span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 font-mono text-[10px]">
-                    Slot: ${escapeHtml(a.assetKey || 'hero')}
-                  </span>
-                  <span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 font-mono text-[10px]">
-                    Variant: ${escapeHtml(a.relationshipId || 'Default')}
-                  </span>
+              ${usedInList.length > 0 ? `
+                <div class="mt-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] text-slate-700 truncate" title="${escapeHtml(usedInList.map(u => u.label).join(', '))}">
+                  Used: <strong class="text-slate-900">${escapeHtml(usedInList[0].label)}</strong>${usedInList.length > 1 ? ` +${usedInList.length - 1}` : ''}
                 </div>
               ` : ''}
-            </div>
-
-            <!-- ACTIVE USAGE TRACKER ("KHAN KHAN USE HO RAHI HAI") -->
-            <div class="wm-card bg-surface-container-low p-3 rounded-xl border border-slate-200 flex flex-col gap-1.5">
-              <span class="text-[10px] font-black uppercase tracking-wider text-outline flex items-center justify-between">
-                <span>Active Usages (Kahan Kahan Use Hai):</span>
-                <span class="text-slate-600 font-mono">${usedInList.length} locations</span>
-              </span>
-
-              ${usedInList.length > 0 ? `
-                <div class="flex flex-col gap-1">
-                  ${usedInList.map(u => `
-                    <div class="flex items-center justify-between gap-1.5 text-[11px] py-1 px-2 rounded-lg bg-slate-100 border border-slate-200">
-                      <span class="font-semibold text-slate-600 truncate flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full ${u.badgeColor === 'pink' ? 'bg-slate-100' : (u.badgeColor === 'emerald' ? 'bg-emerald-400' : 'bg-slate-100')}"></span>
-                        <span>${escapeHtml(u.label)}</span>
-                      </span>
-                      <span class="text-[10px] text-outline font-mono truncate max-w-[100px]">${escapeHtml(u.location)}</span>
-                    </div>
-                  `).join('')}
-                </div>
-              ` : `
-                <div class="text-[11px] text-outline italic py-0.5">
-                  Available in library (not currently attached to a live template)
-                </div>
-              `}
             </div>
           </div>
 
-          <!-- Bottom Action Buttons -->
-          <div class="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-            <!-- Left Side Actions -->
-            <div class="flex items-center gap-1.5">
+          <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-1.5">
+            <div class="flex items-center gap-1">
               ${isImage ? `
-                <button onclick="setAsHeroPhotoFromAsset('${a.url}', '${escapeHtml(a.title)}')" class="py-1.5 px-3 rounded-lg ${isHero ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-slate-900 hover:bg-slate-800 text-white'} text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm">
-                  <span class="material-symbols-outlined text-sm">stars</span>
-                  <span>${isHero ? 'Current Hero' : 'Set as Hero'}</span>
+                <button onclick="setAsHeroPhotoFromAsset('${a.url}', '${escapeHtml(a.title)}')" class="py-1 px-2.5 rounded-md ${isHero ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-slate-900 hover:bg-slate-800 text-white'} text-[11px] font-bold flex items-center gap-1 transition cursor-pointer">
+                  <span class="material-symbols-outlined text-[14px]">stars</span>
+                  <span>${isHero ? 'Hero' : 'Set Hero'}</span>
                 </button>
-              ` : `
-                <div class="text-xs text-outline font-mono">${a.format}</div>
-              `}
+              ` : `<span class="text-[11px] text-slate-500 font-mono">${a.format}</span>`}
             </div>
 
-            <!-- Right Side Utility Icons -->
-            <div class="flex items-center gap-1.5">
-              <button onclick="copyLink('${a.url.startsWith('http') ? a.url : window.location.origin + a.url}')" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer" title="Copy Asset URL">
-                <span class="material-symbols-outlined text-sm">content_copy</span>
+            <div class="flex items-center gap-1">
+              <button onclick="copyLink('${a.url.startsWith('http') ? a.url : window.location.origin + a.url}')" class="p-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer" title="Copy URL">
+                <span class="material-symbols-outlined text-[15px]">content_copy</span>
               </button>
               ${(a.deleteUrl || a.delete_url) ? `
-                <a href="${escapeHtml(a.deleteUrl || a.delete_url)}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer" title="ImgBB Server Delete Page">
-                  <span class="material-symbols-outlined text-sm">link_off</span>
+                <a href="${escapeHtml(a.deleteUrl || a.delete_url)}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer" title="ImgBB Delete Link">
+                  <span class="material-symbols-outlined text-[15px]">link_off</span>
                 </a>
               ` : ''}
               ${isImage ? `
-                <button onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer" title="Zoom Preview">
-                  <span class="material-symbols-outlined text-sm">zoom_in</span>
+                <button onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" class="p-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer" title="Zoom">
+                  <span class="material-symbols-outlined text-[15px]">zoom_in</span>
                 </button>
               ` : ''}
-              <button onclick="deleteMediaAsset('${a.id}')" class="px-2.5 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm" title="Delete Media Asset">
-                <span class="material-symbols-outlined text-sm">delete</span>
+              <button onclick="deleteMediaAsset('${a.id}')" class="px-2.5 py-1 rounded-md bg-rose-50 hover:bg-rose-600 border border-rose-200 text-rose-700 hover:text-white text-[11px] font-bold flex items-center gap-1 transition cursor-pointer" title="Delete">
+                <span class="material-symbols-outlined text-[14px]">delete</span>
                 <span>Delete</span>
               </button>
             </div>
           </div>
-
         </div>
       `;
     };
@@ -1148,14 +1046,115 @@
     if (adminGrid) {
       adminGrid.innerHTML = adminFiltered.length > 0
         ? adminFiltered.map(renderCardHtml).join('')
-        : `<div class="col-span-full py-4 px-4 rounded-xl bg-surface-container text-center text-xs text-outline border border-slate-200">No admin media found.</div>`;
+        : `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No admin media.</div>`;
     }
     if (userGrid) {
       userGrid.innerHTML = userFiltered.length > 0
         ? userFiltered.map(renderCardHtml).join('')
-        : `<div class="col-span-full py-4 px-4 rounded-xl bg-surface-container text-center text-xs text-outline border border-slate-200">No user media found.</div>`;
+        : `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No user media.</div>`;
     }
     updateMediaBulkSelectionUI();
+  }
+
+  function getFilteredMediaSets() {
+    const query = (document.getElementById('search-media')?.value || '').trim().toLowerCase();
+    const baseFiltered = allMediaAssets.filter(asset => {
+      if (currentFilter === 'template' && !asset.isTemplateImage) return false;
+      if (currentFilter === 'image' && asset.type !== 'image') return false;
+      if (currentFilter === 'video' && asset.type !== 'video') return false;
+      if (currentFilter === 'audio' && asset.type !== 'audio') return false;
+      if (currentFilter === 'inuse' && !asset.isInUse) return false;
+
+      if (currentProviderFilter === 'b2' && asset.storageProvider !== 'b2') return false;
+      if (currentProviderFilter === 'imgbb' && asset.storageProvider !== 'imgbb') return false;
+      if (currentProviderFilter === 'd1' && (asset.storageProvider !== 'd1' && asset.storageProvider !== 'inline')) return false;
+
+      if (query) {
+        const usageText = (asset.usedIn || []).map(u => `${u.label} ${u.location}`).join(' ');
+        const searchStr = `${asset.title} ${asset.type} ${asset.format} ${asset.category} ${asset.url} ${asset.userName || ''} ${asset.userEmail || ''} ${asset.wishSlug || ''} ${asset.recipientName || ''} ${asset.assetKey || ''} ${asset.relationshipId || ''} ${asset.templateName || ''} ${usageText}`.toLowerCase();
+        if (!searchStr.includes(query)) return false;
+      }
+      return true;
+    });
+    const adminFiltered = baseFiltered.filter(a => a.uploaderRole !== 'user');
+    const userFiltered = baseFiltered.filter(a => {
+      if (a.uploaderRole !== 'user') return false;
+      if (currentUserKeyFilter !== 'all') {
+        const uKey = String(a.userEmail || a.userId || a.userName || 'customer').toLowerCase();
+        return uKey === currentUserKeyFilter;
+      }
+      return true;
+    });
+    return { adminFiltered, userFiltered };
+  }
+
+  function updateMediaCountsAndBadges(adminFiltered, userFiltered) {
+    const admPhotos = adminFiltered.filter(a => a.type === 'image').length;
+    const admAudios = adminFiltered.filter(a => a.type === 'audio').length;
+    const admVideos = adminFiltered.filter(a => a.type === 'video').length;
+    const admBadge = document.getElementById('admin-media-summary-badge');
+    if (admBadge) {
+      admBadge.innerText = `${adminFiltered.length} items • ${admPhotos} Photos • ${admAudios} Audio • ${admVideos} Video`;
+    }
+
+    const usrPhotos = userFiltered.filter(a => a.type === 'image').length;
+    const usrAudios = userFiltered.filter(a => a.type === 'audio').length;
+    const usrVideos = userFiltered.filter(a => a.type === 'video').length;
+    const usrBadge = document.getElementById('user-media-summary-badge');
+    if (usrBadge) {
+      usrBadge.innerText = `${userFiltered.length} items • ${usrPhotos} Photos • ${usrAudios} Audio • ${usrVideos} Video`;
+    }
+
+    const resultsCountEl = document.getElementById('results-count-text');
+    if (resultsCountEl) {
+      resultsCountEl.innerText = `Admin: ${adminFiltered.length} | User: ${userFiltered.length} | Total: ${allMediaAssets.length}`;
+    }
+
+    const setElText = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+    const realAssets = allMediaAssets.filter(a => !a.isDemo);
+    setElText('stat-total-assets', realAssets.length || allMediaAssets.length);
+    setElText('stat-photos-count', realAssets.filter(a => a.type === 'image').length);
+    setElText('stat-videos-count', realAssets.filter(a => a.type === 'video').length);
+    setElText('stat-audios-count', realAssets.filter(a => a.type === 'audio').length);
+  }
+
+  function removeDeletedMediaCardsFromUI(deletedIds) {
+    const deletedSet = new Set((deletedIds || []).map(id => String(id)));
+    if (deletedSet.size === 0) return;
+
+    allMediaAssets = allMediaAssets.filter(a => !deletedSet.has(String(a.id)));
+    deletedSet.forEach(id => {
+      selectedMediaIds.delete(id);
+      const cardEl = document.getElementById(`media-card-${id}`);
+      if (cardEl) cardEl.remove();
+    });
+
+    const { adminFiltered, userFiltered } = getFilteredMediaSets();
+    window.__lastFilteredAdminIds = adminFiltered.map(a => String(a.id));
+    window.__lastFilteredUserIds = userFiltered.map(a => String(a.id));
+    window.__lastFilteredAllIds = [...window.__lastFilteredAdminIds, ...window.__lastFilteredUserIds];
+
+    const adminGrid = document.getElementById('media-assets-grid');
+    if (adminGrid && adminFiltered.length === 0) {
+      adminGrid.innerHTML = `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No admin media.</div>`;
+    }
+    const userGrid = document.getElementById('user-media-assets-grid');
+    if (userGrid && userFiltered.length === 0) {
+      userGrid.innerHTML = `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No user media.</div>`;
+    }
+
+    updateMediaCountsAndBadges(adminFiltered, userFiltered);
+    updateMediaBulkSelectionUI();
+  }
+
+  function updateAudioCardButtonUI() {
+    const buttons = document.querySelectorAll('[data-audio-play-id]');
+    buttons.forEach(btn => {
+      const id = btn.dataset.audioPlayId;
+      const isPlayingThis = activeTrackId && String(activeTrackId) === String(id) && activeAudio && !activeAudio.paused;
+      btn.className = `px-3 py-1 rounded-full ${isPlayingThis ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'} text-[11px] font-bold flex items-center gap-1 cursor-pointer`;
+      btn.innerHTML = `<span class="material-symbols-outlined text-sm">${isPlayingThis ? 'pause' : 'play_arrow'}</span><span>${isPlayingThis ? 'Pause' : 'Play'}</span>`;
+    });
   }
 
   // --- Hero Section Photo Updates ---
@@ -1191,17 +1190,17 @@
           if (data.success && data.asset) {
             currentHeroImage = data.asset.url;
             updateHeroDisplay(currentHeroImage);
-            showToast('🌟 Hero Section photo uploaded & applied successfully!');
+            showToast('🌟 Hero photo updated.');
             fileInput.value = '';
             loadAllMedia();
           } else {
-            alert('Upload failed: ' + (data.message || 'Error'));
+            showToast('⚠️ Upload failed: ' + (data.message || 'Error'));
           }
         } catch (err) {
-          alert('Network error: ' + err.message);
+          showToast('⚠️ Error: ' + err.message);
         } finally {
           btn.disabled = false;
-          btn.innerHTML = `<span class="material-symbols-outlined text-base">check_circle</span><span>Save &amp; Update Hero Photo</span>`;
+          btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">check_circle</span><span>Save Hero Photo</span>`;
         }
       };
       reader.readAsDataURL(file);
@@ -1211,12 +1210,12 @@
     // Otherwise, use URL input
     const targetUrl = urlInput.value.trim();
     if (!targetUrl) {
-      alert('Please enter an image URL or choose a file to upload.');
+      showToast('⚠️ Enter an image URL or pick a file.');
       return;
     }
 
     btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Saving Hero Photo...</span>`;
+    btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Saving...</span>`;
 
     try {
       const res = await fetch('/api/admin/hero-image', {
@@ -1230,21 +1229,21 @@
       if (data.success) {
         currentHeroImage = targetUrl;
         updateHeroDisplay(targetUrl);
-        showToast('🌟 Storefront Hero Photo updated live on Homepage!');
+        showToast('🌟 Hero photo saved.');
         loadAllMedia();
       } else {
-        alert('Update failed: ' + (data.message || 'Error'));
+        showToast('⚠️ Update failed: ' + (data.message || 'Error'));
       }
     } catch (err) {
-      alert('Error: ' + err.message);
+      showToast('⚠️ Error: ' + err.message);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = `<span class="material-symbols-outlined text-base">check_circle</span><span>Save &amp; Update Hero Photo</span>`;
+      btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">check_circle</span><span>Save Hero Photo</span>`;
     }
   }
 
   async function setAsHeroPhotoFromAsset(url, title) {
-    if (!confirm(`Do you want to set "${title}" as the storefront Hero Section photo?`)) return;
+    if (!confirm(`Set "${title}" as Hero photo?`)) return;
 
     try {
       const res = await fetch('/api/admin/hero-image', {
@@ -1258,19 +1257,19 @@
       if (data.success) {
         currentHeroImage = url;
         updateHeroDisplay(url);
-        showToast(`✨ "${title}" is now the live Hero Photo on homepage!`);
+        showToast(`✨ "${title}" set as Hero photo.`);
         renderMediaGrid();
       } else {
-        alert('Failed: ' + (data.message || 'Error'));
+        showToast('⚠️ Failed: ' + (data.message || 'Error'));
       }
     } catch (err) {
-      alert('Error updating hero image: ' + err.message);
+      showToast('⚠️ Error: ' + err.message);
     }
   }
 
   async function resetDefaultHeroPhoto() {
     const defaultUrl = '/assets/icons/admin-icon-192.png';
-    if (!confirm('Reset storefront hero photo to default WishMagic artwork?')) return;
+    if (!confirm('Reset hero photo to default?')) return;
     try {
       const res = await fetch('/api/admin/hero-image', {
         method: 'POST',
@@ -1281,7 +1280,7 @@
       if (res.ok) {
         currentHeroImage = defaultUrl;
         updateHeroDisplay(defaultUrl);
-        showToast('🔄 Hero photo reset to default artwork!');
+        showToast('🔄 Hero photo reset.');
         renderMediaGrid();
       }
     } catch (e) {}
@@ -1515,42 +1514,41 @@
         const isPhotoOnly = itemsToSubmit.every(it => it.type === 'image');
         const vaultName = isPhotoOnly ? 'ImgBB Cloud Vault' : 'Media Vault';
         const successMsg = isBulk
-          ? `🎉 Bulk Upload Complete! ${data.count || itemsToSubmit.length} media file(s) saved to ${vaultName} with exact formats and filenames preserved!`
-          : `✅ Media file "${itemsToSubmit[0].filename}" uploaded to ${vaultName} with exact format preserved!`;
+          ? `✅ Uploaded ${data.count || itemsToSubmit.length} file(s).`
+          : `✅ Uploaded "${itemsToSubmit[0].filename}".`;
 
         showToast(successMsg);
         loadAllMedia();
       } else {
         const errCode = data.code || (data.error && data.error.code) || 'UPLOAD_FAILED';
-        const errMsg = data.message || (data.error && data.error.message) || (typeof data.error === 'string' ? data.error : 'Server rejected upload request');
-        const reqId = data.requestId ? ` (Request ID: ${data.requestId})` : '';
+        const errMsg = data.message || (data.error && data.error.message) || (typeof data.error === 'string' ? data.error : 'Upload rejected');
         if (errCode === 'D1_WRITE_FAILED') {
-          showUploadError(`Database sync issue: ${errMsg}`, true);
+          showUploadError(`DB sync issue: ${errMsg}`, true);
         } else {
-          showUploadError(`Upload failed [${errCode}]${reqId}: ${errMsg}`);
+          showUploadError(`Upload failed [${errCode}]: ${errMsg}`);
         }
       }
     } catch (err) {
-      showUploadError(`Upload error: ${err.message}. Please check connection and retry.`);
+      showUploadError(`Upload error: ${err.message}`);
     } finally {
       btnSubmit.disabled = false;
       if (btnCancel) btnCancel.disabled = false;
-      btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload &amp; Save</span>`;
+      btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload</span>`;
     }
   }
 
   function showUploadError(msg, isD1Error = false) {
     const banner = document.getElementById('upload-status-banner');
     if (banner) {
-      banner.className = 'p-3 rounded-xl text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex flex-col gap-2';
-      let html = `<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-rose-400">error</span><span>${escapeHtml(msg)}</span></div>`;
+      banner.className = 'p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 flex flex-col gap-2';
+      let html = `<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-rose-600">error</span><span>${escapeHtml(msg)}</span></div>`;
       if (isD1Error) {
-        html += `<div class="pt-1 flex items-center gap-2"><button type="button" onclick="healD1Schema().then(() => submitMediaUpload())" class="px-3 py-1 rounded-lg bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition cursor-pointer flex items-center gap-1"><span class="material-symbols-outlined text-sm">build</span><span>Heal D1 Tables &amp; Retry Upload</span></button></div>`;
+        html += `<div class="pt-1 flex items-center gap-2"><button type="button" onclick="healD1Schema().then(() => submitMediaUpload())" class="px-3 py-1 rounded-lg bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition cursor-pointer flex items-center gap-1"><span class="material-symbols-outlined text-sm">build</span><span>Fix DB &amp; Retry</span></button></div>`;
       }
       banner.innerHTML = html;
       banner.classList.remove('hidden');
     } else {
-      alert(msg);
+      showToast('⚠️ ' + msg);
     }
   }
 
@@ -1657,7 +1655,7 @@
     try { sessionStorage.removeItem('wm_last_audio_track_id'); } catch (_) {}
     const bar = document.getElementById('floating-audio-bar');
     if (bar) bar.classList.add('hidden');
-    renderMediaGrid();
+    updateAudioCardButtonUI();
   }
 
   function toggleAudioPlayback() {
@@ -1666,6 +1664,7 @@
     if (activeAudio.paused) {
       activeAudio.play().then(() => {
         if (icon) icon.innerText = 'pause';
+        updateAudioCardButtonUI();
       }).catch(err => {
         showPlayerError(`Playback error: ${err.message}`);
       });
@@ -1673,7 +1672,7 @@
       activeAudio.pause();
       if (icon) icon.innerText = 'play_arrow';
     }
-    renderMediaGrid();
+    updateAudioCardButtonUI();
   }
 
   function seekAudio(percent) {
@@ -1812,7 +1811,7 @@
       }
       if (iconEl) iconEl.innerText = 'pause';
       showToast(`▶ Playing: "${title}"`);
-      renderMediaGrid();
+      updateAudioCardButtonUI();
     });
 
     newAudio.addEventListener('loadedmetadata', () => {
@@ -1837,7 +1836,7 @@
 
     newAudio.addEventListener('play', () => {
       if (iconEl) iconEl.innerText = 'pause';
-      renderMediaGrid();
+      updateAudioCardButtonUI();
     });
 
     newAudio.addEventListener('pause', () => {
@@ -1847,7 +1846,7 @@
         statusIcon.classList.remove('animate-pulse');
         statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl">music_note</span>';
       }
-      renderMediaGrid();
+      updateAudioCardButtonUI();
     });
 
     newAudio.addEventListener('ended', () => {
@@ -1858,7 +1857,7 @@
         statusIcon.classList.remove('animate-pulse');
         statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl">music_note</span>';
       }
-      renderMediaGrid();
+      updateAudioCardButtonUI();
     });
 
     let isAdvancingSource = false;
@@ -1874,26 +1873,26 @@
         newAudio.load();
         newAudio.play().then(() => {
           if (iconEl) iconEl.innerText = 'pause';
-          renderMediaGrid();
+          updateAudioCardButtonUI();
         }).catch(nextErr => {
           if (nextErr.name === 'NotAllowedError') {
             if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
             if (iconEl) iconEl.innerText = 'play_arrow';
-            showToast(`▶ Tap Play button on floating bar to listen to "${title}"`);
+            showToast(`▶ Tap Play on floating bar for "${title}"`);
           } else {
             tryNextAudioSource(nextErr.message);
           }
         });
       } else {
         if (iconEl) iconEl.innerText = 'play_arrow';
-        showPlayerError(errMsg || `Audio track "${title}" could not be played.`);
-        renderMediaGrid();
+        showPlayerError(errMsg || `Cannot play "${title}".`);
+        updateAudioCardButtonUI();
       }
     }
 
     newAudio.addEventListener('error', (e) => {
       const err = newAudio.error;
-      const msg = err ? (err.code === 4 ? 'Audio source format not supported or file not found' : `Audio playback error (code ${err.code})`) : 'Failed to load audio';
+      const msg = err ? (err.code === 4 ? 'Audio source not found' : `Audio error (${err.code})`) : 'Failed to load audio';
       tryNextAudioSource(msg);
     });
 
@@ -1901,28 +1900,50 @@
     newAudio.load();
     newAudio.play().then(() => {
       if (iconEl) iconEl.innerText = 'pause';
-      renderMediaGrid();
+      updateAudioCardButtonUI();
     }).catch(err => {
       console.warn('[Audio Play Promise Catch]:', { trackId: id, provider, error: err.message });
       if (err.name === 'NotAllowedError') {
         if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
         if (iconEl) iconEl.innerText = 'play_arrow';
-        showToast(`▶ Tap Play button on floating bar to listen to "${title}"`);
+        showToast(`▶ Tap Play on floating bar for "${title}"`);
       } else if (err.name === 'AbortError') {
-        // Ignored if user quickly switched track or paused
+        // Ignored
       } else {
         tryNextAudioSource(err.message);
       }
-      renderMediaGrid();
+      updateAudioCardButtonUI();
     });
 
-    renderMediaGrid();
+    updateAudioCardButtonUI();
   }
 
 
 
   // --- Multi-Select Media State & Batch Deletion (ImgBB + Backblaze B2 + D1) ---
   const selectedMediaIds = new Set();
+
+  function syncCardSelectionStatesInPlace() {
+    document.querySelectorAll('.media-card-select-chk').forEach(chk => {
+      const idStr = String(chk.dataset.assetId || '');
+      const isChecked = selectedMediaIds.has(idStr);
+      chk.checked = isChecked;
+      const labelEl = chk.closest('label');
+      if (labelEl) {
+        labelEl.classList.toggle('border-rose-400', isChecked);
+        labelEl.classList.toggle('bg-rose-600', isChecked);
+        labelEl.classList.toggle('border-white/30', !isChecked);
+      }
+      const cardEl = document.getElementById(`media-card-${idStr}`);
+      if (cardEl) {
+        cardEl.classList.toggle('border-rose-500', isChecked);
+        cardEl.classList.toggle('ring-2', isChecked);
+        cardEl.classList.toggle('ring-rose-500/70', isChecked);
+        cardEl.classList.toggle('bg-rose-50/40', isChecked);
+        cardEl.classList.toggle('border-slate-200', !isChecked);
+      }
+    });
+  }
 
   function toggleSelectMediaAsset(assetId, isChecked) {
     const idStr = String(assetId);
@@ -1933,11 +1954,11 @@
     }
     const cardEl = document.getElementById(`media-card-${idStr}`);
     if (cardEl) {
-      if (isChecked) {
-        cardEl.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/70', 'bg-rose-950/10');
-      } else {
-        cardEl.classList.remove('border-rose-500', 'ring-2', 'ring-rose-500/70', 'bg-rose-950/10');
-      }
+      cardEl.classList.toggle('border-rose-500', isChecked);
+      cardEl.classList.toggle('ring-2', isChecked);
+      cardEl.classList.toggle('ring-rose-500/70', isChecked);
+      cardEl.classList.toggle('bg-rose-50/40', isChecked);
+      cardEl.classList.toggle('border-slate-200', !isChecked);
     }
     updateMediaBulkSelectionUI();
   }
@@ -1948,7 +1969,8 @@
       if (shouldSelect) selectedMediaIds.add(String(id));
       else selectedMediaIds.delete(String(id));
     });
-    renderMediaGrid();
+    syncCardSelectionStatesInPlace();
+    updateMediaBulkSelectionUI();
   }
 
   function selectSectionMedia(sectionRole) {
@@ -1956,7 +1978,7 @@
       ? (window.__lastFilteredAdminIds || [])
       : (window.__lastFilteredUserIds || []);
     if (targetIds.length === 0) {
-      showToast(`ℹ️ No visible ${sectionRole} media items to select.`);
+      showToast(`ℹ️ No ${sectionRole} items.`);
       return;
     }
     const allAlreadySelected = targetIds.every(id => selectedMediaIds.has(String(id)));
@@ -1964,12 +1986,14 @@
       if (allAlreadySelected) selectedMediaIds.delete(String(id));
       else selectedMediaIds.add(String(id));
     });
-    renderMediaGrid();
+    syncCardSelectionStatesInPlace();
+    updateMediaBulkSelectionUI();
   }
 
   function clearMediaSelection() {
     selectedMediaIds.clear();
-    renderMediaGrid();
+    syncCardSelectionStatesInPlace();
+    updateMediaBulkSelectionUI();
   }
 
   function updateMediaBulkSelectionUI() {
@@ -2000,37 +2024,26 @@
       delBtn.disabled = count === 0;
     }
     if (delLabel) {
-      delLabel.innerText = `Delete Selected (${count})`;
+      delLabel.innerText = `Delete (${count})`;
     }
 
     if (summaryEl) {
       if (count === 0) {
-        summaryEl.innerText = '0 items selected (Tick cards to multi-select)';
+        summaryEl.innerText = '0 selected';
       } else {
-        let imgbbCount = 0;
-        let b2Count = 0;
-        let d1Count = 0;
-        selectedMediaIds.forEach(id => {
-          const item = validMap.get(id);
-          if (!item) return;
-          if (item.storageProvider === 'imgbb' || (item.url && item.url.includes('ibb.co'))) imgbbCount++;
-          else if (item.storageProvider === 'b2') b2Count++;
-          else d1Count++;
-        });
-        summaryEl.innerHTML = `<strong class="text-rose-400">${count} selected</strong> — 🖼️ ImgBB: ${imgbbCount} • ☁️ B2: ${b2Count} • 🗄️ D1: ${count}`;
+        summaryEl.innerHTML = `<strong class="text-rose-700">${count} selected</strong>`;
       }
     }
   }
 
   async function executeBulkDeleteSelectedMedia() {
-    // Collect strictly from currently checked checkboxes in the DOM intersected with selectedMediaIds
     const checkedDomBoxes = Array.from(document.querySelectorAll('.media-card-select-chk:checked'));
     const checkedIds = checkedDomBoxes
       .map(cb => String(cb.dataset.assetId || '').trim())
       .filter(id => id && selectedMediaIds.has(id));
 
     if (checkedIds.length === 0) {
-      showToast('ℹ️ Koi bhi media item select nahi kiya gaya hai.');
+      showToast('No items selected.');
       updateMediaBulkSelectionUI();
       return;
     }
@@ -2058,21 +2071,16 @@
 
     if (itemsToDelete.length === 0) return;
 
-    const previewNames = itemsToDelete.slice(0, 8).map((it, idx) => `  ${idx + 1}. ${it.title || it.id} [${(it.provider || 'd1').toUpperCase()}]`).join('\n');
-    const moreText = itemsToDelete.length > 8 ? `\n  ...aur ${itemsToDelete.length - 8} selected item(s)` : '';
-
-    let confirmMsg = `Kya aap SIRF in ${itemsToDelete.length} selected media item(s) ko ImgBB, Backblaze B2, aur D1 se permanently delete karna chahte hain?\n(Jo select nahi kiya gaya hai wo bilkul safe rahega)\n\n${previewNames}${moreText}`;
+    let confirmMsg = `Delete ${itemsToDelete.length} selected item(s) permanently?`;
     if (inUseCount > 0) {
-      confirmMsg += `\n\n⚠️ Dhyaan de: Inme se ${inUseCount} selected item(s) kisi template ya wish me use ho rahe hain.`;
+      confirmMsg += ` (${inUseCount} currently in use)`;
     }
     if (!confirm(confirmMsg)) return;
 
     const delBtn = document.getElementById('btn-bulk-delete-media');
     const delLabel = document.getElementById('btn-bulk-delete-media-label');
     if (delBtn) delBtn.disabled = true;
-    if (delLabel) delLabel.innerText = `Deleting ${itemsToDelete.length} items...`;
-
-    showToast(`🗑️ Deleting ${itemsToDelete.length} selected media assets from ImgBB, Backblaze B2 & D1...`);
+    if (delLabel) delLabel.innerText = `Deleting...`;
 
     try {
       const res = await fetch('/api/admin/media/bulk-delete', {
@@ -2088,19 +2096,22 @@
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        itemsToDelete.forEach(item => {
-          selectedMediaIds.delete(String(item.id));
-          if (activeTrackId && String(activeTrackId) === String(item.id)) {
+        const succeededIds = Array.isArray(data.results)
+          ? data.results.filter(r => r && r.success && r.id).map(r => String(r.id))
+          : itemsToDelete.map(it => String(it.id));
+
+        succeededIds.forEach(id => {
+          if (activeTrackId && String(activeTrackId) === id) {
             stopAndCloseAudioPlayer();
           }
         });
-        showToast(`✅ Sirf chune gaye ${data.deletedCount || itemsToDelete.length} media item(s) delete ho gaye!`);
-        await loadAllMedia();
+        removeDeletedMediaCardsFromUI(succeededIds);
+        showToast(`✅ Deleted ${data.deletedCount || succeededIds.length} item(s).`);
       } else {
-        showToast(`⚠️ Bulk delete error: ${data.message || 'Could not complete bulk deletion'}`);
+        showToast(`⚠️ Delete failed: ${data.message || 'Error'}`);
       }
     } catch (err) {
-      showToast(`⚠️ Network error during bulk delete: ${err.message}`);
+      showToast(`⚠️ Network error: ${err.message}`);
     } finally {
       updateMediaBulkSelectionUI();
     }
@@ -2109,7 +2120,7 @@
   // --- Track active in-flight deletion operations to prevent duplicate requests ---
   const activeDeletingIds = new Set();
 
-  // --- Universal Media Asset Deletion (Audio, Video, Photo, B2, ImgBB) ---
+  // --- Universal Media Asset Deletion (In-Place DOM Removal, Zero Full-Page Sync) ---
   async function deleteMediaAsset(assetId, fallbackTitle, fallbackProvider, fallbackStorageKey, fallbackIsInUse) {
     if (activeDeletingIds.has(assetId)) return;
 
@@ -2120,51 +2131,40 @@
     const isInUse = a ? Boolean(a.isInUse) : Boolean(fallbackIsInUse);
     const url = (a && a.url) || '';
     const deleteUrl = (a && (a.deleteUrl || a.delete_url)) || '';
+    const wishId = (a && (a.wishId || a.wishSlug)) || '';
 
-    let warning = `Kya aap "${title}" ko library aur cloud storage (${provider.toUpperCase()}) se permanently delete karna chahte hain?`;
+    let warning = `Delete "${title}" permanently?`;
     if (isInUse) {
-      warning += `\n\n⚠️ Dhyaan de: Yeh asset kisi wish ya template me use ho raha hai! Use delete karne se unka media break ho sakta hai.`;
+      warning += ' (In use in template/wish)';
     }
     if (!confirm(warning)) return;
 
     activeDeletingIds.add(assetId);
-    showToast(`🗑️ Deleting "${title}" from ${provider.toUpperCase()} & catalog...`);
+    const cardEl = document.getElementById(`media-card-${String(assetId)}`);
+    if (cardEl) cardEl.style.opacity = '0.5';
 
     try {
       const res = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id: assetId, storageKey, provider, url, deleteUrl, force: true, autoFallbackCatalog: true })
+        body: JSON.stringify({ id: assetId, storageKey, provider, url, deleteUrl, wishId, force: true, autoFallbackCatalog: true })
       });
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        selectedMediaIds.delete(String(assetId));
-        if (data.b2Deleted) {
-          if (data.cloudOutcome?.allVersionsDeleted) {
-            showToast(`✅ "${title}" Backblaze B2 bucket aur catalog dono se permanently delete ho gaya!`);
-          } else {
-            showToast(`✅ "${title}" B2 version delete ho gaya (${data.cloudOutcome?.remainingVersionsCount || 0} older version(s) remain).`);
-          }
-        } else if (data.imgbbRemoteDeleted) {
-          showToast(`✅ "${title}" ImgBB server aur catalog dono se permanently delete ho gaya!`);
-        } else if (data.databaseOutcome?.catalogOnly) {
-          showToast(`✅ "${title}" D1 catalog aur media vault se remove ho gaya!`);
-        } else {
-          showToast(`✅ "${title}" successfully delete ho gaya!`);
-        }
-
         if (activeTrackId === assetId) {
           stopAndCloseAudioPlayer();
         }
-        loadAllMedia();
+        removeDeletedMediaCardsFromUI([assetId]);
+        showToast(`✅ Deleted "${title}".`);
       } else {
-        const errMsg = data.message || 'Remote cloud deletion could not be completed';
-        showToast(`⚠️ Delete failed: ${errMsg}`);
+        if (cardEl) cardEl.style.opacity = '1';
+        showToast(`⚠️ Delete failed: ${data.message || 'Error'}`);
       }
     } catch (e) {
-      showToast('⚠️ Delete network error: ' + e.message);
+      if (cardEl) cardEl.style.opacity = '1';
+      showToast('⚠️ Network error: ' + e.message);
     } finally {
       activeDeletingIds.delete(assetId);
     }
