@@ -1250,106 +1250,7 @@ function escapeAdminHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-function renderAdminHeaderNotificationsItems(items) {
-  const badge = document.getElementById('wm-header-notif-badge');
-  const dropdown = document.getElementById('wm-admin-notif-dropdown');
-  const totalCount = Array.isArray(items) ? items.length : 0;
-  if (badge) {
-    badge.textContent = String(totalCount);
-    if (totalCount === 0) badge.classList.add('hidden');
-    else badge.classList.remove('hidden');
-  }
 
-  if (dropdown) {
-    const listHtml = totalCount === 0
-      ? '<div class="py-6 text-center text-xs text-on-surface-variant">No new live notifications right now.</div>'
-      : items.slice(0, 5).map(item => `
-          <a href="${item.href}" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
-            <span class="w-7 h-7 rounded-full ${item.iconCls} flex items-center justify-center shrink-0 mt-0.5">
-              <span class="material-symbols-outlined text-[15px]">${item.icon}</span>
-            </span>
-            <div class="min-w-0 flex-1">
-              <div class="font-bold text-on-surface truncate capitalize">${item.title}</div>
-              <div class="text-[11px] text-on-surface-variant truncate">${item.sub}</div>
-            </div>
-          </a>
-        `).join('');
-
-    dropdown.innerHTML = `
-      <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
-        <span class="font-bold text-sm text-on-surface">Live Notifications</span>
-        <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 dark:text-purple-300 hover:underline">Delivery Queue →</a>
-      </div>
-      <div class="space-y-1.5">${listHtml}</div>
-    `;
-  }
-}
-
-async function loadLiveAdminHeaderNotifications(forceNetwork = false) {
-  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-  const badge = document.getElementById('wm-header-notif-badge');
-  const dropdown = document.getElementById('wm-admin-notif-dropdown');
-  if (!badge && !dropdown) return;
-
-  const NOTIF_CACHE_KEY = 'wm_admin_header_notif_v1';
-  if (!forceNetwork) {
-    try {
-      const raw = sessionStorage.getItem(NOTIF_CACHE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.items)) {
-          renderAdminHeaderNotificationsItems(parsed.items);
-          if (parsed.ts && (Date.now() - parsed.ts < 30000)) {
-            return;
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
-  try {
-    const [wishesRes, auditRes] = await Promise.all([
-      fetch('/api/admin/wishes?limit=5', { credentials: 'include' }).then(r => r.json()).catch(() => ({})),
-      fetch('/api/admin/audit-logs?limit=5', { credentials: 'include' }).then(r => r.json()).catch(() => ({}))
-    ]);
-
-    const wishes = Array.isArray(wishesRes?.wishes) ? wishesRes.wishes : (Array.isArray(wishesRes?.data?.wishes) ? wishesRes.data.wishes : []);
-    const logs = Array.isArray(auditRes?.logs) ? auditRes.logs : (Array.isArray(auditRes?.data?.logs) ? auditRes.data.logs : []);
-
-    const items = [];
-    wishes.slice(0, 3).forEach(w => {
-      const rec = w.recipientName || w.recipient_name || w.title || 'Celebration Wish';
-      const tpl = w.templateName || w.template_name || w.templateId || 'WishMagic Template';
-      items.push({
-        href: '/admin/anktech/anktech/admin/wishes',
-        icon: 'send',
-        iconCls: 'bg-pink-100 text-pink-600 dark:bg-pink-950/60 dark:text-pink-300',
-        title: `Wish created for ${escapeAdminHtml(rec)}`,
-        sub: escapeAdminHtml(tpl),
-        ts: w.createdAt || w.created_at || null
-      });
-    });
-
-    logs.slice(0, 3).forEach(l => {
-      items.push({
-        href: '/admin/anktech/anktech/admin/audit-logs',
-        icon: 'verified_user',
-        iconCls: 'bg-purple-100 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300',
-        title: escapeAdminHtml((l.action || l.event_type || 'System Action').replace(/_/g, ' ')),
-        sub: escapeAdminHtml(l.actorName || l.actor_email || l.targetId || l.target_id || 'Admin Studio'),
-        ts: l.createdAt || l.created_at || l.timestamp || null
-      });
-    });
-
-    try {
-      sessionStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify({ ts: Date.now(), items }));
-    } catch (_) {}
-
-    renderAdminHeaderNotificationsItems(items);
-  } catch (e) {
-    console.warn('[AdminTheme] Notification poll note:', e);
-  }
-}
 
 // 3. Universal Global Command & Search Palette (Ctrl/Cmd+K & Header Input across all 23 Admin Pages)
 const ADMIN_COMMAND_DESTINATIONS = [
@@ -1571,49 +1472,19 @@ function initGlobalAdminCommandSearch() {
   });
 }
 
-function toggleMoreSidebarSections() {
-  const extra = document.getElementById('wm-sidebar-more-group');
-  const chevron = document.getElementById('wm-sidebar-more-chevron');
-  if (!extra) return;
-  const isHidden = extra.classList.contains('hidden');
-  if (isHidden) {
-    extra.classList.remove('hidden');
-    if (chevron) chevron.style.transform = 'rotate(180deg)';
-  } else {
-    extra.classList.add('hidden');
-    if (chevron) chevron.style.transform = 'rotate(0deg)';
-  }
-}
-window.toggleMoreSidebarSections = toggleMoreSidebarSections;
-
 function toggleAdminProfileMenu(event) {
   if (event) event.stopPropagation();
   const menu = document.getElementById('wm-admin-profile-dropdown');
-  const notif = document.getElementById('wm-admin-notif-dropdown');
   const cmd = document.getElementById('wm-global-command-dropdown');
-  if (notif) notif.classList.add('hidden');
   if (cmd) cmd.classList.add('hidden');
   if (menu) menu.classList.toggle('hidden');
 }
 window.toggleAdminProfileMenu = toggleAdminProfileMenu;
 
-function toggleAdminNotifMenu(event) {
-  if (event) event.stopPropagation();
-  const notif = document.getElementById('wm-admin-notif-dropdown');
-  const menu = document.getElementById('wm-admin-profile-dropdown');
-  const cmd = document.getElementById('wm-global-command-dropdown');
-  if (menu) menu.classList.add('hidden');
-  if (cmd) cmd.classList.add('hidden');
-  if (notif) notif.classList.toggle('hidden');
-}
-window.toggleAdminNotifMenu = toggleAdminNotifMenu;
-
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('wm-admin-profile-dropdown');
-  const notif = document.getElementById('wm-admin-notif-dropdown');
   const cmd = document.getElementById('wm-global-command-dropdown');
   if (menu && !e.target.closest('#wm-admin-profile-dropdown')) menu.classList.add('hidden');
-  if (notif && !e.target.closest('#wm-admin-notif-dropdown')) notif.classList.add('hidden');
   if (cmd && !e.target.closest('.wm-header-search-wrap')) cmd.classList.add('hidden');
 });
 
@@ -1652,19 +1523,6 @@ function initAdminNavigationAndNotifications() {
   rewriteAdminSidebarLinks();
   handleAdminQueryActions();
   initGlobalAdminCommandSearch();
-  if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(() => loadLiveAdminHeaderNotifications(), { timeout: 2000 });
-  } else {
-    setTimeout(() => loadLiveAdminHeaderNotifications(), 1200);
-  }
-
-  // Compatibility aliases for page refresh callbacks
-  if (typeof window.loadAuditLogs !== 'function' && typeof window.loadLogs === 'function') {
-    window.loadAuditLogs = window.loadLogs;
-  }
-  if (typeof window.loadModerationData !== 'function' && typeof window.loadModerationQueue === 'function') {
-    window.loadModerationData = window.loadModerationQueue;
-  }
 
   // Apply search query parameter from global command search deep links (?search=...)
   const urlSearchParam = new URLSearchParams(window.location.search).get('search');
@@ -1700,8 +1558,6 @@ function initAdminNavigationAndNotifications() {
       }
       window.__wmBypassFastCache = true;
 
-      loadLiveAdminHeaderNotifications(true);
-
       const tasks = [];
       const callIfFn = (fnName, ...args) => {
         if (typeof window[fnName] === 'function') {
@@ -1731,9 +1587,6 @@ function initAdminNavigationAndNotifications() {
       if (p.includes('wishes') || p.includes('expiring')) {
         callIfFn('loadWishes');
       }
-      if (p.includes('user-creations') || p.includes('creations')) {
-        callIfFn('loadUserCreations');
-      }
       if (p.includes('analytics')) {
         callIfFn('loadAllAnalytics');
       }
@@ -1748,42 +1601,9 @@ function initAdminNavigationAndNotifications() {
       if (p.includes('orders')) {
         callIfFn('loadOrdersData');
       }
-      if (p.includes('settings') || p.includes('backups')) {
+      if (p.includes('settings')) {
         callIfFn('loadSiteSettings');
         callIfFn('loadWishLinkSettings');
-      }
-      if (p.includes('storage-health')) {
-        callIfFn('loadStorageHealth');
-        callIfFn('loadOrphans');
-      }
-      if (p.includes('audit') || p.includes('activity-logs')) {
-        if (typeof window.loadAuditLogs === 'function') callIfFn('loadAuditLogs');
-        else callIfFn('loadLogs');
-      }
-      if (p.includes('search')) {
-        callIfFn('loadSearchDiagnostics');
-      }
-      if (p.includes('referrals')) {
-        callIfFn('loadAdminReferralData');
-      }
-      if (p.includes('moderation')) {
-        if (typeof window.loadModerationData === 'function') callIfFn('loadModerationData');
-        else callIfFn('loadModerationQueue');
-      }
-      if (p.includes('support')) {
-        callIfFn('loadTickets');
-      }
-      if (p.includes('staff')) {
-        callIfFn('loadStaffList');
-      }
-      if (p.includes('compliance') || p.includes('legal')) {
-        callIfFn('loadLegalAdminData');
-      }
-      if (p.includes('announcements')) {
-        callIfFn('loadAnnouncements');
-      }
-      if (p.includes('notifications')) {
-        callIfFn('loadQueueData');
       }
 
       if (tasks.length > 0) {
@@ -1804,36 +1624,6 @@ function initAdminNavigationAndNotifications() {
       }
     }
   };
-
-  if (!window.__wmAdminNotifTimer) {
-    window.__wmAdminNotifTimer = setInterval(() => {
-      if (document.visibilityState === 'visible' && (!window.canRunBackgroundAdminSync || window.canRunBackgroundAdminSync())) {
-        loadLiveAdminHeaderNotifications(true);
-      }
-    }, 30000);
-  }
-
-  if (!window.__wmAdminAutoRefreshTimer) {
-    window.__wmAdminAutoRefreshTimer = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      if (typeof window.canRunBackgroundAdminSync === 'function' && !window.canRunBackgroundAdminSync()) return;
-      window.triggerAdminLiveSync(true, { silent: true });
-    }, 25000);
-  }
-
-  if (!window.__wmAdminVisibilitySyncBound) {
-    window.__wmAdminVisibilitySyncBound = true;
-    const handleVisibilityOrFocusSync = () => {
-      if (document.visibilityState !== 'visible') return;
-      const now = Date.now();
-      if (now - (window.__wmLastFocusSyncTs || 0) < 5000) return;
-      if (typeof window.canRunBackgroundAdminSync === 'function' && !window.canRunBackgroundAdminSync()) return;
-      window.__wmLastFocusSyncTs = now;
-      window.triggerAdminLiveSync(true, { silent: true });
-    };
-    document.addEventListener('visibilitychange', handleVisibilityOrFocusSync);
-    window.addEventListener('focus', handleVisibilityOrFocusSync);
-  }
 
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav && !sidebarNav.dataset.wmNavBound) {
@@ -1872,11 +1662,6 @@ function initAdminNavigationAndNotifications() {
   }
 }
 
-// ============================================================================
-// VESSA BOTANICAL SAGE & FOREST EMERALD SHELL + CIRCULAR VIEW-TRANSITION WIPE
-// Pixel-Matched 1:1 to Reference Video (src > ui.ts > wipe) Across All 24 Pages
-// ============================================================================
-
 function getGreetingByHour() {
   const hr = new Date().getHours();
   if (hr < 12) return 'Good morning';
@@ -1884,49 +1669,8 @@ function getGreetingByHour() {
   return 'Good evening';
 }
 
-function getVessaCenterTabsForPath(pathname) {
-  const p = String(pathname || '').toLowerCase();
-  if (p.includes('template') || p.includes('festival') || p.includes('occasion') || p.includes('media')) {
-    return [
-      { label: 'Catalog', href: `${SECRET_ADMIN_PREFIX}/templates`, match: ['templates'] },
-      { label: 'Batches & Upload', href: `${SECRET_ADMIN_PREFIX}/add-template`, match: ['add-template'] },
-      { label: 'Festivals', href: `${SECRET_ADMIN_PREFIX}/festivals`, match: ['festivals'] },
-      { label: 'Categories', href: `${SECRET_ADMIN_PREFIX}/occasions`, match: ['occasions'] },
-      { label: 'Media Vault', href: `${SECRET_ADMIN_PREFIX}/media`, match: ['media'] }
-    ];
-  }
-  if (p.includes('analytic') || p.includes('order') || p.includes('pricing') || p.includes('referral')) {
-    return [
-      { label: 'Overview', href: `${SECRET_ADMIN_PREFIX}/overview`, match: ['overview'] },
-      { label: 'Sales', href: `${SECRET_ADMIN_PREFIX}/orders`, match: ['orders'] },
-      { label: 'Reports', href: `${SECRET_ADMIN_PREFIX}/analytics`, match: ['analytics'] },
-      { label: 'VIP Plans', href: `${SECRET_ADMIN_PREFIX}/pricing`, match: ['pricing'] }
-    ];
-  }
-  if (p.includes('wish') || p.includes('user')) {
-    return [
-      { label: 'All Wishes', href: `${SECRET_ADMIN_PREFIX}/wishes`, match: ['wishes'] },
-      { label: 'Users', href: `${SECRET_ADMIN_PREFIX}/users`, match: ['users'] }
-    ];
-  }
-  if (p.includes('setting')) {
-    return [
-      { label: 'Storefront CMS', href: `${SECRET_ADMIN_PREFIX}/settings`, match: ['settings'] }
-    ];
-  }
-  return [
-    { label: 'Overview', href: `${SECRET_ADMIN_PREFIX}/overview`, match: ['overview', 'admin.html'] },
-    { label: 'Catalog', href: `${SECRET_ADMIN_PREFIX}/templates`, match: ['templates'] },
-    { label: 'Sales', href: `${SECRET_ADMIN_PREFIX}/orders`, match: ['orders'] },
-    { label: 'Wishes', href: `${SECRET_ADMIN_PREFIX}/wishes`, match: ['wishes'] },
-    { label: 'Settings', href: `${SECRET_ADMIN_PREFIX}/settings`, match: ['settings'] }
-  ];
-}
-
 function mountVessaAdminShell() {
-  const pathname = window.location.pathname.toLowerCase();
-
-  // 1. Mount Vessa 3-Zone Top Bar inside <header class="wm-top-header">
+  // 1. Mount Vessa Top Bar inside <header class="wm-top-header">
   const header = document.querySelector('header.wm-top-header');
   if (header && !header.dataset.vessaMounted) {
     header.dataset.vessaMounted = 'true';
@@ -1941,16 +1685,8 @@ function mountVessaAdminShell() {
       ctrlK.textContent = '⌘K';
     }
 
-    const notifBadge = document.getElementById('wm-header-notif-badge');
-    const notifDropdown = document.getElementById('wm-admin-notif-dropdown');
     const profileDropdown = document.getElementById('wm-admin-profile-dropdown');
     const existingEmail = document.getElementById('wm-admin-header-email')?.textContent || 'ankit.babusaini@gmail.com';
-
-    const tabs = getVessaCenterTabsForPath(pathname);
-    const tabsHtml = tabs.map((t, idx) => {
-      const isAct = t.match.some(m => pathname.includes(m)) || (idx === 0 && !tabs.some(x => x.match.some(m => pathname.includes(m))));
-      return `<a href="${t.href}" class="vessa-center-tab ${isAct ? 'active' : ''}">${escapeAdminHtml(t.label)}</a>`;
-    }).join('');
 
     const inner = document.createElement('div');
     inner.className = 'vessa-top-header-inner';
@@ -1973,13 +1709,7 @@ function mountVessaAdminShell() {
       </a>
     `;
 
-    // Center Zone: Segmented Sub-Tab Pill Switcher
-    const centerDiv = document.createElement('nav');
-    centerDiv.className = 'vessa-center-tabs hidden lg:inline-flex';
-    centerDiv.setAttribute('aria-label', 'Section Switcher');
-    centerDiv.innerHTML = tabsHtml;
-
-    // Right Zone: Search + Settings + Notifications + "+ New" + Greeting Profile
+    // Right Zone: Search + Settings + Live Sync + "+ New" + Greeting Profile
     const rightDiv = document.createElement('div');
     rightDiv.className = 'vessa-header-right';
 
@@ -1995,26 +1725,7 @@ function mountVessaAdminShell() {
     settingsLink.innerHTML = `<span class="material-symbols-outlined text-[18px]">settings</span>`;
     rightDiv.appendChild(settingsLink);
 
-    // Notification Bell wrapper
-    const notifWrap = document.createElement('div');
-    notifWrap.className = 'relative';
-    const notifBtn = document.createElement('button');
-    notifBtn.type = 'button';
-    notifBtn.className = 'vessa-icon-circle-btn';
-    notifBtn.title = 'Live Notifications';
-    notifBtn.setAttribute('onclick', 'toggleAdminNotifMenu(event)');
-    notifBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">notifications</span>`;
-    if (notifBadge) {
-      notifBadge.className = 'hidden absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow';
-      notifBtn.appendChild(notifBadge);
-    }
-    notifWrap.appendChild(notifBtn);
-    if (notifDropdown) {
-      notifWrap.appendChild(notifDropdown);
-    }
-    rightDiv.appendChild(notifWrap);
-
-    // Live Sync Now Button (1-Tap Real-Time Server Refresh for Installed PWA & Browser)
+    // Live Sync Now Button (1-Tap Real-Time Server Refresh)
     const liveSyncBtn = document.createElement('button');
     liveSyncBtn.type = 'button';
     liveSyncBtn.id = 'wm-header-live-sync-btn';
@@ -2024,17 +1735,6 @@ function mountVessaAdminShell() {
     liveSyncBtn.setAttribute('onclick', 'window.triggerAdminLiveSync && window.triggerAdminLiveSync(true, { showToastFeedback: true })');
     liveSyncBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]" id="wm-header-live-sync-icon">sync</span>`;
     rightDiv.appendChild(liveSyncBtn);
-
-    // Install Admin PWA Button (Auto-hidden when running in standalone mode)
-    const pwaInstallBtn = document.createElement('button');
-    pwaInstallBtn.type = 'button';
-    pwaInstallBtn.id = 'wm-pwa-install-btn';
-    pwaInstallBtn.className = 'vessa-pwa-install-btn';
-    pwaInstallBtn.title = 'Install WishMagic Admin App on Phone / Desktop';
-    pwaInstallBtn.setAttribute('aria-label', 'Install Admin Web App');
-    pwaInstallBtn.setAttribute('onclick', 'window.triggerAdminPwaInstall && window.triggerAdminPwaInstall(event)');
-    pwaInstallBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">install_mobile</span><span>Install App</span>`;
-    rightDiv.appendChild(pwaInstallBtn);
 
     // Primary "+ New" Emerald Pill Button
     const newBtn = document.createElement('a');
@@ -2066,19 +1766,8 @@ function mountVessaAdminShell() {
 
     header.innerHTML = '';
     inner.appendChild(leftDiv);
-    inner.appendChild(centerDiv);
     inner.appendChild(rightDiv);
     header.appendChild(inner);
-
-    // Mount Mobile Scrollable Sub-Tabs Strip right below top header for <1024px viewports
-    if (!document.getElementById('vessa-mobile-subtabs') && tabs.length > 0) {
-      const mobileSubBar = document.createElement('nav');
-      mobileSubBar.id = 'vessa-mobile-subtabs';
-      mobileSubBar.className = 'vessa-mobile-subtabs-bar lg:hidden';
-      mobileSubBar.setAttribute('aria-label', 'Mobile Section Switcher');
-      mobileSubBar.innerHTML = tabsHtml;
-      header.insertAdjacentElement('afterend', mobileSubBar);
-    }
   }
 
   // 2. Ensure #sidebar-backdrop exists for Mobile Drawer

@@ -151,62 +151,7 @@
           <span class="material-symbols-outlined">settings</span>
           <span>Settings</span>
         </a>
-        <a href="/admin/anktech/anktech/admin/storage-health">
-          <span class="material-symbols-outlined">database</span>
-          <span>Storage</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
-          <span class="material-symbols-outlined">cloud_download</span>
-          <span>Backups</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/audit-logs">
-          <span class="material-symbols-outlined">receipt_long</span>
-          <span>Activity Logs</span>
-        </a>
-
-        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
-        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
-          <span>More Studio Sections</span>
-          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
-        </button>
-        <div id="wm-sidebar-more-group" class="hidden flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
-          <a href="/admin/anktech/anktech/admin/user-creations">
-            <span class="material-symbols-outlined">folder_shared</span>
-            <span>User Creations</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/search">
-            <span class="material-symbols-outlined">manage_search</span>
-            <span>Search &amp; Discovery</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/referrals">
-            <span class="material-symbols-outlined">loyalty</span>
-            <span>Referrals &amp; Rewards</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/moderation">
-            <span class="material-symbols-outlined">gavel</span>
-            <span>Moderation Queue</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/support">
-            <span class="material-symbols-outlined">support_agent</span>
-            <span>Support Console</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/staff">
-            <span class="material-symbols-outlined">badge</span>
-            <span>Staff &amp; Team</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/legal">
-            <span class="material-symbols-outlined">policy</span>
-            <span>Legal &amp; Compliance</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/announcements">
-            <span class="material-symbols-outlined">campaign</span>
-            <span>Announcements</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/notifications">
-            <span class="material-symbols-outlined">notifications_active</span>
-            <span>Notification Queue</span>
-          </a>
-        </div>
+        <div class="hidden"><a href="/admin/anktech/anktech/admin/user-creations"></a><a href="/admin/anktech/anktech/admin/search"></a><a href="/admin/anktech/anktech/admin/referrals"></a><a href="/admin/anktech/anktech/admin/moderation"></a><a href="/admin/anktech/anktech/admin/support"></a><a href="/admin/anktech/anktech/admin/audit-logs"></a><a href="/admin/anktech/anktech/admin/storage-health"></a><a href="/admin/anktech/anktech/admin/staff"></a><a href="/admin/anktech/anktech/admin/legal"></a></div>
       </nav>
     </div>
   </div>
@@ -215,7 +160,7 @@
 <!-- Main Viewport Wrapper -->
 <div class="w-full md:pl-[270px] min-h-screen flex flex-col">
 
-  <!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <!-- Universal Top Cloud Header -->
   <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
     <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
       <!-- Left: Hamburger + Search Pill with Ctrl K -->
@@ -225,28 +170,13 @@
         </button>
         <div class="wm-header-search-wrap">
           <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
-          <input id="global-admin-search-input" oninput="handleGlobalSearch(this.value)" class="wm-header-search-input" placeholder="Search templates, wishes, users..." type="text"/>
+          <input id="global-admin-search-input" class="wm-header-search-input" placeholder="Search templates, wishes, users..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
-          <!-- Search Dropdown Results Container -->
-          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
 
-      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <!-- Right: Admin Profile Card -->
       <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
-
-        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
-        <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 border border-purple-200/80 flex items-center justify-center text-[#2b194d] shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
-            <span class="material-symbols-outlined text-[20px]">notifications</span>
-            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
-          </button>
-
-          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js?v=20261025_vessa_mobile_v11) -->
-          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
-          </div>
-        </div>
 
         <!-- Admin Profile Pill -->
         <div class="relative">
@@ -499,16 +429,13 @@
         </div>
       </div>
 
-      <!-- Right 4 Cols: Sales & Engagement Overview Semi-Circle Radial Tick Gauge (Matches frame_001.jpg Bottom-Right 1:1) -->
+      <!-- Right 4 Cols: Sales & Engagement Overview Semi-Circle Radial Tick Gauge -->
       <div class="xl:col-span-4 wm-card p-5 flex flex-col justify-between">
         <div class="flex items-center justify-between">
           <h2 class="text-[16px] font-extrabold text-on-surface tracking-tight">Sales &amp; active overview</h2>
-          <button type="button" onclick="openHealthModal()" class="vessa-icon-circle-btn !w-7 !h-7" title="System & Template Health Diagnostics">
-            <span class="material-symbols-outlined text-[15px]">info</span>
-          </button>
         </div>
 
-        <!-- Semi-Circle Radial Tick Gauge (Exact Match to 65.9% Sales goal gauge in frame_001.jpg) -->
+        <!-- Semi-Circle Radial Tick Gauge -->
         <div class="relative flex flex-col items-center justify-center my-2 pt-2">
           <svg id="vessa-radial-gauge-svg" viewBox="0 0 260 145" class="w-full max-w-[270px] h-auto overflow-visible">
             <g id="vessa-gauge-ticks"></g>
@@ -533,7 +460,7 @@
           </div>
           <div class="px-3 py-1.5 rounded-xl bg-[#e6f4ec] text-[#15623b] text-[11px] font-bold flex items-center justify-between">
             <span>↗ Live Storefront &amp; D1 Sync Active</span>
-            <button type="button" onclick="openHealthModal()" class="underline font-extrabold cursor-pointer">Health <span id="badge-health-summary">OK</span></button>
+            <span id="badge-health-summary" class="font-extrabold">OK</span>
           </div>
         </div>
       </div>
@@ -590,49 +517,22 @@
           </div>
         </section>
 
-        <!-- TOP TEMPLATES & QUICK STUDIO ACTIONS -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <section class="md:col-span-7 wm-card p-5">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[#1e7f4e] text-[20px]">workspace_premium</span>
-                <h3 class="text-[15.5px] font-extrabold text-on-surface">Top performing templates</h3>
-              </div>
-              <a href="/admin/anktech/anktech/admin/templates" class="wm-view-all-pill">
-                <span>Catalog</span>
-                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-              </a>
+        <!-- TOP TEMPLATES -->
+        <section class="wm-card p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[#1e7f4e] text-[20px]">workspace_premium</span>
+              <h3 class="text-[15.5px] font-extrabold text-on-surface">Top performing templates</h3>
             </div>
-            <div id="top-templates-list" class="flex flex-col divide-y divide-[#eef3f0]">
-              <div class="py-6 text-center text-xs text-on-surface-variant">Loading real templates...</div>
-            </div>
-          </section>
-
-          <section class="md:col-span-5 wm-card p-5">
-            <div class="flex items-center gap-2 mb-3">
-              <span class="material-symbols-outlined text-[#1e7f4e] text-[20px]">bolt</span>
-              <h3 class="text-[15.5px] font-extrabold text-on-surface">Studio shortcuts</h3>
-            </div>
-            <div class="grid grid-cols-2 gap-2.5">
-              <a href="/admin/anktech/anktech/admin/add-template" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">upload_file</span>
-                <span class="text-[11.5px] font-bold">Upload ZIP</span>
-              </a>
-              <a href="/admin/anktech/anktech/admin/templates" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">grid_view</span>
-                <span class="text-[11.5px] font-bold">Catalog</span>
-              </a>
-              <a href="/admin/anktech/anktech/admin/pricing" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">sell</span>
-                <span class="text-[11.5px] font-bold">VIP Plans</span>
-              </a>
-              <a href="/admin/anktech/anktech/admin/settings" class="wm-quick-action-tile">
-                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e]">settings</span>
-                <span class="text-[11.5px] font-bold">Site CMS</span>
-              </a>
-            </div>
-          </section>
-        </div>
+            <a href="/admin/anktech/anktech/admin/templates" class="wm-view-all-pill">
+              <span>Catalog</span>
+              <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+            </a>
+          </div>
+          <div id="top-templates-list" class="flex flex-col divide-y divide-[#eef3f0]">
+            <div class="py-6 text-center text-xs text-on-surface-variant">Loading real templates...</div>
+          </div>
+        </section>
 
       </div>
 
@@ -644,19 +544,10 @@
 <script>
   let currentRange = '30d';
   let activeMetrics = null;
-  let dashboardPollTimer = null;
 
   document.addEventListener('DOMContentLoaded', async () => {
     await loadDashboard(false);
-    // Live auto-refresh every 25 seconds when tab is visible and idle
-    dashboardPollTimer = setInterval(() => {
-      if (document.visibilityState === 'visible' && !window.__wmAdminMutationInFlight) {
-        loadDashboard(true);
-      }
-    }, 45000);
   });
-
-  window.addEventListener('focus', () => loadDashboard(true));
 
   async function loadDashboard(isSilent = false) {
     const refreshIcon = document.getElementById('dashboard-refresh-icon');
@@ -664,14 +555,13 @@
 
     try {
       // Fetch real data in parallel from WishRepositories AND authoritative D1 Admin endpoints
-      const [repoMetrics, summaryRes, biRes, adminWishesRes, auditRes, ordersRes] = await Promise.all([
+      const [repoMetrics, summaryRes, biRes, adminWishesRes, ordersRes] = await Promise.all([
         (window.WishRepositories && window.WishRepositories.adminRepository)
           ? window.WishRepositories.adminRepository.getPlatformMetrics(currentRange)
           : Promise.resolve(null),
         fetch('/api/admin/dashboard/summary', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
         fetch('/api/admin/analytics/overview?range=' + encodeURIComponent(currentRange), { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
         fetch('/api/admin/wishes?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
-        fetch('/api/admin/audit-logs?limit=20', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
         fetch('/api/admin/commerce/orders?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null)
       ]);
 
@@ -682,9 +572,6 @@
       const d1Wishes = Array.isArray(adminWishesRes?.wishes)
         ? adminWishesRes.wishes
         : (Array.isArray(adminWishesRes?.data?.wishes) ? adminWishesRes.data.wishes : []);
-      const d1AuditLogs = Array.isArray(auditRes?.logs)
-        ? auditRes.logs
-        : (Array.isArray(auditRes?.data?.logs) ? auditRes.data.logs : []);
       const d1Orders = Array.isArray(ordersRes?.orders)
         ? ordersRes.orders
         : (Array.isArray(ordersRes?.data?.orders) ? ordersRes.data.orders : []);
@@ -712,7 +599,6 @@
         biOverview,
         ordersMetrics,
         telemetryUnavailable,
-        d1AuditLogs,
         d1Orders
       };
 
@@ -831,7 +717,6 @@
     renderRecentWishes(wishesList, templatesList);
     renderCategoryBars(m);
     renderTopTemplates(m);
-    renderActivityFeed(m);
   }
 
   function formatShortDate(dStr) {
@@ -1099,51 +984,7 @@
     }).join('');
   }
 
-  function renderActivityFeed() {}
-  function openHealthModal() {}
-  function closeHealthModal() {}
 
-  // Global Search Handler
-  async function handleGlobalSearch(val) {
-    const resBox = document.getElementById('global-search-results');
-    if (!val || val.trim().length < 2) {
-      resBox.classList.add('hidden');
-      return;
-    }
-
-    if (window.WishRepositories && window.WishRepositories.adminRepository) {
-      const results = await window.WishRepositories.adminRepository.globalSearch(val);
-      const totalResults = results.templates.length + results.wishes.length + results.categories.length + results.users.length;
-
-      if (totalResults === 0) {
-        resBox.innerHTML = '<p class="text-xs text-on-surface-variant py-2 text-center">No matching entities found.</p>';
-      } else {
-        resBox.innerHTML = `
-          <div class="space-y-3 text-xs">
-            ${results.templates.length > 0 ? `
-              <div>
-                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Templates</div>
-                ${results.templates.map(t => `<a href="/template/${t.id}" target="_blank" class="block p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold text-on-surface truncate">🎨 ${t.name} (${t.category})</a>`).join('')}
-              </div>
-            ` : ''}
-            ${results.wishes.length > 0 ? `
-              <div>
-                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Wishes</div>
-                ${results.wishes.map(w => `<a href="/w/${w.slug || w.id}" target="_blank" class="block p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold text-on-surface truncate">🎁 For ${w.recipientName || 'Friend'} (${w.templateName || w.id})</a>`).join('')}
-              </div>
-            ` : ''}
-            ${results.users.length > 0 ? `
-              <div>
-                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Users</div>
-                ${results.users.map(u => `<a href="/admin/anktech/anktech/admin/users" class="block p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold text-on-surface truncate">👤 ${u.displayName} (${u.email})</a>`).join('')}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }
-      resBox.classList.remove('hidden');
-    }
-  }
 
   function exportData(type) {
     if (!activeMetrics || !window.WishAnalyticsService) return;

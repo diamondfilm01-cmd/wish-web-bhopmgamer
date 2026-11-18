@@ -151,63 +151,7 @@
           <span class="material-symbols-outlined">settings</span>
           <span>Settings</span>
         </a>
-        <a href="/admin/anktech/anktech/admin/storage-health">
-          <span class="material-symbols-outlined">database</span>
-          <span>Storage</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
-          <span class="material-symbols-outlined">cloud_download</span>
-          <span>Backups</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/audit-logs">
-          <span class="material-symbols-outlined">receipt_long</span>
-          <span>Activity Logs</span>
-        </a>
-
-        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
-        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
-          <span>More Studio Sections</span>
-          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
-        </button>
-        <div id="wm-sidebar-more-group" class="hidden flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
-          <a href="/admin/anktech/anktech/admin/user-creations">
-            <span class="material-symbols-outlined">folder_shared</span>
-            <span>User Creations</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/search">
-            <span class="material-symbols-outlined">manage_search</span>
-            <span>Search &amp; Discovery</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/referrals">
-            <span class="material-symbols-outlined">loyalty</span>
-            <span>Referrals &amp; Rewards</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/moderation">
-            <span class="material-symbols-outlined">gavel</span>
-            <span>Moderation Queue</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/support">
-            <span class="material-symbols-outlined">support_agent</span>
-            <span>Support Console</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/staff">
-            <span class="material-symbols-outlined">badge</span>
-            <span>Staff &amp; Team</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/legal">
-            <span class="material-symbols-outlined">policy</span>
-            <span>Legal &amp; Compliance</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/announcements">
-            <span class="material-symbols-outlined">campaign</span>
-            <span>Announcements</span>
-          </a>
-          <a href="/admin/anktech/anktech/admin/notifications">
-            <span class="material-symbols-outlined">notifications_active</span>
-            <span>Notification Queue</span>
-          </a>
-        </div>
-      </nav>
+            </nav>
     </div>
   </div>
 </aside>
@@ -227,7 +171,6 @@
           <input class="wm-header-search-input" id="wish-search-input" oninput="handleWishSearch(this.value)" placeholder="Search by recipient, sender, wish ID, or slug..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
           <!-- Search Dropdown Results Container -->
-          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white rounded-2xl border border-purple-200 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
 
