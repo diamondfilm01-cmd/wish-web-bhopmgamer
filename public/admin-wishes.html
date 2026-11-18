@@ -209,36 +209,36 @@
       </div>
     </section>
     <!-- Lifecycle KPI Summary Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      <div class="wm-card p-3.5 rounded-lg bg-surface-container border border-slate-200 shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total Wishes</span>
-        <div id="kpi-total-wishes" class="font-display text-2xl font-black text-on-surface mt-0.5">0</div>
-        <span class="text-[10px] text-on-surface-variant">Lifetime creations</span>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div class="wm-card p-2.5 sm:p-3 rounded-lg bg-white border border-slate-200">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Wishes</span>
+        <div id="kpi-total-wishes" class="font-display text-xl font-bold text-slate-900 mt-0.5 tabular-nums">0</div>
+        <span class="text-[10px] text-slate-500">Lifetime</span>
       </div>
-      <div class="wm-card p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">🟢 Live Active</span>
-        <div id="kpi-active-wishes" class="font-display text-2xl font-black text-emerald-400 mt-0.5">0</div>
-        <span class="text-[10px] text-emerald-300/80">Available now</span>
+      <div class="wm-card p-2.5 sm:p-3 rounded-lg bg-emerald-50/70 border border-emerald-200">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">🟢 Live Active</span>
+        <div id="kpi-active-wishes" class="font-display text-xl font-bold text-emerald-700 mt-0.5 tabular-nums">0</div>
+        <span class="text-[10px] text-emerald-700">Active now</span>
       </div>
-      <div class="wm-card p-3.5 rounded-lg bg-slate-100 border border-slate-200 shadow-md">
+      <div class="wm-card p-2.5 sm:p-3 rounded-lg bg-slate-50 border border-slate-200">
         <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600">🟣 Upcoming</span>
-        <div id="kpi-upcoming-wishes" class="font-display text-2xl font-black text-slate-600 mt-0.5">0</div>
-        <span class="text-[10px] text-slate-600/80">Countdown phase</span>
+        <div id="kpi-upcoming-wishes" class="font-display text-xl font-bold text-slate-800 mt-0.5 tabular-nums">0</div>
+        <span class="text-[10px] text-slate-600">Scheduled</span>
       </div>
-      <div class="wm-card p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/30 shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">🔴 Expired</span>
-        <div id="kpi-expired-wishes" class="font-display text-2xl font-black text-rose-400 mt-0.5">0</div>
-        <span class="text-[10px] text-rose-300/80">Past 7d window</span>
+      <div class="wm-card p-2.5 sm:p-3 rounded-lg bg-rose-50/70 border border-rose-200">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-rose-700">🔴 Expired</span>
+        <div id="kpi-expired-wishes" class="font-display text-xl font-bold text-rose-700 mt-0.5 tabular-nums">0</div>
+        <span class="text-[10px] text-rose-700">Past 7d</span>
       </div>
-      <div class="wm-card p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/30 shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">👑 VIP Wishes</span>
-        <div id="kpi-vip-wishes" class="font-display text-2xl font-black text-amber-400 mt-0.5">0</div>
-        <span class="text-[10px] text-amber-300/80">Permanent pass</span>
+      <div class="wm-card p-2.5 sm:p-3 rounded-lg bg-amber-50/70 border border-amber-200">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800">👑 VIP Wishes</span>
+        <div id="kpi-vip-wishes" class="font-display text-xl font-bold text-amber-800 mt-0.5 tabular-nums">0</div>
+        <span class="text-[10px] text-amber-800">Permanent</span>
       </div>
-      <div class="wm-card p-3.5 rounded-lg bg-orange-500/10 border border-orange-500/30 shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-orange-400">⚠️ Flagged/Suspended</span>
-        <div id="kpi-flagged-wishes" class="font-display text-2xl font-black text-orange-400 mt-0.5">0</div>
-        <span class="text-[10px] text-orange-300/80">Moderation alert</span>
+      <div class="wm-card p-2.5 sm:p-3 rounded-lg bg-orange-50/70 border border-orange-200">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-orange-700">⚠️ Flagged</span>
+        <div id="kpi-flagged-wishes" class="font-display text-xl font-bold text-orange-700 mt-0.5 tabular-nums">0</div>
+        <span class="text-[10px] text-orange-700">Moderation</span>
       </div>
     </div>
 
@@ -559,7 +559,7 @@
             <h3 class="font-display text-xl font-extrabold text-on-surface">To: ${wish.recipientName || wish.recipient_name || 'Loved One'}</h3>
             <p class="text-xs text-on-surface-variant font-mono">Slug: /w/${wish.slug} • Template: ${wish.templateName || wish.template_name}</p>
           </div>
-          <a href="/w/${wish.slug || wish.id}" target="_blank" class="px-3 py-1.5 rounded-xl bg-primary-container text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-sm">
+          <a href="/w/${wish.slug || wish.id}" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm">
             <span>Live Experience</span>
             <span class="material-symbols-outlined text-[15px]">open_in_new</span>
           </a>

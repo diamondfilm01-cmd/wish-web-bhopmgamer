@@ -204,106 +204,42 @@
         </div>
       </div>
     </section>
-    <!-- 4 Bento Cards (Matched to 19728.png) -->
-    <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-sm flex-shrink-0">
-            <span class="material-symbols-outlined text-[23px]">category</span>
-          </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">Active Occasions</div>
-            <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="stat-active-occasions">0 Live</div>
-            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ 100% active on store</div>
-          </div>
+    <!-- Compact KPI Strip -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+          <span>Active Occasions</span>
+          <span class="material-symbols-outlined text-[16px] text-slate-400">category</span>
         </div>
-        <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_occ_1" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10 L98,46 L2,46 Z" fill="url(#spark_occ_1)"/>
-      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+        <div class="text-xl font-bold text-slate-900 tabular-nums" id="stat-active-occasions">0 Live</div>
+        <div class="text-[11px] font-medium text-emerald-700">Live on store</div>
       </div>
 
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-sm flex-shrink-0">
-            <span class="material-symbols-outlined text-[23px]">style</span>
-          </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">Total Templates</div>
-            <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="stat-total-templates">0</div>
-            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ Live blueprints</div>
-          </div>
+      <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+          <span>Total Templates</span>
+          <span class="material-symbols-outlined text-[16px] text-pink-600">style</span>
         </div>
-        <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_occ_2" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ec4899" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#ec4899" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10 L98,46 L2,46 Z" fill="url(#spark_occ_2)"/>
-      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10" fill="none" stroke="#ec4899" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+        <div class="text-xl font-bold text-slate-900 tabular-nums" id="stat-total-templates">0</div>
+        <div class="text-[11px] font-medium text-emerald-700">Live blueprints</div>
       </div>
 
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
-            <span class="material-symbols-outlined text-[23px]">cake</span>
-          </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">Top Volume</div>
-            <div class="text-[22px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="stat-top-occasion">Birthday</div>
-            <div class="text-[11px] font-bold text-amber-600 mt-1" id="stat-top-occasion-sub">0 Templates active</div>
-          </div>
+      <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+          <span>Top Volume</span>
+          <span class="material-symbols-outlined text-[16px] text-amber-600">cake</span>
         </div>
-        <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_occ_3" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9 L98,46 L2,46 Z" fill="url(#spark_occ_3)"/>
-      <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+        <div class="text-xl font-bold text-slate-900 truncate" id="stat-top-occasion">Birthday</div>
+        <div class="text-[11px] font-medium text-amber-700" id="stat-top-occasion-sub">0 Templates active</div>
       </div>
 
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
-          <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 flex-shrink-0">
-            <span class="material-symbols-outlined text-[23px]">trending_up</span>
-          </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d]">Occasions Telemetry</div>
-            <div class="text-[22px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="stat-total-shares">Real-time</div>
-            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ 100% synced</div>
-          </div>
+      <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+          <span>Telemetry</span>
+          <span class="material-symbols-outlined text-[16px] text-emerald-600">trending_up</span>
         </div>
-        <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_occ_4" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#10b981" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8 L98,46 L2,46 Z" fill="url(#spark_occ_4)"/>
-      <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+        <div class="text-xl font-bold text-slate-900" id="stat-total-shares">Real-time</div>
+        <div class="text-[11px] font-medium text-emerald-700">100% synced</div>
       </div>
     </div>
     <!-- Occasions Catalog Table (Part 10 Section 13) -->
@@ -355,7 +291,7 @@
         </div>
         <div class="flex items-center gap-2">
           <input id="new-tag-input" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. #HoliColors"/>
-          <button class="px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-bold hover:brightness-110" onclick="addNewTag()">+ Add Tag</button>
+          <button class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800" onclick="addNewTag()">+ Add Tag</button>
         </div>
       </div>
 

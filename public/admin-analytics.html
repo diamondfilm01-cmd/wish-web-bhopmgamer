@@ -217,95 +217,85 @@
       </div>
     </div>
 
-    <!-- Primary Executive KPI Bento Grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      <!-- Gross Captured Revenue -->
-      <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 flex flex-col justify-between shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Gross Revenue</span>
-        <div id="stat-gross-rev" class="font-display text-2xl font-black text-amber-300 mt-1">₹0</div>
-        <div id="stat-gross-comp" class="text-[10px] text-on-surface-variant mt-1 flex items-center gap-1">
+    <!-- Primary Executive KPI Strip -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div class="wm-card bg-white rounded-lg p-3 border border-slate-200 flex flex-col justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gross Revenue</span>
+        <div id="stat-gross-rev" class="font-display text-xl font-bold text-amber-700 mt-0.5 tabular-nums">₹0</div>
+        <div id="stat-gross-comp" class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
           <span>--</span>
         </div>
       </div>
 
-      <!-- Net Collected Revenue -->
-      <div class="bg-emerald-500/10 rounded-lg p-4 border border-emerald-500/30 flex flex-col justify-between shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Net Revenue</span>
-        <div id="stat-net-rev" class="font-display text-2xl font-black text-emerald-400 mt-1">₹0</div>
-        <div id="stat-net-comp" class="text-[10px] text-emerald-300/80 mt-1 flex items-center gap-1">
+      <div class="bg-emerald-50 rounded-lg p-3 border border-emerald-200 flex flex-col justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Net Revenue</span>
+        <div id="stat-net-rev" class="font-display text-xl font-bold text-emerald-700 mt-0.5 tabular-nums">₹0</div>
+        <div id="stat-net-comp" class="text-[10px] text-emerald-700 mt-0.5 flex items-center gap-1">
           <span>Minus refunds</span>
         </div>
       </div>
 
-      <!-- Paid Orders -->
-      <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 flex flex-col justify-between shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Paid Orders</span>
-        <div id="stat-paid-orders" class="font-display text-2xl font-black text-on-surface mt-1">0</div>
-        <div id="stat-paid-comp" class="text-[10px] text-on-surface-variant mt-1 flex items-center gap-1">
+      <div class="wm-card bg-white rounded-lg p-3 border border-slate-200 flex flex-col justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Paid Orders</span>
+        <div id="stat-paid-orders" class="font-display text-xl font-bold text-slate-900 mt-0.5 tabular-nums">0</div>
+        <div id="stat-paid-comp" class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
           <span>--</span>
         </div>
       </div>
 
-      <!-- Registered Users -->
-      <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 flex flex-col justify-between shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">New Creators</span>
-        <div id="stat-new-users" class="font-display text-2xl font-black text-on-surface mt-1">0</div>
-        <div id="stat-users-comp" class="text-[10px] text-on-surface-variant mt-1 flex items-center gap-1">
+      <div class="wm-card bg-white rounded-lg p-3 border border-slate-200 flex flex-col justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">New Creators</span>
+        <div id="stat-new-users" class="font-display text-xl font-bold text-slate-900 mt-0.5 tabular-nums">0</div>
+        <div id="stat-users-comp" class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
           <span>--</span>
         </div>
       </div>
 
-      <!-- Published Wishes -->
-      <div class="bg-slate-100 rounded-lg p-4 border border-slate-200 flex flex-col justify-between shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600">Wishes Published</span>
-        <div id="stat-published-wishes" class="font-display text-2xl font-black text-slate-600 mt-1">0</div>
-        <div id="stat-published-comp" class="text-[10px] text-slate-600/80 mt-1 flex items-center gap-1">
+      <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 flex flex-col justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600">Published</span>
+        <div id="stat-published-wishes" class="font-display text-xl font-bold text-slate-900 mt-0.5 tabular-nums">0</div>
+        <div id="stat-published-comp" class="text-[10px] text-slate-600 mt-0.5 flex items-center gap-1">
           <span>--</span>
         </div>
       </div>
 
-      <!-- Active / Live Wishes Snapshot -->
-      <div class="wm-card bg-surface-container rounded-lg p-4 border border-slate-200 flex flex-col justify-between shadow-md">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Active Now</span>
-        <div id="stat-active-wishes" class="font-display text-2xl font-black text-emerald-400 mt-1">0</div>
-        <div class="text-[10px] text-on-surface-variant mt-1">
-          <span id="stat-total-wishes">0</span> lifetime wishes
+      <div class="wm-card bg-white rounded-lg p-3 border border-slate-200 flex flex-col justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Now</span>
+        <div id="stat-active-wishes" class="font-display text-xl font-bold text-emerald-700 mt-0.5 tabular-nums">0</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">
+          <span id="stat-total-wishes">0</span> lifetime
         </div>
       </div>
     </div>
 
     <!-- Secondary Metrics Ribbon -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <!-- Average Order Value -->
-      <div class="p-4 rounded-lg bg-surface-container border border-slate-200 shadow-md">
-        <div class="text-xs font-bold text-outline">Average Order Value (AOV)</div>
-        <div id="stat-aov" class="font-display text-xl font-black text-on-surface mt-1">₹0</div>
-        <span class="text-[10px] text-on-surface-variant">Paid transactions</span>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div class="p-3 rounded-lg bg-white border border-slate-200">
+        <div class="text-[11px] font-bold text-slate-500">Avg Order Value</div>
+        <div id="stat-aov" class="font-display text-lg font-bold text-slate-900 mt-0.5 tabular-nums">₹0</div>
+        <span class="text-[10px] text-slate-500">Paid orders</span>
       </div>
 
-      <!-- Succeeded Refunds -->
-      <div class="p-4 rounded-lg bg-surface-container border border-slate-200 shadow-md">
-        <div class="text-xs font-bold text-outline">Refunds Processed</div>
-        <div id="stat-refunds" class="font-display text-xl font-black text-rose-400 mt-1">₹0</div>
-        <span class="text-[10px] text-rose-400/80" id="stat-refunds-count">0 refunds</span>
+      <div class="p-3 rounded-lg bg-white border border-slate-200">
+        <div class="text-[11px] font-bold text-slate-500">Refunds</div>
+        <div id="stat-refunds" class="font-display text-lg font-bold text-rose-700 mt-0.5 tabular-nums">₹0</div>
+        <span class="text-[10px] text-rose-700" id="stat-refunds-count">0 refunds</span>
       </div>
 
-      <!-- Funnel Conversion Rate -->
-      <div class="p-4 rounded-lg bg-surface-container border border-slate-200 shadow-md">
-        <div class="text-xs font-bold text-outline">Funnel Conversion Rate</div>
-        <div id="stat-funnel-conv" class="font-display text-xl font-black text-slate-600 mt-1">0.0%</div>
-        <span class="text-[10px] text-on-surface-variant">View to Publish</span>
+      <div class="p-3 rounded-lg bg-white border border-slate-200">
+        <div class="text-[11px] font-bold text-slate-500">Conversion</div>
+        <div id="stat-funnel-conv" class="font-display text-lg font-bold text-slate-900 mt-0.5 tabular-nums">0.0%</div>
+        <span class="text-[10px] text-slate-500">View to Publish</span>
       </div>
 
-      <!-- Lifecycle Distribution -->
-      <div class="p-4 rounded-lg bg-surface-container border border-slate-200 shadow-md">
-        <div class="text-xs font-bold text-outline">Lifecycle Breakdown</div>
-        <div class="text-xs text-on-surface mt-1.5 flex flex-wrap items-center justify-between gap-1">
-          <span class="text-emerald-400 font-bold" id="dist-active">0 Active</span>
-          <span class="text-slate-600 font-bold" id="dist-upcoming">0 Upcoming</span>
-          <span class="text-rose-400 font-bold" id="dist-expired">0 Expired</span>
+      <div class="p-3 rounded-lg bg-white border border-slate-200">
+        <div class="text-[11px] font-bold text-slate-500">Lifecycle</div>
+        <div class="text-[11px] text-slate-800 mt-1 flex flex-wrap items-center justify-between gap-1">
+          <span class="text-emerald-700 font-bold" id="dist-active">0 Active</span>
+          <span class="text-slate-700 font-bold" id="dist-upcoming">0 Upcoming</span>
+          <span class="text-rose-700 font-bold" id="dist-expired">0 Expired</span>
         </div>
-        <span class="text-[10px] text-on-surface-variant mt-1 block" id="dist-drafts">0 Drafts in progress</span>
+        <span class="text-[10px] text-slate-500 mt-0.5 block" id="dist-drafts">0 Drafts</span>
       </div>
     </div>
 

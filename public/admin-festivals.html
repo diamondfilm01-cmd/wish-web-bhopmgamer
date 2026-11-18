@@ -219,40 +219,40 @@
     </div>
 
     <!-- Live KPI Summary & Main Website Impact Bar -->
-    <div class="px-4 sm:px-8 pt-4 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
-      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-outline-variant/30 flex items-center justify-between">
+    <div class="px-4 sm:px-8 pt-3 grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+      <div class="p-3 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
         <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">Total Festivals</span>
-          <span id="kpi-total-festivals" class="text-xl font-extrabold text-on-surface mt-0.5 block">11</span>
+          <span class="text-[11px] font-semibold text-slate-500 block">Total Festivals</span>
+          <span id="kpi-total-festivals" class="text-lg font-extrabold text-slate-900 mt-0.5 block">11</span>
         </div>
-        <span class="material-symbols-outlined text-slate-600 text-[26px]">calendar_month</span>
+        <span class="material-symbols-outlined text-slate-600 text-[22px]">calendar_month</span>
       </div>
-      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-emerald-500/30 flex items-center justify-between">
+      <div class="p-3 rounded-lg bg-white border border-emerald-200 flex items-center justify-between">
         <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">Live on Main Website</span>
-          <span id="kpi-active-campaigns" class="text-xl font-extrabold text-emerald-400 mt-0.5 block">0 Active</span>
+          <span class="text-[11px] font-semibold text-emerald-700 block">Live on Website</span>
+          <span id="kpi-active-campaigns" class="text-lg font-extrabold text-emerald-700 mt-0.5 block">0 Active</span>
         </div>
-        <span class="material-symbols-outlined text-emerald-400 text-[26px]">campaign</span>
+        <span class="material-symbols-outlined text-emerald-700 text-[22px]">campaign</span>
       </div>
-      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-amber-500/30 flex items-center justify-between">
+      <div class="p-3 rounded-lg bg-white border border-amber-200 flex items-center justify-between">
         <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Open Windows Now</span>
-          <span id="kpi-open-windows" class="text-xl font-extrabold text-amber-400 mt-0.5 block">0 Open</span>
+          <span class="text-[11px] font-semibold text-amber-800 block">Open Windows</span>
+          <span id="kpi-open-windows" class="text-lg font-extrabold text-amber-800 mt-0.5 block">0 Open</span>
         </div>
-        <span class="material-symbols-outlined text-amber-400 text-[26px]">event_available</span>
+        <span class="material-symbols-outlined text-amber-700 text-[22px]">event_available</span>
       </div>
-      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-slate-200 flex items-center justify-between">
+      <div class="p-3 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
         <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">Assigned Templates</span>
-          <span id="kpi-assigned-templates" class="text-xl font-extrabold text-slate-600 mt-0.5 block">0 Linked</span>
+          <span class="text-[11px] font-semibold text-slate-600 block">Linked Templates</span>
+          <span id="kpi-assigned-templates" class="text-lg font-extrabold text-slate-900 mt-0.5 block">0 Linked</span>
         </div>
-        <span class="material-symbols-outlined text-slate-600 text-[26px]">style</span>
+        <span class="material-symbols-outlined text-slate-600 text-[22px]">style</span>
       </div>
-      <div class="p-3.5 rounded-lg bg-surface-container/70 border border-outline-variant/30 flex flex-col justify-between gap-1.5">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">Main Website Theme Sync</span>
+      <div class="p-3 rounded-lg bg-white border border-slate-200 flex flex-col justify-between gap-1.5">
+        <span class="text-[11px] font-semibold text-slate-600 block">Website Theme Sync</span>
         <div class="flex items-center gap-1.5">
-          <button type="button" onclick="applyStorefrontFestivalTheme('diwali')" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/35 text-[11px] font-extrabold cursor-pointer transition">🪔 Diwali Theme</button>
-          <button type="button" onclick="applyStorefrontFestivalTheme('default')" class="flex-1 py-1.5 px-2 rounded-lg bg-surface hover:bg-slate-100 text-on-surface border border-outline-variant/40 text-[11px] font-bold cursor-pointer transition">☁️ Default</button>
+          <button type="button" onclick="applyStorefrontFestivalTheme('diwali')" class="flex-1 py-1 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold cursor-pointer transition">🪔 Diwali Theme</button>
+          <button type="button" onclick="applyStorefrontFestivalTheme('default')" class="flex-1 py-1 px-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 text-[11px] font-bold cursor-pointer transition">☁️ Default</button>
         </div>
       </div>
     </div>
@@ -1206,7 +1206,7 @@
           <div class="font-bold text-on-surface">${escapeSafe(a.template_id)}</div>
           <div class="text-[11px] text-on-surface-variant">Order: #${escapeSafe(a.display_order)} • Allowed Variants: ${a.allowedVariants && a.allowedVariants.length > 0 ? escapeSafe(a.allowedVariants.join(', ')) : 'All Enabled Variants'}</div>
         </div>
-        <button type="button" onclick="removeAssignedTemplate('${escapeSafe(camp.id)}', '${escapeSafe(a.template_id)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 font-bold cursor-pointer">Remove</button>
+        <button type="button" onclick="removeAssignedTemplate('${escapeSafe(camp.id)}', '${escapeSafe(a.template_id)}')" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 font-bold cursor-pointer">Remove</button>
       </div>
     `).join('');
   }
@@ -1222,19 +1222,19 @@
       const wp = f.windowPreview || {};
       const camp = schedulerState.campaigns.find(c => c.festivalId === f.id && Number(c.applicableYear) === Number(schedulerState.selectedYear));
       return `
-        <div class="p-5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 space-y-2.5 text-xs flex flex-col justify-between">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="font-extrabold text-sm text-on-surface">${escapeSafe(f.name)}</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${camp && camp.eligible ? 'bg-emerald-500/20 text-emerald-300' : (dr.isConfirmed ? 'bg-slate-100 text-slate-600' : 'bg-amber-500/20 text-amber-300')}">${camp && camp.eligible ? '🟢 LIVE ON WEBSITE' : escapeSafe(dr.verificationStatus)}</span>
+        <div class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2 text-xs flex flex-col justify-between">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold text-sm text-slate-900">${escapeSafe(f.name)}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${camp && camp.eligible ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : (dr.isConfirmed ? 'bg-slate-100 text-slate-700' : 'bg-amber-50 text-amber-800 border border-amber-200')}">${camp && camp.eligible ? '🟢 LIVE ON WEBSITE' : escapeSafe(dr.verificationStatus)}</span>
             </div>
-            <div class="font-mono text-amber-300 font-bold">Effective Festival Date: ${escapeSafe(dr.effectiveDate || 'Unconfirmed')}</div>
-            <div class="text-on-surface-variant font-mono">Window: ${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)} (Inclusive)` : 'Pending confirmation'}</div>
-            <div class="text-rose-300 font-mono text-[11px]">Blocked From: ${wp.valid ? escapeSafe(wp.firstBlockedDate) : '—'} (${escapeSafe(f.defaultTimezone)})</div>
+            <div class="font-mono text-amber-800 font-bold">Date: ${escapeSafe(dr.effectiveDate || 'Unconfirmed')}</div>
+            <div class="text-slate-600 font-mono">Window: ${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)}` : 'Pending confirmation'}</div>
+            <div class="text-rose-700 font-mono text-[11px]">Blocked From: ${wp.valid ? escapeSafe(wp.firstBlockedDate) : '—'} (${escapeSafe(f.defaultTimezone)})</div>
           </div>
-          <div class="pt-2 border-t border-outline-variant/20 flex items-center gap-2">
-            <button type="button" onclick="quickLaunchFestivalOnWebsite('${escapeSafe(f.id)}', false)" class="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold cursor-pointer text-center">🚀 Launch on Website</button>
-            <button type="button" onclick="openOverrideForFestival('${escapeSafe(f.id)}')" class="py-2 px-3 rounded-xl bg-surface hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold cursor-pointer">Override</button>
+          <div class="pt-2 border-t border-slate-200 flex items-center gap-2">
+            <button type="button" onclick="quickLaunchFestivalOnWebsite('${escapeSafe(f.id)}', false)" class="flex-1 py-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer text-center">🚀 Launch</button>
+            <button type="button" onclick="openOverrideForFestival('${escapeSafe(f.id)}')" class="py-1.5 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold cursor-pointer">Override</button>
           </div>
         </div>
       `;
@@ -1270,21 +1270,21 @@
         card.innerHTML = `
           <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Date Source</div><div class="font-bold text-xs mt-1">${escapeSafe(p.dateSource)}</div></div>
           <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Original Resolved Date</div><div class="font-mono font-bold text-xs mt-1">${escapeSafe(p.originalResolvedDate || '—')}</div></div>
-          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Effective Date</div><div class="font-mono font-bold text-amber-300 text-xs mt-1">${escapeSafe(p.effectiveDate || 'Unconfirmed')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Effective Date</div><div class="font-mono font-bold text-amber-800 text-xs mt-1">${escapeSafe(p.effectiveDate || 'Unconfirmed')}</div></div>
           <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Override Status</div><div class="font-bold text-xs mt-1">${escapeSafe(p.overrideStatus)}</div></div>
-          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Start of Campaign Window</div><div class="font-mono font-bold text-emerald-300 text-xs mt-1">${escapeSafe(p.windowStartDate || '—')}</div></div>
-          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Inclusive Final Day</div><div class="font-mono font-bold text-emerald-300 text-xs mt-1">${escapeSafe(p.inclusiveFinalDay || '—')}</div></div>
-          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">First Blocked Day</div><div class="font-mono font-bold text-rose-300 text-xs mt-1">${escapeSafe(p.firstBlockedDate || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Start of Campaign Window</div><div class="font-mono font-bold text-emerald-700 text-xs mt-1">${escapeSafe(p.windowStartDate || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Inclusive Final Day</div><div class="font-mono font-bold text-emerald-700 text-xs mt-1">${escapeSafe(p.inclusiveFinalDay || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">First Blocked Day</div><div class="font-mono font-bold text-rose-700 text-xs mt-1">${escapeSafe(p.firstBlockedDate || '—')}</div></div>
           <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Assigned Templates</div><div class="font-bold text-xs mt-1">${escapeSafe(p.assignedTemplatesCount)}</div></div>
           <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Campaign Status</div><div class="font-bold text-xs mt-1">${escapeSafe(p.campaignStatus)}</div></div>
-          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Simulated Eligibility</div><div class="font-bold text-xs mt-1 ${p.simulatedAtState?.inWindow ? 'text-emerald-300' : 'text-rose-300'}">${escapeSafe(p.simulatedAtState?.phase || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Simulated Eligibility</div><div class="font-bold text-xs mt-1 ${p.simulatedAtState?.inWindow ? 'text-emerald-700' : 'text-rose-700'}">${escapeSafe(p.simulatedAtState?.phase || '—')}</div></div>
         `;
       }
 
       const warnBox = document.getElementById('diagnostics-warnings-box');
       if (warnBox) {
         warnBox.innerHTML = (p.warnings || []).map(w =>
-          `<div class="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200">⚠️ ${escapeSafe(w)}</div>`
+          `<div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">⚠️ ${escapeSafe(w)}</div>`
         ).join('');
       }
     } catch (_) {}

@@ -1339,7 +1339,7 @@ function renderDetectedFieldsBadges() {
     }
 
     const unboundBadge = field.boundInHtml === false
-      ? "<span class=\"px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-200 text-[9px] font-bold\" title=\"Declared in wishmagic.json but no matching HTML binding found\">⚠️ Unbound</span>"
+      ? "<span class=\"px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 text-[9px] font-bold\" title=\"Declared in wishmagic.json but no matching HTML binding found\">⚠️ Unbound</span>"
       : "";
 
     const pill = document.createElement("div");
@@ -1348,9 +1348,9 @@ function renderDetectedFieldsBadges() {
       "<span class=\"material-symbols-outlined text-[15px]\">" + icon + "</span>" +
       "<span>" + field.label + "</span>" +
       "<span class=\"text-[10px] opacity-75 font-mono\">(" + field.key + ")</span>" +
-      "<span class=\"px-1.5 py-0.2 rounded bg-black/30 text-[9px] font-mono uppercase\">" + routeHint + "</span>" +
+      "<span class=\"px-1.5 py-0.2 rounded bg-slate-200 text-slate-800 text-[9px] font-mono uppercase\">" + routeHint + "</span>" +
       unboundBadge +
-      "<button type=\"button\" onclick=\"removeDetectedFieldSlot(" + idx + ")\" class=\"ml-1 text-white/60 hover:text-rose-300 text-[11px] font-bold cursor-pointer\" title=\"Move to unconfirmed suggestions\">✕</button>";
+      "<button type=\"button\" onclick=\"removeDetectedFieldSlot(" + idx + ")\" class=\"ml-1 text-slate-600 hover:text-rose-700 text-[11px] font-bold cursor-pointer\" title=\"Move to unconfirmed suggestions\">✕</button>";
     container.appendChild(pill);
   });
 
@@ -2383,14 +2383,14 @@ async function deployUploadedTemplate(publishImmediately = true) {
       if (linksBox) {
         linksBox.classList.remove("hidden");
         linksBox.innerHTML =
-          "<div class=\"text-xs font-bold text-emerald-400 mb-1.5\">✅ " +
-            (shouldPublish ? "Deployed to Cloud (ImgBB + Backblaze B2 + Cloudflare D1) & Published to Main Website!" : "Staged as Draft in Cloud (ImgBB + Backblaze B2 + D1) — Ready for Preview!") +
+          "<div class=\"text-xs font-bold text-emerald-700 mb-1.5\">✅ " +
+            (shouldPublish ? "Deployed & Published!" : "Staged as Draft!") +
           "</div>" +
           "<div class=\"flex flex-wrap gap-2 text-[11px]\">" +
-            (previewUrl ? "<a href=\"" + previewUrl + "\" target=\"_blank\" class=\"px-2.5 py-1 rounded-lg bg-primary-container text-white font-bold hover:opacity-90\">🔗 Open Live B2 Runtime Preview</a>" : "") +
-            (tplId ? "<a href=\"/customize.html?template=" + encodeURIComponent(tplId) + "\" target=\"_blank\" class=\"px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold hover:opacity-90\">✨ Open Auto-Generated Customizer</a>" : "") +
-            imgbbImages.map(img => "<a href=\"" + (img.displayUrl || img.originalUrl) + "\" target=\"_blank\" class=\"px-2 py-1 rounded-lg bg-pink-500/20 border border-pink-500/40 text-pink-200 font-mono\">🖼️ " + (img.filename || img.assetKey) + " (ImgBB)</a>").join("") +
-            b2MediaAssets.map(m => "<a href=\"" + m.streamUrl + "\" target=\"_blank\" class=\"px-2 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 font-mono\">🎵 " + m.filename + " (B2)</a>").join("") +
+            (previewUrl ? "<a href=\"" + previewUrl + "\" target=\"_blank\" class=\"px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold hover:opacity-90\">🔗 Live Runtime Preview</a>" : "") +
+            (tplId ? "<a href=\"/customize.html?template=" + encodeURIComponent(tplId) + "\" target=\"_blank\" class=\"px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold hover:opacity-90\">✨ Open Customizer</a>" : "") +
+            imgbbImages.map(img => "<a href=\"" + (img.displayUrl || img.originalUrl) + "\" target=\"_blank\" class=\"px-2 py-1 rounded-lg bg-pink-50 border border-pink-200 text-pink-800 font-mono\">🖼️ " + (img.filename || img.assetKey) + "</a>").join("") +
+            b2MediaAssets.map(m => "<a href=\"" + m.streamUrl + "\" target=\"_blank\" class=\"px-2 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-mono\">🎵 " + m.filename + "</a>").join("") +
           "</div>";
       }
 
@@ -2510,13 +2510,13 @@ window.setTemplateViewMode = function(mode) {
   if (mode === 'table') {
     if (gridSection) gridSection.classList.add('hidden');
     if (tableSection) tableSection.classList.remove('hidden');
-    if (btnGrid) btnGrid.className = 'p-1.5 rounded text-outline hover:text-on-surface transition-colors flex items-center justify-center cursor-pointer';
-    if (btnTable) btnTable.className = 'p-1.5 rounded bg-primary-container text-white shadow-sm flex items-center justify-center cursor-pointer';
+    if (btnGrid) btnGrid.className = 'p-1.5 rounded text-slate-600 hover:text-slate-900 transition-colors flex items-center justify-center cursor-pointer';
+    if (btnTable) btnTable.className = 'p-1.5 rounded bg-slate-900 text-white shadow-sm flex items-center justify-center cursor-pointer';
   } else {
     if (gridSection) gridSection.classList.remove('hidden');
     if (tableSection) tableSection.classList.add('hidden');
-    if (btnGrid) btnGrid.className = 'p-1.5 rounded bg-primary-container text-white shadow-sm flex items-center justify-center cursor-pointer';
-    if (btnTable) btnTable.className = 'p-1.5 rounded text-outline hover:text-on-surface transition-colors flex items-center justify-center cursor-pointer';
+    if (btnGrid) btnGrid.className = 'p-1.5 rounded bg-slate-900 text-white shadow-sm flex items-center justify-center cursor-pointer';
+    if (btnTable) btnTable.className = 'p-1.5 rounded text-slate-600 hover:text-slate-900 transition-colors flex items-center justify-center cursor-pointer';
   }
   applyFiltersAndRender();
 };
@@ -2535,7 +2535,7 @@ function updateFilterButtonsUI() {
     const btn = document.getElementById(btnId);
     if (!btn) return;
     if (activeAdminFilter === key) {
-      btn.className = 'px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-primary-container text-white font-bold shadow-md cursor-pointer';
+      btn.className = 'px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-slate-900 text-white font-bold shadow-sm cursor-pointer';
     } else {
       btn.className = 'px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer';
     }
@@ -2781,7 +2781,7 @@ function renderTemplatesGrid(templates) {
     const isPub = tpl.status === 'published' || (tpl.isPublished !== false && tpl.status !== 'draft');
     const priceText = isVip ? `₹${tpl.price || 49}` : '₹0';
     const tierBadge = isVip ? 'VIP PASS' : 'FREE TIER';
-    const tierClass = isVip ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-purple-950 font-black' : 'bg-primary-container text-white';
+    const tierClass = isVip ? 'bg-amber-400 text-slate-950 font-black' : 'bg-slate-900 text-white';
     const relsText = Array.isArray(tpl.relationships) && tpl.relationships.length > 0 ? tpl.relationships.slice(0, 3).join(', ') : 'All Celebrants';
 
     card.innerHTML = `

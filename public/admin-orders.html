@@ -207,95 +207,45 @@
         </div>
       </div>
     </section>
-    <!-- Analytics KPI Ribbon -->
-<div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-space-md">
-<!-- KPI 1: Generated Wishes -->
-<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70  p-space-md shadow-md flex flex-col justify-between">
-<div class="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none"></div>
-<div class="flex items-start justify-between">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">Total Generated Wishes</span>
-<div class="flex items-baseline gap-2 mt-1">
-<span class="font-headline-lg text-headline-lg font-extrabold text-on-surface" id="stat-total-wishes">0</span>
-<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm font-semibold">
-<span class="material-symbols-outlined text-[12px]">auto_awesome</span>Live
-</span>
+    <!-- Compact Analytics KPI Strip -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+<div class="wm-card rounded-lg bg-white p-3 border border-slate-200 flex flex-col justify-between gap-0.5">
+<div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+<span>Total Wishes</span>
+<span class="material-symbols-outlined text-[16px] text-blue-600">auto_awesome</span>
 </div>
+<div class="text-xl font-bold text-slate-900 tabular-nums" id="stat-total-wishes">0</div>
+<div class="text-[11px] text-slate-500" id="stat-free-vip-split"><span>0 Free</span> • <span>0 VIP</span></div>
 </div>
-<div class="w-10 h-10 rounded-lg bg-primary-container/20 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-[22px]">auto_awesome</span>
+
+<div class="wm-card rounded-lg bg-white p-3 border border-slate-200 flex flex-col justify-between gap-0.5">
+<div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+<span>VIP Revenue</span>
+<span class="material-symbols-outlined text-[16px] text-slate-600">account_balance_wallet</span>
 </div>
+<div class="flex items-baseline gap-1.5">
+<span class="text-xl font-bold text-slate-900 tabular-nums" id="stat-vip-revenue">₹0</span>
+<span class="text-[10px] font-semibold text-slate-600" id="stat-vip-orders-count">0 Orders</span>
 </div>
-<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span class="flex items-center gap-1.5" id="stat-free-vip-split"><span>0 Free</span> • <span>0 VIP Passes</span></span>
+<div class="text-[11px] text-emerald-700 font-medium">UPI Verified</div>
 </div>
+
+<div class="wm-card rounded-lg bg-white p-3 border border-slate-200 flex flex-col justify-between gap-0.5">
+<div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+<span>Active Links</span>
+<span class="material-symbols-outlined text-[16px] text-emerald-600">celebration</span>
 </div>
-<!-- KPI 2: VIP Revenue -->
-<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70  p-space-md shadow-md flex flex-col justify-between">
-<div class="absolute top-0 right-0 w-24 h-24 bg-secondary/15 rounded-full blur-2xl pointer-events-none"></div>
-<div class="flex items-start justify-between">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">VIP Pass Revenue (₹49)</span>
-<div class="flex items-baseline gap-2 mt-1">
-<span class="font-headline-lg text-headline-lg font-extrabold text-secondary" id="stat-vip-revenue">₹0</span>
-<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-label-sm text-label-sm font-semibold" id="stat-vip-orders-count">
-0 Orders
-</span>
+<div class="text-xl font-bold text-emerald-700 tabular-nums" id="stat-live-links">0</div>
+<div class="text-[11px] text-slate-500">Future: <strong class="text-slate-800" id="stat-future-links">0</strong> • Exp: <strong class="text-rose-700" id="stat-expired-links">0</strong></div>
 </div>
+
+<div class="wm-card rounded-lg bg-white p-3 border border-emerald-200 flex flex-col justify-between gap-0.5">
+<div class="flex items-center justify-between text-[11px] font-semibold text-emerald-700">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>Live Visitors</span>
+<span class="material-symbols-outlined text-[16px] text-emerald-600">group</span>
 </div>
-<div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center text-secondary">
-<span class="material-symbols-outlined text-[22px]">account_balance_wallet</span>
-</div>
-</div>
-<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span>Instant UPI / PhonePe Verified</span>
-<span class="text-outline">•</span>
-<span class="text-tertiary">100% Direct</span>
-</div>
-</div>
-<!-- KPI 3: Link Lifecycle Classification -->
-<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70  p-space-md shadow-md flex flex-col justify-between">
-<div class="absolute top-0 right-0 w-24 h-24 bg-tertiary/15 rounded-full blur-2xl pointer-events-none"></div>
-<div class="flex items-start justify-between">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">Link Lifecycle Status</span>
-<div class="flex items-baseline gap-2 mt-1">
-<span class="font-headline-lg text-headline-lg font-extrabold text-emerald-400" id="stat-live-links">0</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Active Now</span>
-</div>
-</div>
-<div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-<span class="material-symbols-outlined text-[22px]">celebration</span>
-</div>
-</div>
-<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span>Future: <strong class="text-slate-600 font-bold" id="stat-future-links">0</strong></span>
-<span class="text-outline">•</span>
-<span>Expired: <strong class="text-rose-400 font-bold" id="stat-expired-links">0</strong></span>
-</div>
-</div>
-<!-- KPI 4: Real-time Live Online Visitors -->
-<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70  p-space-md shadow-md flex flex-col justify-between border border-emerald-500/30">
-<div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-<div class="flex items-start justify-between">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md uppercase text-emerald-400 font-bold tracking-wider flex items-center gap-1.5">
-<span class="w-2 h-2 rounded-full bg-emerald-400 "></span> Live Online Visitors
-</span>
-<div class="flex items-baseline gap-2 mt-1">
-<span class="font-headline-lg text-headline-lg font-extrabold text-emerald-300" id="stat-live-views">0</span>
-<span class="font-body-sm text-body-sm text-emerald-400 font-medium">browsing site now</span>
-</div>
-</div>
-<div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-300">
-<span class="material-symbols-outlined text-[22px]">group</span>
-</div>
-</div>
-<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span class="text-emerald-400 font-semibold">100% Real-Time Heartbeat</span>
-<span class="text-outline">•</span>
-<span class="text-on-surface-variant">Instant Node Sync</span>
-</div>
+<div class="text-xl font-bold text-emerald-700 tabular-nums" id="stat-live-views">0</div>
+<div class="text-[11px] text-slate-500">Online now</div>
 </div>
 </div>
 <!-- Main Multi-Column Console Area -->
@@ -357,10 +307,8 @@
 </thead>
 <tbody id="orders-table-body" class="text-on-surface divide-none">
     <tr>
-      <td colspan="8" class="text-center py-16 text-on-surface-variant text-xs">
-        <span class="material-symbols-outlined text-4xl text-outline mb-2 block">receipt_long</span>
-        <p class="font-bold text-sm text-on-surface mb-1">Loading Wishes &amp; Orders...</p>
-        <span class="text-outline">Connecting to real-time telemetry node...</span>
+      <td colspan="8" class="text-center py-6 text-slate-500 text-xs">
+        <p class="font-semibold text-sm text-slate-800">Loading Wishes &amp; Orders...</p>
       </td>
     </tr>
   </tbody>
@@ -441,17 +389,15 @@
 </div>
 </div>
 <!-- Quick VIP Revenue Target Card -->
-<div class="rounded-xl bg-slate-900 p-space-md  shadow-md flex flex-col gap-2">
+<div class="wm-card rounded-lg bg-white border border-slate-200 p-3 flex flex-col gap-2">
 <div class="flex items-center justify-between">
-<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary">Current VIP Revenue</span>
-<span class="font-label-sm text-label-sm font-bold text-secondary" id="vip-goal-pct">₹0</span>
+<span class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Current VIP Revenue</span>
+<span class="text-xs font-bold text-slate-900" id="vip-goal-pct">₹0</span>
 </div>
-<div class="w-full bg-surface-container-lowest rounded-full h-2">
-<div class="bg-slate-900 h-2 rounded-full" id="vip-goal-bar" style="width: 4%;"></div>
+<div class="w-full bg-slate-200 rounded-full h-2">
+<div class="bg-blue-600 h-2 rounded-full" id="vip-goal-bar" style="width: 4%;"></div>
 </div>
-<span class="text-on-surface-variant font-body-sm text-body-sm" id="vip-goal-text">
-  Direct customer payments for ₹49 premium template unlocks.
-</span>
+<span class="text-slate-500 text-xs" id="vip-goal-text">Direct VIP pass payments.</span>
 </div>
 </div>
 </div>
@@ -843,10 +789,10 @@
                 <a href="/w/${w.id}?preview=true" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-all inline-flex items-center gap-1" title="Creator Preview Mode (Simulate States)">
                   <span>Preview</span>
                 </a>
-                <a href="/customize.html?clone=${w.id}" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-900 text-slate-600 font-label-sm text-label-sm transition-all inline-flex items-center gap-1" title="Create Again (Clones into a New Draft Wish)">
+                <a href="/customize.html?clone=${w.id}" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-label-sm text-label-sm transition-all inline-flex items-center gap-1" title="Create Again (Clones into a New Draft Wish)">
                   <span>Create Again</span>
                 </a>
-                <button onclick="deleteWishRecord('${w.id}')" class="p-1.5 rounded-lg bg-surface-container-low hover:bg-rose-500/20 text-outline hover:text-rose-300 transition-all" title="Delete Wish Record">
+                <button onclick="deleteWishRecord('${w.id}')" class="p-1.5 rounded-lg bg-surface-container-low hover:bg-rose-50 text-slate-600 hover:text-rose-700 transition-all" title="Delete Wish Record">
                   <span class="material-symbols-outlined text-[15px]">delete</span>
                 </button>
               </div>

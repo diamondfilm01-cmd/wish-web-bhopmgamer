@@ -193,89 +193,89 @@
 <div class="relative w-full overflow-hidden">
 <div class="px-0 py-1 flex flex-col gap-4 sm:gap-5 w-full">
 <section class="wm-page-head block">
-      <div class="relative z-10 flex flex-col items-start max-w-2xl">
-        <h1 class="wm-page-title">
-          <span>Templates</span> <span >Library</span> <span >&amp; Upload Studio</span>
-        </h1>
-        <p class="wm-page-subtitle">Upload ZIP/folder, preview &amp; publish templates.</p>
-        <div class="flex flex-wrap items-center gap-3">
+      <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full">
+        <div>
+          <h1 class="wm-page-title">Templates Library</h1>
+          <p class="wm-page-subtitle">Upload ZIP/folder, preview &amp; publish.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
           <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-primary">
-            <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
-            <span>+ Add New Template (Full Studio)</span>
+            <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+            <span>+ Add Template</span>
           </a>
           <button type="button" onclick="openSmartImportStudio(null)" class="wm-btn-secondary">
-            <span class="material-symbols-outlined text-[18px]">folder_zip</span>
-            <span>Upload / Update Template ZIP (Smart Studio)</span>
+            <span class="material-symbols-outlined text-[16px]">folder_zip</span>
+            <span>Import ZIP</span>
           </button>
-          <button type="button" onclick="toggleWebsiteBrandingFooterStudio()" class="wm-btn-secondary border-amber-400/40 text-amber-200">
-            <span class="material-symbols-outlined text-[18px]">verified</span>
-            <span>🏷️ Brand Footer Studio (UTP v1.4.0)</span>
+          <button type="button" onclick="toggleWebsiteBrandingFooterStudio()" class="wm-btn-secondary border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100">
+            <span class="material-symbols-outlined text-[16px]">verified</span>
+            <span>Brand Footer</span>
           </button>
           <a href="/" target="_blank" class="wm-btn-secondary">
-            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
-            <span>View Live Storefront</span>
+            <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+            <span>Storefront</span>
           </a>
         </div>
       </div>
     </section>
         <!-- Dedicated UTP v1.4.0 Website Branding & Template Footer Studio Section -->
-    <section id="website-branding-footer-studio-section" class="wm-card hidden p-5 sm:p-6 mb-4 border border-amber-500/40 bg-surface-container-low rounded-lg">
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-slate-950 font-black shadow-lg">
-              <span class="material-symbols-outlined text-[22px]">verified</span>
+    <section id="website-branding-footer-studio-section" class="wm-card hidden p-4 mb-3 border border-amber-300 bg-white rounded-lg">
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold">
+              <span class="material-symbols-outlined text-[18px]">verified</span>
             </div>
             <div>
-              <h3 class="text-sm font-extrabold text-on-surface">Footer Branding (UTP v1.4.0)</h3>
-              <p class="text-xs text-on-surface-variant">Set footer brand name &amp; CTA text.</p>
+              <h3 class="text-sm font-bold text-slate-900">Footer Branding (UTP v1.4.0)</h3>
+              <p class="text-xs text-slate-500">Set footer brand name &amp; CTA text.</p>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/35 text-xs font-bold text-emerald-300 cursor-pointer">
-              <input type="checkbox" id="global-bf-enabled" checked class="rounded text-emerald-500" />
-              <span>Attach &amp; Show on Uploaded Templates</span>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 cursor-pointer">
+              <input type="checkbox" id="global-bf-enabled" checked class="rounded text-emerald-600" />
+              <span>Attach on Upload</span>
             </label>
-            <button type="button" onclick="saveGlobalBrandingFooterStudio()" class="px-4 py-2 rounded-xl bg-slate-900 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md hover:brightness-110">
-              💾 Save Website Footer Text
+            <button type="button" onclick="saveGlobalBrandingFooterStudio()" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-semibold text-xs cursor-pointer hover:bg-slate-800">
+              Save Footer Text
             </button>
-            <button type="button" onclick="toggleWebsiteBrandingFooterStudio()" class="p-2 rounded-lg text-outline hover:text-on-surface">
-              <span class="material-symbols-outlined text-[20px]">close</span>
+            <button type="button" onclick="toggleWebsiteBrandingFooterStudio()" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900">
+              <span class="material-symbols-outlined text-[18px]">close</span>
             </button>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
           <div class="flex flex-col gap-1">
-            <label class="font-bold text-amber-200">Website / Brand Name</label>
+            <label class="font-bold text-slate-800">Website / Brand Name</label>
             <input id="global-bf-website-name" type="text" value="WishMagic" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface font-bold" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="font-bold text-amber-200">Brand Icon / Emoji</label>
+            <label class="font-bold text-slate-800">Brand Icon / Emoji</label>
             <input id="global-bf-icon" type="text" value="✨" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="font-bold text-amber-200">Top Badge Text</label>
+            <label class="font-bold text-slate-800">Top Badge Text</label>
             <input id="global-bf-badge" type="text" value="✨ Official WishMagic Celebration Experience" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface" />
           </div>
           <div class="flex flex-col gap-1 md:col-span-2">
-            <label class="font-bold text-amber-200">Main Tagline</label>
+            <label class="font-bold text-slate-800">Main Tagline</label>
             <input id="global-bf-tagline" type="text" value="Crafted with Love on WishMagic — Interactive 3D Celebration Studio" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="font-bold text-amber-200">Copyright / Bottom Line</label>
+            <label class="font-bold text-slate-800">Copyright / Bottom Line</label>
             <input id="global-bf-copyright" type="text" value="© 2026 WishMagic • All Rights Reserved" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface" />
           </div>
           <div class="flex flex-col gap-1 md:col-span-3">
-            <label class="font-bold text-amber-200">Extra Description / Details Text</label>
+            <label class="font-bold text-slate-800">Extra Description / Details Text</label>
             <input id="global-bf-details" type="text" value="Create personalized 3D wishes, polaroid memories &amp; festival greetings for your loved ones in 60 seconds." class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="font-bold text-amber-200">Primary CTA Button Text</label>
+            <label class="font-bold text-slate-800">Primary CTA Button Text</label>
             <input id="global-bf-primary-btn" type="text" value="Create Your Own Wish ✨" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="font-bold text-amber-200">Secondary CTA Button Text</label>
+            <label class="font-bold text-slate-800">Secondary CTA Button Text</label>
             <input id="global-bf-secondary-btn" type="text" value="Explore All Templates ➔" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-slate-200 text-on-surface" />
           </div>
           <div class="flex items-end gap-3">
@@ -320,7 +320,7 @@
             <span class="material-symbols-outlined text-primary text-[18px]">system_update_alt</span>
             <span class="text-xs font-extrabold text-on-surface">Upload Mode</span>
           </div>
-          <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">Full / Delta</span>
+          <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">Full / Delta</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           <button type="button" id="upload-mode-card-full" onclick="setUploadUpdatePackageMode('full_package')" class="p-2.5 rounded-lg border-2 border-primary bg-primary/15 text-left flex items-start gap-2.5 transition cursor-pointer">
@@ -334,18 +334,18 @@
             </div>
           </button>
           <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-2.5 rounded-lg border border-slate-200 bg-surface-container hover:bg-surface-container-high text-left flex items-start gap-2.5 transition cursor-pointer">
-            <span class="material-symbols-outlined text-emerald-400 text-[20px] mt-0.5">bolt</span>
+            <span class="material-symbols-outlined text-emerald-700 text-[20px] mt-0.5">bolt</span>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2">
                 <span class="text-xs font-extrabold text-on-surface">2. Changed Files Only</span>
-                <span id="upload-mode-badge-delta" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase">Delta</span>
+                <span id="upload-mode-badge-delta" class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9px] font-bold uppercase">Delta</span>
               </div>
               <p class="text-[11px] text-on-surface-variant mt-0.5">Update edited files; reuse assets.</p>
             </div>
           </button>
         </div>
         <div id="delta-target-template-bar" class="hidden pt-2 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <label for="delta-target-template-select" class="font-bold text-emerald-300 flex items-center gap-1.5">
+          <label for="delta-target-template-select" class="font-bold text-emerald-800 flex items-center gap-1.5">
             <span class="material-symbols-outlined text-[16px]">target</span>
             <span>Target Template for Changed/New Files Update:</span>
           </label>
@@ -385,7 +385,7 @@
           </button>
           <span class="text-outline text-xs font-bold uppercase">OR</span>
           <!-- Button 3: Select Only Changed / New Files -->
-          <button type="button" id="btn-select-delta-files" onclick="setUploadUpdatePackageMode('delta_changed_only'); document.getElementById('delta-files-input').click()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-sm border border-emerald-500/40 transition-all cursor-pointer">
+          <button type="button" id="btn-select-delta-files" onclick="setUploadUpdatePackageMode('delta_changed_only'); document.getElementById('delta-files-input').click()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-sm border border-emerald-200 transition-all cursor-pointer">
             <span class="material-symbols-outlined text-[18px]">bolt</span>
             <span>Select Changed Files Only</span>
           </button>
@@ -396,7 +396,7 @@
           <span id="upload-status-text">Processing files...</span>
         </div>
 
-        <div id="upload-files-summary" class="text-xs text-emerald-400 font-semibold mt-1"></div>
+        <div id="upload-files-summary" class="text-xs text-emerald-700 font-semibold mt-1"></div>
       </div>
 
       <!-- Placeholder before upload -->
@@ -411,15 +411,15 @@
         <div id="smart-import-studio-workspace" class="hidden wm-card bg-surface-container-lowest p-4 sm:p-5 rounded-lg border border-slate-200 flex flex-col gap-5 shadow-xl" role="region" aria-label="Smart Template Recognition and Side-by-Side Comparison Studio"></div>
         
                 <!-- UTP v1.4.0 Auto-Attached Platform Branding Footer Card (Unhides [data-wm-platform-footer] on Upload) -->
-        <div id="upload-branding-footer-card" class="wm-card bg-surface-container-lowest p-4 rounded-xl border border-amber-500/35 flex flex-col gap-3">
+        <div id="upload-branding-footer-card" class="wm-card bg-surface-container-lowest p-4 rounded-xl border border-amber-200 flex flex-col gap-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2 text-on-surface font-bold text-xs sm:text-sm">
-              <span class="material-symbols-outlined text-amber-400 text-[20px]">verified</span>
+              <span class="material-symbols-outlined text-amber-600 text-[20px]">verified</span>
               <span>🏷️ UTP v1.4.0 Platform Branding Footer (Auto-Attached at Upload Time)</span>
             </div>
             <div class="flex items-center gap-2">
-              <span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/35 text-[10px] font-bold">Hidden Offline • Live on Website</span>
-              <label class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-300 cursor-pointer">
+              <span class="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">Hidden Offline • Live on Website</span>
+              <label class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 cursor-pointer">
                 <input type="checkbox" id="upload-bf-enabled" checked onchange="syncUploadBrandingFooterToPreview()" class="rounded text-emerald-500" />
                 <span>Enable Footer</span>
               </label>
@@ -448,7 +448,7 @@
               <span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
               <span>Auto-Detected Customization Slots:</span>
             </div>
-            <span id="detected-fields-count" class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-xs">
+            <span id="detected-fields-count" class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-xs">
               0 Slots Detected
             </span>
           </div>
@@ -588,131 +588,51 @@
     </div>
   </div></section>
 
-<!-- Dynamic Calculated Metric Tiles (KPI Bento — Matched to 19728.png) -->
-<section class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
-  <div class="wm-card p-4 flex items-center justify-between gap-2">
-    <div class="flex items-start gap-3">
-      <div class="w-11 h-11 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-sm flex-shrink-0">
-        <span class="material-symbols-outlined text-[22px]">space_dashboard</span>
-      </div>
-      <div>
-        <div class="text-[12px] font-semibold text-[#5e4f7d]">Total Blueprints</div>
-        <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="count-total">0</div>
-        <div class="text-[11px] font-bold text-emerald-600 mt-0.5">↑ Live Registry</div>
-      </div>
+<!-- Compact Calculated Metric Tiles -->
+<section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+  <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+      <span>Total Blueprints</span>
+      <span class="material-symbols-outlined text-[16px] text-slate-400">space_dashboard</span>
     </div>
-    <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_tpl_total" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,42 Q18,34 32,36 T60,24 T82,16 T98,8 L98,46 L2,46 Z" fill="url(#spark_tpl_total)"/>
-      <path d="M2,42 Q18,34 32,36 T60,24 T82,16 T98,8" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+    <div class="text-xl font-bold text-slate-900 tabular-nums" id="count-total">0</div>
+    <div class="text-[11px] font-medium text-emerald-700">Live Registry</div>
   </div>
 
-  <div class="wm-card p-4 flex items-center justify-between gap-2">
-    <div class="flex items-start gap-3">
-      <div class="w-11 h-11 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 flex-shrink-0">
-        <span class="material-symbols-outlined text-[22px]">verified</span>
-      </div>
-      <div>
-        <div class="text-[12px] font-semibold text-[#5e4f7d]">Published Active</div>
-        <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="count-published">0</div>
-        <div class="text-[11px] font-bold text-emerald-600 mt-0.5">↑ 100% Live</div>
-      </div>
+  <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+      <span>Published Active</span>
+      <span class="material-symbols-outlined text-[16px] text-emerald-600">verified</span>
     </div>
-    <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_tpl_pub" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#10b981" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,40 Q20,32 36,28 T66,22 T84,14 T98,9 L98,46 L2,46 Z" fill="url(#spark_tpl_pub)"/>
-      <path d="M2,40 Q20,32 36,28 T66,22 T84,14 T98,9" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+    <div class="text-xl font-bold text-slate-900 tabular-nums" id="count-published">0</div>
+    <div class="text-[11px] font-medium text-emerald-700">Live on Store</div>
   </div>
 
-  <div class="wm-card p-4 flex items-center justify-between gap-2">
-    <div class="flex items-start gap-3">
-      <div class="w-11 h-11 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
-        <span class="material-symbols-outlined text-[22px]">edit_note</span>
-      </div>
-      <div>
-        <div class="text-[12px] font-semibold text-[#5e4f7d]">Staged Drafts</div>
-        <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="count-drafts">0</div>
-        <div class="text-[11px] font-bold text-amber-600 mt-0.5">Ready to Set</div>
-      </div>
+  <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+      <span>Staged Drafts</span>
+      <span class="material-symbols-outlined text-[16px] text-amber-600">edit_note</span>
     </div>
-    <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_tpl_draft" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,42 Q22,38 38,32 T68,28 T86,20 T98,12 L98,46 L2,46 Z" fill="url(#spark_tpl_draft)"/>
-      <path d="M2,42 Q22,38 38,32 T68,28 T86,20 T98,12" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+    <div class="text-xl font-bold text-slate-900 tabular-nums" id="count-drafts">0</div>
+    <div class="text-[11px] font-medium text-amber-700">Ready to Set</div>
   </div>
 
-  <div class="wm-card p-4 flex items-center justify-between gap-2">
-    <div class="flex items-start gap-3">
-      <div class="w-11 h-11 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-sm flex-shrink-0">
-        <span class="material-symbols-outlined text-[22px]">diamond</span>
-      </div>
-      <div>
-        <div class="text-[12px] font-semibold text-[#5e4f7d]">Monetized VIP</div>
-        <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="count-premium">0</div>
-        <div class="text-[11px] font-bold text-slate-900 mt-0.5">₹49 / VIP Pass</div>
-      </div>
+  <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
+    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+      <span>Monetized VIP</span>
+      <span class="material-symbols-outlined text-[16px] text-pink-600">diamond</span>
     </div>
-    <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_tpl_vip" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ec4899" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#ec4899" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10 L98,46 L2,46 Z" fill="url(#spark_tpl_vip)"/>
-      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10" fill="none" stroke="#ec4899" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+    <div class="text-xl font-bold text-slate-900 tabular-nums" id="count-premium">0</div>
+    <div class="text-[11px] font-medium text-slate-600">₹49 / VIP Pass</div>
   </div>
 
-  <div class="wm-card p-4 flex items-center justify-between gap-2">
-    <div class="flex items-start gap-3">
-      <div class="w-11 h-11 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 flex-shrink-0">
-        <span class="material-symbols-outlined text-[22px]">rocket_launch</span>
-      </div>
-      <div>
-        <div class="text-[12px] font-semibold text-[#5e4f7d]">Viral Free Pool</div>
-        <div class="text-[24px] font-extrabold text-[#1a0f30] leading-tight mt-0.5" id="count-free">0</div>
-        <div class="text-[11px] font-bold text-indigo-600 mt-0.5">↑ Zero Friction</div>
-      </div>
+  <div class="wm-card p-3 flex flex-col justify-between gap-0.5 col-span-2 sm:col-span-1">
+    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+      <span>Viral Free Pool</span>
+      <span class="material-symbols-outlined text-[16px] text-indigo-600">rocket_launch</span>
     </div>
-    <div class="w-20 h-11 flex-shrink-0">
-    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-      <defs>
-        <linearGradient id="spark_tpl_free" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#6366f1" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10 L98,46 L2,46 Z" fill="url(#spark_tpl_free)"/>
-      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-  </div>
+    <div class="text-xl font-bold text-slate-900 tabular-nums" id="count-free">0</div>
+    <div class="text-[11px] font-medium text-indigo-700">Zero Friction</div>
   </div>
 </section>
 <!-- Advanced Filter & Omnisearch Workbench -->
@@ -757,7 +677,7 @@
 </div>
 <!-- Grid / List Switcher -->
 <div class="flex items-center bg-surface-container-lowest p-1 rounded-lg">
-<button id="btn-view-grid" onclick="setTemplateViewMode('grid')" class="p-1.5 rounded bg-primary-container text-white shadow-sm flex items-center justify-center cursor-pointer" title="Grid Layout">
+<button id="btn-view-grid" onclick="setTemplateViewMode('grid')" class="p-1.5 rounded bg-slate-900 text-white shadow-sm flex items-center justify-center cursor-pointer" title="Grid Layout">
 <span class="material-symbols-outlined text-[18px]">grid_view</span>
 </button>
 <button id="btn-view-table" onclick="setTemplateViewMode('table')" class="p-1.5 rounded text-outline hover:text-on-surface transition-colors flex items-center justify-center cursor-pointer" title="Table Layout">
@@ -771,7 +691,7 @@
 <!-- Primary Lifecycle & Pricing Badges -->
 <div class="flex flex-wrap items-center gap-space-xs">
 <span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-2">Filters:</span>
-<button onclick="filterTemplatesByTier('all')" id="btn-filter-all" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-primary-container text-white font-bold shadow-md cursor-pointer">
+<button onclick="filterTemplatesByTier('all')" id="btn-filter-all" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-slate-900 text-white font-bold shadow-md cursor-pointer">
               All (<span id="filter-all-count">0</span>)
             </button>
 <button onclick="filterTemplatesByTier('published')" id="btn-filter-published" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
@@ -945,7 +865,7 @@
             <div class="flex gap-1 text-[9px] font-black">
               <button type="button" onclick="document.getElementById('edit-tpl-price').value='0';document.getElementById('edit-tpl-tier').value='free';" class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 cursor-pointer">₹0</button>
               <button type="button" onclick="document.getElementById('edit-tpl-price').value='59';document.getElementById('edit-tpl-tier').value='vip';" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer">₹59</button>
-              <button type="button" onclick="document.getElementById('edit-tpl-price').value='149';document.getElementById('edit-tpl-tier').value='vip';" class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 cursor-pointer">₹149</button>
+              <button type="button" onclick="document.getElementById('edit-tpl-price').value='149';document.getElementById('edit-tpl-tier').value='vip';" class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer">₹149</button>
             </div>
           </div>
           <input id="edit-tpl-price" type="number" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-slate-200 font-bold"/>
@@ -1057,7 +977,7 @@
         Cancel
       </button>
       <div class="flex flex-wrap items-center gap-2">
-        <button id="btn-reset-tpl-config" type="button" onclick="resetEditTemplateUtpConfig()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-amber-300 border border-amber-500/30 font-semibold text-xs transition cursor-pointer">
+        <button id="btn-reset-tpl-config" type="button" onclick="resetEditTemplateUtpConfig()" class="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-semibold text-xs transition cursor-pointer">
           ↺ Reset to Manifest Defaults
         </button>
         <button id="btn-save-tpl-draft" type="button" onclick="saveTemplateEdits(false)" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-slate-200 font-bold text-xs transition cursor-pointer">
