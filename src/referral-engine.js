@@ -53,7 +53,7 @@ export const DEFAULT_PROGRAM = {
   attribution_window_days: 30,
   require_admin_approval: 0,
   fraud_strictness: 'standard',
-  terms_summary: 'Share WishMagic with 7 friends! When 7 referred friends create any wish template (even a ₹0 Free template), you unlock 1 Free Custom Link Credit (worth ₹59) for any Free template!'
+  terms_summary: 'Share WishMagic with 7 friends! When 7 referred friends create any wish template (even a ₹0 Free template), you unlock 1 Free Custom Link Credit (worth ₹19) for any Free template!'
 };
 
 /**

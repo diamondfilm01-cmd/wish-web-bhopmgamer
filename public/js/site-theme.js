@@ -1,184 +1,4 @@
-// WishMagic Universal Admin-Matched Theme Engine & Unified Storefront Header Controller
-(function() {
-  'use strict';
-
-  function updateThemeUI() {
-    document.querySelectorAll('.wm-theme-pill-btn, .vessa-theme-capsule, #clay-theme-toggle-btn, #theme-toggle-btn, button[onclick*="toggleSiteTheme"], button[onclick*="toggleAdminTheme"], button[onclick*="toggleTheme"]').forEach(btn => {
-      btn.remove();
-    });
-  }
-
-  function updateBodyBackground() {
-    if (typeof document === 'undefined' || !document.body) return;
-    document.body.style.removeProperty('background-image');
-    document.body.style.removeProperty('background-size');
-    document.body.style.removeProperty('background-position');
-    document.body.style.removeProperty('background-attachment');
-  }
-
-  function applyTheme() {
-    document.documentElement.classList.remove('dark');
-    document.documentElement.setAttribute('data-theme', 'light');
-    if (document.body) {
-      document.body.classList.remove('dark');
-    }
-    try {
-      localStorage.setItem('wishmagic_theme', 'light');
-      localStorage.setItem('wishmagic_admin_theme_v2', 'light');
-    } catch (_) {}
-    updateBodyBackground();
-    updateThemeUI();
-  }
-
-  // 1. Immediate execution to enforce clean light mode
-  applyTheme('light');
-
-  // 2. Global toggle functions kept as safe light-mode no-ops for backward compatibility
-  window.toggleSiteTheme = function() {
-    applyTheme('light');
-  };
-
-  // Single Mutual-Exclusion Dropdown Coordinator (Profile and 3-Line Menu NEVER open together)
-  window.closeAllHeaderDropdowns = function(exceptId) {
-    if (exceptId !== 'account-dropdown-menu') {
-      const acc = document.getElementById('account-dropdown-menu');
-      if (acc) acc.classList.add('hidden');
-    }
-    if (exceptId !== 'wm-mobile-nav-drawer') {
-      const mob = document.getElementById('wm-mobile-nav-drawer');
-      if (mob) mob.classList.add('hidden');
-    }
-  };
-
-  window.toggleMobileStorefrontNav = function(event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    // Always close Profile dropdown & Notifications popover before toggling 3-line menu!
-    window.closeAllHeaderDropdowns('wm-mobile-nav-drawer');
-    const drawer = document.getElementById('wm-mobile-nav-drawer');
-    if (!drawer) return;
-    drawer.classList.toggle('hidden');
-  };
-
-  // Close mobile menu when clicking anywhere outside the header
-  document.addEventListener('click', (e) => {
-    const drawer = document.getElementById('wm-mobile-nav-drawer');
-    const btn = document.getElementById('wm-mobile-menu-btn');
-    if (drawer && !drawer.classList.contains('hidden')) {
-      if (!drawer.contains(e.target) && (!btn || !btn.contains(e.target))) {
-        drawer.classList.add('hidden');
-      }
-    }
-  });
-
-  // Working Navigation Handler for the 5 Header Options: Home, Templates, How It Works, Pricing, About
-  window.handleStorefrontNav = function(event, targetKey) {
-    window.closeAllHeaderDropdowns(null);
-    const pathname = (window.location.pathname || '/').toLowerCase();
-    const isHome = pathname === '/' || pathname.endsWith('/index.html');
-
-    if (targetKey === 'home') {
-      if (isHome) {
-        if (event) event.preventDefault();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        highlightActiveHeaderNav('home');
-      }
-      return true;
-    }
-
-    if (targetKey === 'how-it-works') {
-      const el = document.getElementById('how-it-works');
-      if (isHome && el) {
-        if (event) event.preventDefault();
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        highlightActiveHeaderNav('how-it-works');
-        return false;
-      }
-      return true;
-    }
-
-    if (targetKey === 'about') {
-      const el = document.getElementById('about-section') || document.querySelector('footer');
-      if (isHome && el) {
-        if (event) event.preventDefault();
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        highlightActiveHeaderNav('about');
-        return false;
-      }
-      return true;
-    }
-
-    return true;
-  };
-
-  function highlightActiveHeaderNav(activeKey) {
-    document.querySelectorAll('[data-nav-key]').forEach(el => {
-      if (el.getAttribute('data-nav-key') === activeKey) {
-        el.classList.add('active');
-      } else {
-        el.classList.remove('active');
-      }
-    });
-  }
-
-  // 4. Unified Header Across All Storefront Pages:
-  //    - Desktop (>= 768px): Shows the 5 Options (Home, Templates, How It Works, Pricing, About) directly in the header, NO 3-line button, ZERO overflow!
-  //    - Mobile (< 768px): Hides the 5 options from the bar, shows compact icon buttons + the 3-line button whose dropdown has the 5 options!
-  function ensureUnifiedStorefrontHeader() {
-    if (typeof document === 'undefined' || !document.body) return;
-    const pathname = (window.location.pathname || '/').toLowerCase();
-    const hash = (window.location.hash || '').toLowerCase();
-
-    // Do not inject storefront header on Admin pages or fullscreen Wish player
-    if (pathname.startsWith('/admin') || pathname.includes('wish.html') || pathname.includes('template-preview') || pathname.startsWith('/template/')) return;
-
-    const isHome = pathname === '/' || pathname.endsWith('/index.html');
-    if (isHome) {
-      document.body.setAttribute('data-page', 'home');
-      document.documentElement.setAttribute('data-page', 'home');
-    } else {
-      document.body.removeAttribute('data-page');
-      document.documentElement.removeAttribute('data-page');
-    }
-
-    if (!document.querySelector('link[href*="Material+Symbols+Outlined"]')) {
-      const iconLink = document.createElement('link');
-      iconLink.rel = 'stylesheet';
-      iconLink.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap';
-      document.head.appendChild(iconLink);
-    }
-
-    let cloudLink = document.getElementById('wishmagic-cloud-css') || document.querySelector('link[href*="cloud-background.css"]');
-    if (!cloudLink) {
-      cloudLink = document.createElement('link');
-      cloudLink.id = 'wishmagic-cloud-css';
-      cloudLink.rel = 'stylesheet';
-      cloudLink.href = '/css/cloud-background.css?v=20261027_mobile2col_v1';
-      document.head.appendChild(cloudLink);
-    }
-
-    if (pathname.includes('customize')) {
-      document.querySelectorAll('header button[onclick*="toggleSiteTheme"], .wm-theme-pill-btn').forEach(btn => btn.remove());
-      const customizerHeader = document.querySelector('header');
-      if (customizerHeader) {
-        customizerHeader.setAttribute('data-purpose', 'site-navigation');
-        const navInner = customizerHeader.querySelector('.glass-nav');
-        if (navInner) navInner.classList.add('wm-site-header-bar');
-      }
-      return;
-    }
-
-    let activeKey = 'home';
-    if (pathname.includes('template') || pathname.includes('marketplace')) activeKey = 'templates';
-    else if (pathname.includes('pricing') || pathname.includes('premium') || pathname.includes('checkout')) activeKey = 'pricing';
-    else if (pathname.includes('help') || pathname.includes('contact') || pathname.includes('legal') || pathname.includes('support')) activeKey = 'about';
-    else if (hash.includes('how-it-works')) activeKey = 'how-it-works';
-    else if (hash.includes('about')) activeKey = 'about';
-
-    const existingHeader = document.querySelector('header');
-    const unifiedHeaderHTML = `
+(function(){"use strict";function updateThemeUI(){document.querySelectorAll('.wm-theme-pill-btn, .vessa-theme-capsule, #clay-theme-toggle-btn, #theme-toggle-btn, button[onclick*="toggleSiteTheme"], button[onclick*="toggleAdminTheme"], button[onclick*="toggleTheme"]').forEach(btn=>{btn.remove()})}function updateBodyBackground(){typeof document>"u"||!document.body||(document.body.style.removeProperty("background-image"),document.body.style.removeProperty("background-size"),document.body.style.removeProperty("background-position"),document.body.style.removeProperty("background-attachment"))}function applyTheme(){document.documentElement.classList.remove("dark"),document.documentElement.setAttribute("data-theme","light"),document.body&&document.body.classList.remove("dark");try{localStorage.setItem("wishmagic_theme","light"),localStorage.setItem("wishmagic_admin_theme_v2","light")}catch{}updateBodyBackground(),updateThemeUI()}applyTheme("light"),window.toggleSiteTheme=function(){applyTheme("light")},window.closeAllHeaderDropdowns=function(exceptId){if(exceptId!=="account-dropdown-menu"){const acc=document.getElementById("account-dropdown-menu");acc&&acc.classList.add("hidden")}if(exceptId!=="wm-mobile-nav-drawer"){const mob=document.getElementById("wm-mobile-nav-drawer");mob&&mob.classList.add("hidden")}},window.toggleMobileStorefrontNav=function(event){event&&(event.preventDefault(),event.stopPropagation()),window.closeAllHeaderDropdowns("wm-mobile-nav-drawer");const drawer=document.getElementById("wm-mobile-nav-drawer");drawer&&drawer.classList.toggle("hidden")},document.addEventListener("click",e=>{const drawer=document.getElementById("wm-mobile-nav-drawer"),btn=document.getElementById("wm-mobile-menu-btn");drawer&&!drawer.classList.contains("hidden")&&!drawer.contains(e.target)&&(!btn||!btn.contains(e.target))&&drawer.classList.add("hidden")}),window.handleStorefrontNav=function(event,targetKey){window.closeAllHeaderDropdowns(null);const pathname=(window.location.pathname||"/").toLowerCase(),isHome=pathname==="/"||pathname.endsWith("/index.html");if(targetKey==="home")return isHome&&(event&&event.preventDefault(),window.scrollTo({top:0,behavior:"smooth"}),highlightActiveHeaderNav("home")),!0;if(targetKey==="how-it-works"){const el=document.getElementById("how-it-works");return isHome&&el?(event&&event.preventDefault(),el.scrollIntoView({behavior:"smooth",block:"start"}),highlightActiveHeaderNav("how-it-works"),!1):!0}if(targetKey==="about"){const el=document.getElementById("about-section")||document.querySelector("footer");return isHome&&el?(event&&event.preventDefault(),el.scrollIntoView({behavior:"smooth",block:"start"}),highlightActiveHeaderNav("about"),!1):!0}return!0};function highlightActiveHeaderNav(activeKey){document.querySelectorAll("[data-nav-key]").forEach(el=>{el.getAttribute("data-nav-key")===activeKey?el.classList.add("active"):el.classList.remove("active")})}function ensureUnifiedStorefrontHeader(){if(typeof document>"u"||!document.body)return;const pathname=(window.location.pathname||"/").toLowerCase(),hash=(window.location.hash||"").toLowerCase();if(pathname.startsWith("/admin")||pathname.includes("wish.html")||pathname.includes("template-preview")||pathname.startsWith("/template/"))return;if(pathname==="/"||pathname.endsWith("/index.html")?(document.body.setAttribute("data-page","home"),document.documentElement.setAttribute("data-page","home")):(document.body.removeAttribute("data-page"),document.documentElement.removeAttribute("data-page")),document.querySelector(".material-symbols-outlined")&&!document.querySelector('link[href*="Material+Symbols+Outlined"]')){const iconLink=document.createElement("link");iconLink.rel="stylesheet",iconLink.href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&display=swap",document.head.appendChild(iconLink)}let cloudLink=document.getElementById("wishmagic-cloud-css")||document.querySelector('link[href*="cloud-background.css"]');if(cloudLink||(cloudLink=document.createElement("link"),cloudLink.id="wishmagic-cloud-css",cloudLink.rel="stylesheet",cloudLink.href="/css/cloud-background.css?v=20261027_mobile2col_v1",document.head.appendChild(cloudLink)),pathname.includes("customize")){document.querySelectorAll('header button[onclick*="toggleSiteTheme"], .wm-theme-pill-btn').forEach(btn=>btn.remove());const customizerHeader=document.querySelector("header");if(customizerHeader){customizerHeader.setAttribute("data-purpose","site-navigation");const navInner=customizerHeader.querySelector(".glass-nav");navInner&&navInner.classList.add("wm-site-header-bar")}return}let activeKey="home";pathname.includes("template")||pathname.includes("marketplace")?activeKey="templates":pathname.includes("pricing")||pathname.includes("premium")||pathname.includes("checkout")?activeKey="pricing":pathname.includes("help")||pathname.includes("contact")||pathname.includes("legal")||pathname.includes("support")?activeKey="about":hash.includes("how-it-works")?activeKey="how-it-works":hash.includes("about")&&(activeKey="about");const existingHeader=document.querySelector("header"),unifiedHeaderHTML=`
       <div class="wm-site-header-bar glass-nav rounded-full flex items-center justify-between relative">
         <!-- Left: Brand Logo -->
         <a href="/" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-header-brand flex items-center gap-2 group flex-shrink-0 text-decoration-none min-w-0">
@@ -197,23 +17,23 @@
 
         <!-- Center: 5 Direct Working Options for Desktop View ONLY (Hidden on Mobile < 768px) -->
         <nav class="wm-desktop-nav items-center justify-center min-w-0" aria-label="Main Navigation">
-          <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-nav-pill ${activeKey === 'home' ? 'active' : ''}">
+          <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-nav-pill ${activeKey==="home"?"active":""}">
             <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
             <span>Home</span>
           </a>
-          <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav(event, 'templates')" class="wm-nav-pill ${activeKey === 'templates' ? 'active' : ''}">
+          <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav(event, 'templates')" class="wm-nav-pill ${activeKey==="templates"?"active":""}">
             <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             <span>Templates</span>
           </a>
-          <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav(event, 'how-it-works')" class="wm-nav-pill ${activeKey === 'how-it-works' ? 'active' : ''}">
+          <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav(event, 'how-it-works')" class="wm-nav-pill ${activeKey==="how-it-works"?"active":""}">
             <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span>How It Works</span>
           </a>
-          <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav(event, 'pricing')" class="wm-nav-pill ${activeKey === 'pricing' ? 'active' : ''}">
+          <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav(event, 'pricing')" class="wm-nav-pill ${activeKey==="pricing"?"active":""}">
             <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
             <span>Pricing</span>
           </a>
-          <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav(event, 'about')" class="wm-nav-pill ${activeKey === 'about' ? 'active' : ''}">
+          <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav(event, 'about')" class="wm-nav-pill ${activeKey==="about"?"active":""}">
             <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span>About</span>
           </a>
@@ -241,23 +61,23 @@
 
       <!-- Mobile 3-Line Navigation Dropdown (Contains the 5 Options for Mobile View Only) -->
       <div id="wm-mobile-nav-drawer" class="hidden wm-mobile-only-drawer mt-2 p-3 rounded-2xl wm-card space-y-1 shadow-2xl">
-        <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-nav-pill w-full ${activeKey === 'home' ? 'active' : ''}">
+        <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-nav-pill w-full ${activeKey==="home"?"active":""}">
           <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
           <span>Home</span>
         </a>
-        <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav(event, 'templates')" class="wm-nav-pill w-full ${activeKey === 'templates' ? 'active' : ''}">
+        <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav(event, 'templates')" class="wm-nav-pill w-full ${activeKey==="templates"?"active":""}">
           <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           <span>Templates</span>
         </a>
-        <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav(event, 'how-it-works')" class="wm-nav-pill w-full ${activeKey === 'how-it-works' ? 'active' : ''}">
+        <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav(event, 'how-it-works')" class="wm-nav-pill w-full ${activeKey==="how-it-works"?"active":""}">
           <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           <span>How It Works</span>
         </a>
-        <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav(event, 'pricing')" class="wm-nav-pill w-full ${activeKey === 'pricing' ? 'active' : ''}">
+        <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav(event, 'pricing')" class="wm-nav-pill w-full ${activeKey==="pricing"?"active":""}">
           <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
           <span>Pricing</span>
         </a>
-        <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav(event, 'about')" class="wm-nav-pill w-full ${activeKey === 'about' ? 'active' : ''}">
+        <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav(event, 'about')" class="wm-nav-pill w-full ${activeKey==="about"?"active":""}">
           <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span>About</span>
         </a>
@@ -267,193 +87,20 @@
             <span>Create Wish</span>
           </a>
           <a href="/my-wishes.html" class="flex-1 py-2.5 px-3 rounded-xl bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 text-[#1a0f30] dark:text-white font-extrabold text-xs flex items-center justify-center gap-1.5">
-            <span>🎁</span>
+            <span>\u{1F381}</span>
             <span>My Wishes</span>
           </a>
         </div>
       </div>
-    `;
-
-    if (existingHeader) {
-      existingHeader.className = 'sticky top-2 sm:top-4 z-50 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full transition-all';
-      existingHeader.setAttribute('data-purpose', 'site-navigation');
-      if (!existingHeader.querySelector('.wm-site-header-bar')) {
-        existingHeader.innerHTML = unifiedHeaderHTML;
-      } else {
-        highlightActiveHeaderNav(activeKey);
-      }
-    } else {
-      const newHeader = document.createElement('header');
-      newHeader.className = 'sticky top-2 sm:top-4 z-50 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full transition-all';
-      newHeader.setAttribute('data-purpose', 'site-navigation');
-      newHeader.innerHTML = unifiedHeaderHTML;
-      document.body.insertAdjacentElement('afterbegin', newHeader);
-    }
-
-    const mainEl = document.querySelector('main');
-    if (mainEl && mainEl.classList.contains('pt-20')) {
-      mainEl.classList.remove('pt-20');
-      mainEl.classList.add('pt-4');
-    }
-  }
-
-  function initStorefrontThemeAndHeader() {
-    ensureUnifiedStorefrontHeader();
-    updateThemeUI();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initStorefrontThemeAndHeader);
-  } else {
-    initStorefrontThemeAndHeader();
-  }
-})();
-
-// 5. Universal Storefront Live Settings Synchronizer
-(function() {
-  async function syncGlobalStorefrontSettings() {
-    const _p = (window.location.pathname || '/').toLowerCase();
-    if (_p.includes('template-preview') || _p.startsWith('/template/')) return;
-    if (typeof window.loadLiveSiteConfiguration === 'function') {
-      return;
-    }
-    try {
-      const res = await fetch('/api/settings/site?_t=' + Date.now(), {
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-      }).catch(() => null);
-      if (!res || !res.ok) return;
-      const data = await res.json().catch(() => ({}));
-      const s = (data.data && data.data.settings) || data.settings;
-      if (!s) return;
-      window._cachedSiteSettings = s;
-      try {
-        localStorage.setItem('wishmagic_site_settings_v1', JSON.stringify(s));
-      } catch (_) {}
-
-      if (s.brandName) {
-        document.querySelectorAll('.brand-name-text, #navbar-brand-name, #footer-brand-name, #copyright-brand-name').forEach(el => {
-          el.textContent = s.brandName;
-        });
-      }
-      if (s.supportWa) {
-        const waText = document.getElementById('footer-support-wa-text');
-        if (waText) waText.textContent = s.supportWa;
-      }
-      if (s.supportWaUrl) {
-        const waLink = document.getElementById('footer-support-wa-link');
-        if (waLink) waLink.href = s.supportWaUrl;
-      }
-
-      let banner = document.getElementById('wm-storefront-promo-banner');
-      const isActive = Boolean(s.promoBannerActive || s.promoFreeOfferMode);
-      const text = s.promoBannerActive
-        ? (s.promoBannerText || '🎉 Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!')
-        : (s.promoFreeOfferMode ? (s.promoBadgeText || '🔥 Limited Time Offer: 100% FREE VIP Celebrations Active Now!') : '');
-      if (!isActive || !text) {
-        if (banner) banner.classList.add('hidden');
-      } else if (document.body) {
-        if (!banner) {
-          banner = document.createElement('div');
-          banner.id = 'wm-storefront-promo-banner';
-          banner.className = 'w-full py-2 px-4 bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-center text-xs font-extrabold shadow-md z-[60] relative';
-          document.body.insertAdjacentElement('afterbegin', banner);
-        }
-        banner.classList.remove('hidden');
-        banner.textContent = text;
-      }
-    } catch (_) {}
-  }
-
-  function escapeHtmlSafe(str) {
-    return String(str === undefined || str === null ? '' : str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  async function syncStorefrontFestivalSchedule() {
-    if (typeof document === 'undefined' || !document.body) return;
-    const pathname = (window.location.pathname || '/').toLowerCase();
-    if (pathname.startsWith('/admin') || pathname.includes('wish.html') || pathname.includes('template-preview') || pathname.startsWith('/template/')) return;
-
-    try {
-      const res = await fetch('/api/festivals/active?_t=' + Date.now(), {
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-      }).catch(() => null);
-      if (!res || !res.ok) return;
-      const json = await res.json().catch(() => ({}));
-      const data = json.data || json || {};
-      const activeCampaigns = Array.isArray(data.activeCampaigns) ? data.activeCampaigns : [];
-      const inWindowFestivals = Array.isArray(data.inWindowFestivals) ? data.inWindowFestivals : [];
-      const upcomingFestivals = Array.isArray(data.upcomingFestivals) ? data.upcomingFestivals : [];
-      window._wmActiveFestivalState = { activeCampaigns, inWindowFestivals, upcomingFestivals, storefrontSpotlight: data.storefrontSpotlight || null };
-
-      // 1. Inject dynamic active campaign filter pills into #occasion-pills if present
-      const pillsBox = document.getElementById('occasion-pills');
-      if (pillsBox) {
-        pillsBox.querySelectorAll('[data-dynamic-festival-pill="1"]').forEach(el => el.remove());
-        activeCampaigns.forEach(camp => {
-          const pill = document.createElement('button');
-          pill.type = 'button';
-          pill.setAttribute('data-dynamic-festival-pill', '1');
-          pill.setAttribute('data-category', camp.festivalSlug || 'festive');
-          pill.className = 'category-btn glass-pill px-4 py-2 rounded-full text-xs sm:text-sm font-extrabold text-amber-900 dark:text-amber-200 border border-amber-400/50 bg-amber-500/10 flex items-center gap-1.5 transition whitespace-nowrap shadow-sm cursor-pointer';
-          pill.innerHTML = '<span>🪔</span><span>' + escapeHtmlSafe(camp.badgeLabel || camp.festivalName || camp.title) + '</span>';
-          pill.onclick = function() {
-            if (typeof window.filterTemplates === 'function') {
-              window.filterTemplates('festive', pill);
-            }
-          };
-          pillsBox.insertAdjacentElement('afterbegin', pill);
-        });
-      }
-
-      // 2. Render Live Festival Campaign Spotlight Banner above templates grid on Home & Templates pages
-      const anchorEl = document.getElementById('occasion-pills') || document.getElementById('templates-grid') || document.getElementById('templates-grid-container');
-      let spotlightEl = document.getElementById('wm-festival-scheduler-spotlight');
-
-      const primaryActive = activeCampaigns[0] || null;
-      const primaryFestival = primaryActive || inWindowFestivals[0] || upcomingFestivals[0] || null;
-
-      if (!primaryFestival || !anchorEl || !anchorEl.parentNode) {
-        if (spotlightEl) spotlightEl.classList.add('hidden');
-        return;
-      }
-
-      const festName = primaryActive ? (primaryActive.festivalName || primaryActive.title) : (primaryFestival.name || 'Festival Celebration');
-      const badgeLabel = primaryActive ? (primaryActive.badgeLabel || ('✨ ' + festName + ' Live')) : (primaryFestival.isWindowOpen ? ('🟢 ' + festName + ' Window Open') : ('📅 Upcoming: ' + festName));
-      const effDate = primaryActive ? primaryActive.effectiveFestivalDate : primaryFestival.effectiveDate;
-      const winStart = primaryActive ? primaryActive.windowStartDate : primaryFestival.windowStartDate;
-      const winEnd = primaryActive ? primaryActive.windowEndDate : primaryFestival.windowEndDate;
-      const firstTplId = (primaryActive && Array.isArray(primaryActive.assignedTemplateIds) && primaryActive.assignedTemplateIds[0]) || 'tpl_festive_lights';
-      const campParam = primaryActive && primaryActive.id ? ('&campaign=' + encodeURIComponent(primaryActive.id)) : '';
-
-      let daysAwayText = 'Live Now!';
-      if (effDate) {
-        const diffMs = new Date(effDate + 'T00:00:00+05:30').getTime() - Date.now();
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        if (diffDays > 0) daysAwayText = diffDays + (diffDays === 1 ? ' Day to Go' : ' Days to Go');
-        else if (diffDays === 0) daysAwayText = '🎉 Festival Today!';
-        else daysAwayText = '✨ Celebration Window Open';
-      }
-
-      if (!spotlightEl) {
-        spotlightEl = document.createElement('div');
-        spotlightEl.id = 'wm-festival-scheduler-spotlight';
-        anchorEl.parentNode.insertBefore(spotlightEl, anchorEl);
-      }
-
-      spotlightEl.className = 'mb-6 p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-slate-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4';
-      spotlightEl.innerHTML = `
+    `;if(existingHeader)existingHeader.className="sticky top-2 sm:top-4 z-50 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full transition-all",existingHeader.setAttribute("data-purpose","site-navigation"),existingHeader.querySelector(".wm-site-header-bar")?highlightActiveHeaderNav(activeKey):existingHeader.innerHTML=unifiedHeaderHTML;else{const newHeader=document.createElement("header");newHeader.className="sticky top-2 sm:top-4 z-50 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full transition-all",newHeader.setAttribute("data-purpose","site-navigation"),newHeader.innerHTML=unifiedHeaderHTML,document.body.insertAdjacentElement("afterbegin",newHeader)}const mainEl=document.querySelector("main");mainEl&&mainEl.classList.contains("pt-20")&&(mainEl.classList.remove("pt-20"),mainEl.classList.add("pt-4"))}function initStorefrontThemeAndHeader(){ensureUnifiedStorefrontHeader(),updateThemeUI()}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",initStorefrontThemeAndHeader):initStorefrontThemeAndHeader()})(),(function(){async function syncGlobalStorefrontSettings(){const _p=(window.location.pathname||"/").toLowerCase();if(!(_p.includes("template-preview")||_p.startsWith("/template/"))&&typeof window.loadLiveSiteConfiguration!="function")try{const res=await fetch("/api/settings/site?_t="+Date.now(),{headers:{"Cache-Control":"no-cache",Pragma:"no-cache"}}).catch(()=>null);if(!res||!res.ok)return;const data=await res.json().catch(()=>({})),s=data.data&&data.data.settings||data.settings;if(!s)return;window._cachedSiteSettings=s;try{localStorage.setItem("wishmagic_site_settings_v1",JSON.stringify(s))}catch{}if(s.brandName&&document.querySelectorAll(".brand-name-text, #navbar-brand-name, #footer-brand-name, #copyright-brand-name").forEach(el=>{el.textContent=s.brandName}),s.supportWa){const waText=document.getElementById("footer-support-wa-text");waText&&(waText.textContent=s.supportWa)}if(s.supportWaUrl){const waLink=document.getElementById("footer-support-wa-link");waLink&&(waLink.href=s.supportWaUrl)}let banner=document.getElementById("wm-storefront-promo-banner");const isActive=!!(s.promoBannerActive||s.promoFreeOfferMode),text=s.promoBannerActive?s.promoBannerText||"\u{1F389} Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!":s.promoFreeOfferMode?s.promoBadgeText||"\u{1F525} Limited Time Offer: 100% FREE VIP Celebrations Active Now!":"";!isActive||!text?banner&&banner.classList.add("hidden"):document.body&&(banner||(banner=document.createElement("div"),banner.id="wm-storefront-promo-banner",banner.className="w-full py-2 px-4 bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-center text-xs font-extrabold shadow-md z-[60] relative",document.body.insertAdjacentElement("afterbegin",banner)),banner.classList.remove("hidden"),banner.textContent=text)}catch{}}function escapeHtmlSafe(str){return String(str??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}async function syncStorefrontFestivalSchedule(){if(typeof document>"u"||!document.body)return;const pathname=(window.location.pathname||"/").toLowerCase();if(!(pathname.startsWith("/admin")||pathname.includes("wish.html")||pathname.includes("template-preview")||pathname.startsWith("/template/")))try{const res=await fetch("/api/festivals/active?_t="+Date.now(),{headers:{"Cache-Control":"no-cache",Pragma:"no-cache"}}).catch(()=>null);if(!res||!res.ok)return;const json=await res.json().catch(()=>({})),data=json.data||json||{},activeCampaigns=Array.isArray(data.activeCampaigns)?data.activeCampaigns:[],inWindowFestivals=Array.isArray(data.inWindowFestivals)?data.inWindowFestivals:[],upcomingFestivals=Array.isArray(data.upcomingFestivals)?data.upcomingFestivals:[];window._wmActiveFestivalState={activeCampaigns,inWindowFestivals,upcomingFestivals,storefrontSpotlight:data.storefrontSpotlight||null};const pillsBox=document.getElementById("occasion-pills");pillsBox&&(pillsBox.querySelectorAll('[data-dynamic-festival-pill="1"]').forEach(el=>el.remove()),activeCampaigns.forEach(camp=>{const pill=document.createElement("button");pill.type="button",pill.setAttribute("data-dynamic-festival-pill","1"),pill.setAttribute("data-category",camp.festivalSlug||"festive"),pill.className="category-btn glass-pill px-4 py-2 rounded-full text-xs sm:text-sm font-extrabold text-amber-900 dark:text-amber-200 border border-amber-400/50 bg-amber-500/10 flex items-center gap-1.5 transition whitespace-nowrap shadow-sm cursor-pointer",pill.innerHTML="<span>\u{1FA94}</span><span>"+escapeHtmlSafe(camp.badgeLabel||camp.festivalName||camp.title)+"</span>",pill.onclick=function(){typeof window.filterTemplates=="function"&&window.filterTemplates("festive",pill)},pillsBox.insertAdjacentElement("afterbegin",pill)}));const anchorEl=document.getElementById("occasion-pills")||document.getElementById("templates-grid")||document.getElementById("templates-grid-container");let spotlightEl=document.getElementById("wm-festival-scheduler-spotlight");const primaryActive=activeCampaigns[0]||null,primaryFestival=primaryActive||inWindowFestivals[0]||upcomingFestivals[0]||null;if(!primaryFestival||!anchorEl||!anchorEl.parentNode){spotlightEl&&spotlightEl.classList.add("hidden");return}const festName=primaryActive?primaryActive.festivalName||primaryActive.title:primaryFestival.name||"Festival Celebration",badgeLabel=primaryActive?primaryActive.badgeLabel||"\u2728 "+festName+" Live":primaryFestival.isWindowOpen?"\u{1F7E2} "+festName+" Window Open":"\u{1F4C5} Upcoming: "+festName,effDate=primaryActive?primaryActive.effectiveFestivalDate:primaryFestival.effectiveDate,winStart=primaryActive?primaryActive.windowStartDate:primaryFestival.windowStartDate,winEnd=primaryActive?primaryActive.windowEndDate:primaryFestival.windowEndDate,firstTplId=primaryActive&&Array.isArray(primaryActive.assignedTemplateIds)&&primaryActive.assignedTemplateIds[0]||"tpl_festive_lights",campParam=primaryActive&&primaryActive.id?"&campaign="+encodeURIComponent(primaryActive.id):"";let daysAwayText="Live Now!";if(effDate){const diffMs=new Date(effDate+"T00:00:00+05:30").getTime()-Date.now(),diffDays=Math.ceil(diffMs/(1e3*60*60*24));diffDays>0?daysAwayText=diffDays+(diffDays===1?" Day to Go":" Days to Go"):diffDays===0?daysAwayText="\u{1F389} Festival Today!":daysAwayText="\u2728 Celebration Window Open"}spotlightEl||(spotlightEl=document.createElement("div"),spotlightEl.id="wm-festival-scheduler-spotlight",anchorEl.parentNode.insertBefore(spotlightEl,anchorEl)),spotlightEl.className="mb-6 p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-slate-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4",spotlightEl.innerHTML=`
         <div class="space-y-1.5">
           <div class="flex flex-wrap items-center gap-2">
             <span class="px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs">${escapeHtmlSafe(badgeLabel)}</span>
-            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-amber-800 border border-amber-300">⏳ ${escapeHtmlSafe(daysAwayText)}</span>
-            <span class="text-xs font-mono text-slate-600">Date: <strong>${escapeHtmlSafe(effDate || '—')}</strong></span>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-amber-800 border border-amber-300">\u23F3 ${escapeHtmlSafe(daysAwayText)}</span>
+            <span class="text-xs font-mono text-slate-600">Date: <strong>${escapeHtmlSafe(effDate||"\u2014")}</strong></span>
           </div>
-          <h3 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900">🪔 ${escapeHtmlSafe(primaryActive ? primaryActive.title : (festName + ' Special'))}</h3>
-          <p class="text-xs text-slate-600 max-w-2xl">${escapeHtmlSafe(primaryActive && primaryActive.description ? primaryActive.description : 'Create and share personalized festival wishes with photos and music.')}</p>
+          <h3 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900">\u{1FA94} ${escapeHtmlSafe(primaryActive?primaryActive.title:festName+" Special")}</h3>
+          <p class="text-xs text-slate-600 max-w-2xl">${escapeHtmlSafe(primaryActive&&primaryActive.description?primaryActive.description:"Create and share personalized festival wishes with photos and music.")}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 shrink-0">
           <button type="button" onclick="if(window.filterTemplates){window.filterTemplates('festive');const g=document.getElementById('templates-grid');if(g)g.scrollIntoView({behavior:'smooth'});}else{window.location.href='/templates.html?category=festival';}" class="px-4 py-2.5 rounded-full bg-white hover:bg-amber-100 border border-amber-300 text-slate-900 text-xs font-extrabold transition cursor-pointer">
@@ -463,260 +110,4 @@
             Create Festival Wish
           </a>
         </div>
-      `;
-    } catch (_) {}
-  }
-
-  window.syncStorefrontFestivalSchedule = syncStorefrontFestivalSchedule;
-
-  function triggerAllStorefrontLiveSync() {
-    syncGlobalStorefrontSettings();
-    syncStorefrontFestivalSchedule();
-    if (typeof window.loadLiveSiteConfiguration === 'function') {
-      try { window.loadLiveSiteConfiguration(); } catch (_) {}
-    }
-    if (typeof window.refreshHomepageTemplates === 'function') {
-      try { window.refreshHomepageTemplates(); } catch (_) {}
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      syncGlobalStorefrontSettings();
-      syncStorefrontFestivalSchedule();
-    });
-  } else {
-    syncGlobalStorefrontSettings();
-    syncStorefrontFestivalSchedule();
-  }
-  try {
-    if (typeof BroadcastChannel !== 'undefined') {
-      const bc = new BroadcastChannel('wishmagic_site_settings');
-      bc.onmessage = () => triggerAllStorefrontLiveSync();
-    }
-  } catch (_) {}
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'wishmagic_site_settings_updated_at') {
-      triggerAllStorefrontLiveSync();
-      WishPricingEngine.refreshFromServer();
-    }
-  });
-
-  // =========================================================================
-  // 6. GLOBAL MODULAR & COMBO PRICING ENGINE + 7-REFERRAL AUTO-TRACKER
-  // =========================================================================
-  const DEFAULT_PRICING_RULES = {
-    customLinkPrice: 59,        // ₹59 for Custom Link only
-    hdImageStylePrice: 59,      // ₹59 for High Quality Images + Custom Style
-    freeTemplateComboPrice: 99, // ₹99 for Free Template Combo (Custom Link + HD Images + Style)
-    premiumComboAddonPrice: 70, // +₹70 added to any Premium Template price for full Combo
-    templatePriceTiers: [0, 59, 149],
-    requiredReferrals: 7
-  };
-
-  let activePricingRules = { ...DEFAULT_PRICING_RULES };
-  try {
-    const cachedPricing = localStorage.getItem('wishmagic_pricing_rules_v4');
-    if (cachedPricing) {
-      activePricingRules = { ...DEFAULT_PRICING_RULES, ...JSON.parse(cachedPricing) };
-    }
-  } catch (_) {}
-
-  const WishPricingEngine = {
-    getRules() {
-      return { ...activePricingRules };
-    },
-
-    async refreshFromServer() {
-      try {
-        const res = await fetch('/api/settings/wish-links', { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          const s = (data && data.data && data.data.settings) || (data && data.settings) || {};
-          const a = s.addons || {};
-          const refCfg = s.referral || {};
-          const toNonNeg = (val, fallback) => {
-            if (val === undefined || val === null || val === '' || typeof val === 'boolean') return fallback;
-            const n = Number(val);
-            return Number.isFinite(n) && n >= 0 ? n : fallback;
-          };
-          activePricingRules = {
-            customLinkPrice: toNonNeg(a.customLinkPrice ?? s.personalized?.price, 59),
-            hdImageStylePrice: toNonNeg(a.hdImageStylePrice, 59),
-            freeTemplateComboPrice: toNonNeg(a.freeTemplateComboPrice, 99),
-            premiumComboAddonPrice: toNonNeg(a.premiumComboAddonPrice, 70),
-            creatorPackPrice: toNonNeg(a.creatorPackPrice, 99),
-            vipPassPrice: toNonNeg(a.vipPassPrice, 49),
-            templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length > 0 ? a.templatePriceTiers.map(Number) : [0, 59, 149],
-            requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals ?? 7, 10) || 7),
-            vipPlans: Array.isArray(s.vipPlans) ? s.vipPlans : []
-          };
-          window._cachedWishLinkSettings = s;
-          if (window.WishPlanService && typeof window.WishPlanService.syncFromServerSettings === "function") {
-            window.WishPlanService.syncFromServerSettings(s);
-          }
-          try {
-            localStorage.setItem('wishmagic_pricing_rules_v4', JSON.stringify(activePricingRules));
-          } catch (_) {}
-        }
-      } catch (_) {}
-      return { ...activePricingRules };
-    },
-
-    /**
-     * Calculates exact price breakdown for any template + add-on / combo selection:
-     * - Free Template (₹0):
-     *   • Custom Link Only = ₹59 (or ₹0 with 7-Friends Referral Credit!)
-     *   • HD Images + Style Only = ₹59
-     *   • All-in-One Combo (Custom Link + HD Images + Style) = ₹99 (Save ₹19)
-     * - Premium Template (₹59, ₹149, etc.):
-     *   • Template Only (Random Link) = Template Price (e.g. ₹59 or ₹149)
-     *   • Template + Custom Link Only = Template Price + ₹59
-     *   • Template + HD Images & Style Only = Template Price + ₹59
-     *   • Template + Full Combo (Custom Link + HD Images + Style) = Template Price + ₹70 (Save ₹48!)
-     */
-    calculateQuote(opts = {}) {
-      const rules = this.getRules();
-      const tplPrice = Math.max(0, Number(opts.templatePrice || 0));
-      const isPremiumTemplate = tplPrice > 0;
-      const isCombo = Boolean(opts.isCombo || (opts.hasCustomLink && opts.hasHdImageStyle));
-      const hasCustomLink = Boolean(isCombo || opts.hasCustomLink);
-      const hasHdImageStyle = Boolean(isCombo || opts.hasHdImageStyle);
-      const useReferralCredit = Boolean(opts.useReferralCredit && !isPremiumTemplate && hasCustomLink);
-
-      const clPrice = rules.customLinkPrice;
-      const hdPrice = rules.hdImageStylePrice;
-      const freeCombo = rules.freeTemplateComboPrice;
-      const premComboAddon = rules.premiumComboAddonPrice;
-
-      let regularTotal = tplPrice + (hasCustomLink ? clPrice : 0) + (hasHdImageStyle ? hdPrice : 0);
-      let finalPayable = regularTotal;
-      let planCode = 'free_random';
-      let planLabel = 'Free Template + Random Link';
-
-      if (!isPremiumTemplate) {
-        if (isCombo) {
-          if (useReferralCredit) {
-            finalPayable = hdPrice; // Custom link is free via referral credit, only HD+Style paid
-            planCode = 'hd_image_style_pack';
-            planLabel = 'Free Template + Referral Free Custom Link + HD Images & Style';
-          } else {
-            finalPayable = freeCombo; // ₹99 Combo
-            planCode = 'free_template_combo';
-            planLabel = `Free Template + All-in-One Combo (Custom Link + HD Images & Style) • ₹${freeCombo}`;
-          }
-        } else if (hasCustomLink) {
-          if (useReferralCredit) {
-            finalPayable = 0;
-            planCode = 'referral_free_custom_link';
-            planLabel = 'Free Custom Link (7-Friends Referral Reward Redeemed • ₹0)';
-          } else {
-            finalPayable = clPrice; // ₹59
-            planCode = 'personalized_link';
-            planLabel = `Custom Link Only • ₹${clPrice}`;
-          }
-        } else if (hasHdImageStyle) {
-          finalPayable = hdPrice; // ₹59
-          planCode = 'hd_image_style_pack';
-          planLabel = `HD Images + Custom Style Pack • ₹${hdPrice}`;
-        } else {
-          finalPayable = 0;
-          planCode = 'free_random';
-          planLabel = 'Free Template + Free Random Link • ₹0';
-        }
-      } else {
-        // Premium Template (e.g. ₹59 or ₹149)
-        if (isCombo) {
-          finalPayable = tplPrice + premComboAddon; // Template Price + ₹70
-          planCode = 'premium_template_combo';
-          planLabel = `Premium Template (₹${tplPrice}) + Full Combo (+₹${premComboAddon} for Custom Link + HD Images & Style)`;
-        } else if (hasCustomLink) {
-          finalPayable = tplPrice + clPrice;
-          planCode = 'template_plus_custom_link';
-          planLabel = `Premium Template (₹${tplPrice}) + Custom Link (₹${clPrice})`;
-        } else if (hasHdImageStyle) {
-          finalPayable = tplPrice + hdPrice;
-          planCode = 'template_plus_hd_style';
-          planLabel = `Premium Template (₹${tplPrice}) + HD Images & Style (₹${hdPrice})`;
-        } else {
-          finalPayable = tplPrice;
-          planCode = 'template_only';
-          planLabel = `Premium Template Only (₹${tplPrice}) + Free Random Link`;
-        }
-      }
-
-      const savings = Math.max(0, regularTotal - finalPayable);
-      return {
-        templatePrice: tplPrice,
-        isPremiumTemplate,
-        hasCustomLink,
-        hasHdImageStyle,
-        isCombo,
-        useReferralCredit,
-        customLinkUnitPrice: clPrice,
-        hdImageStyleUnitPrice: hdPrice,
-        freeComboUnitPrice: freeCombo,
-        premiumComboAddonUnitPrice: premComboAddon,
-        regularTotal,
-        finalPayable,
-        savings,
-        planCode,
-        planLabel
-      };
-    }
-  };
-
-  window.WishPricingEngine = WishPricingEngine;
-  WishPricingEngine.refreshFromServer();
-
-  // Global ?ref= Referral Code Auto-Capture & Attribution Linker
-  (function initGlobalReferralCapture() {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const refCode = (params.get('ref') || params.get('invite') || '').trim().toUpperCase();
-      if (refCode && refCode.length >= 3) {
-        localStorage.setItem('wm_pending_referral_code', refCode);
-        document.cookie = `wm_ref=${encodeURIComponent(refCode)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`;
-        fetch('/api/referrals/track-click', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            referralCode: refCode,
-            landingPage: window.location.pathname
-          })
-        }).catch(() => {});
-      }
-
-      // Whenever a user authenticates, link their pending referral code if not already linked
-      const tryLinkPendingReferral = () => {
-        const pendingCode = localStorage.getItem('wm_pending_referral_code');
-        if (!pendingCode) return;
-        if (window.WishAuth && typeof window.WishAuth.onAuthStateChange === 'function') {
-          window.WishAuth.onAuthStateChange((user) => {
-            if (user && user.id) {
-              const linkedKey = `wm_ref_linked_${user.id}`;
-              if (localStorage.getItem(linkedKey)) return;
-              fetch('/api/referrals/link-signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ referralCode: pendingCode })
-              }).then(r => r.json()).then(res => {
-                if (res && (res.success || res.reason === 'ALREADY_ATTRIBUTED')) {
-                  localStorage.setItem(linkedKey, '1');
-                }
-              }).catch(() => {});
-            }
-          });
-        }
-      };
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', tryLinkPendingReferral);
-      } else {
-        tryLinkPendingReferral();
-      }
-    } catch (_) {}
-  })();
-
-})();
+      `}catch{}}window.syncStorefrontFestivalSchedule=syncStorefrontFestivalSchedule;function triggerAllStorefrontLiveSync(){if(syncGlobalStorefrontSettings(),syncStorefrontFestivalSchedule(),typeof window.loadLiveSiteConfiguration=="function")try{window.loadLiveSiteConfiguration()}catch{}if(typeof window.refreshHomepageTemplates=="function")try{window.refreshHomepageTemplates()}catch{}}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{syncGlobalStorefrontSettings(),syncStorefrontFestivalSchedule()}):(syncGlobalStorefrontSettings(),syncStorefrontFestivalSchedule());try{if(typeof BroadcastChannel<"u"){const bc=new BroadcastChannel("wishmagic_site_settings");bc.onmessage=()=>triggerAllStorefrontLiveSync()}}catch{}window.addEventListener("storage",e=>{e.key==="wishmagic_site_settings_updated_at"&&(triggerAllStorefrontLiveSync(),WishPricingEngine.refreshFromServer())});const DEFAULT_PRICING_RULES={customLinkPrice:19,hdPhotosPrice:19,hdImageStylePrice:19,yearlyCustomLinkPrice:149,templatePriceTiers:[0,29,49,99],requiredReferrals:7};let activePricingRules={...DEFAULT_PRICING_RULES};try{const cachedPricing=localStorage.getItem("wishmagic_pricing_rules_v5");cachedPricing&&(activePricingRules={...DEFAULT_PRICING_RULES,...JSON.parse(cachedPricing)})}catch{}const WishPricingEngine={getRules(){return{...activePricingRules}},async refreshFromServer(){try{const res=await fetch("/api/settings/wish-links",{cache:"no-store"});if(res.ok){const data=await res.json(),s=data&&data.data&&data.data.settings||data&&data.settings||{},a=s.addons||{},refCfg=s.referral||{},toNonNeg=(val,fallback)=>{if(val==null||val===""||typeof val=="boolean")return fallback;const n=Number(val);return Number.isFinite(n)&&n>=0?n:fallback},clPrice=toNonNeg(a.customLinkPrice??s.personalized?.price,19),hdPrice=toNonNeg(a.hdPhotosPrice??a.hdImageStylePrice,19),yrPrice=toNonNeg(a.yearlyCustomLinkPrice,149);activePricingRules={customLinkPrice:clPrice,hdPhotosPrice:hdPrice,hdImageStylePrice:hdPrice,yearlyCustomLinkPrice:yrPrice,templatePriceTiers:Array.isArray(a.templatePriceTiers)&&a.templatePriceTiers.length>0?a.templatePriceTiers.map(Number):[0,29,49,99],requiredReferrals:Math.max(1,parseInt(refCfg.requiredReferrals??7,10)||7),vipPlans:Array.isArray(s.vipPlans)?s.vipPlans:[]},window._cachedWishLinkSettings=s,window.WishPlanService&&typeof window.WishPlanService.syncFromServerSettings=="function"&&window.WishPlanService.syncFromServerSettings(s);try{localStorage.setItem("wishmagic_pricing_rules_v5",JSON.stringify(activePricingRules))}catch{}}}catch{}return{...activePricingRules}},calculateQuote(opts={}){const rules=this.getRules(),tplPrice=Math.max(0,Number(opts.templatePrice||0)),isPremiumTemplate=tplPrice>0,tplSupportsPhotos=opts.templateSupportsPhotos!==!1,rawMode=String(opts.linkMode||"").toLowerCase(),hasYearlyLink=rawMode==="1yr"||rawMode==="1_year"||rawMode==="yearly"||!!opts.hasYearlyLink||!!opts.includeYearlyLink,hasCustomLink=!hasYearlyLink&&(rawMode==="custom"||!!opts.hasCustomLink||!!opts.includeCustomLink),wantsHdRaw=!!(opts.hasHdPhotos||opts.hasHdImageStyle||opts.includeHdPhotos),hasHdPhotos=tplSupportsPhotos&&wantsHdRaw,clPrice=rules.customLinkPrice,hdPrice=rules.hdPhotosPrice??rules.hdImageStylePrice??19,yrPrice=rules.yearlyCustomLinkPrice??149,linkCost=hasYearlyLink?yrPrice:hasCustomLink?clPrice:0,hdCost=hasHdPhotos?hdPrice:0,finalPayable=tplPrice+linkCost+hdCost,items=[];tplPrice>0&&items.push({key:"template",label:"Template",amount:tplPrice}),hasYearlyLink?items.push({key:"yearly_link",label:"1-Year Custom Link (365 Days)",amount:yrPrice}):hasCustomLink&&items.push({key:"custom_link",label:"Custom Link",amount:clPrice}),hasHdPhotos&&items.push({key:"hd_photos",label:"HD Photos",amount:hdPrice});const planCode=finalPayable===0?"free_random":"wish_bundle",planLabel=items.length>0?items.map(i=>`${i.label} (\u20B9${i.amount})`).join(" + "):"Free Template + Free Random Link \u2022 \u20B90";return{templatePrice:tplPrice,isPremiumTemplate,templateSupportsPhotos:tplSupportsPhotos,linkMode:hasYearlyLink?"1yr":hasCustomLink?"custom":"random",hasCustomLink:hasCustomLink||hasYearlyLink,hasStandardCustomLink:hasCustomLink,hasYearlyLink,hasHdPhotos,hasHdImageStyle:hasHdPhotos,customLinkUnitPrice:clPrice,hdPhotosUnitPrice:hdPrice,hdImageStyleUnitPrice:hdPrice,yearlyCustomLinkUnitPrice:yrPrice,linkCost,hdCost,items,regularTotal:finalPayable,finalPayable,savings:0,validityDays:hasYearlyLink?365:30,linkDuration:hasYearlyLink?"1_year":"standard",planCode,planLabel}}};window.WishPricingEngine=WishPricingEngine,WishPricingEngine.refreshFromServer(),(function(){try{const params=new URLSearchParams(window.location.search),refCode=(params.get("ref")||params.get("invite")||"").trim().toUpperCase();refCode&&refCode.length>=3&&(localStorage.setItem("wm_pending_referral_code",refCode),document.cookie=`wm_ref=${encodeURIComponent(refCode)}; Path=/; Max-Age=${720*60*60}; SameSite=Lax`,fetch("/api/referrals/track-click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({referralCode:refCode,landingPage:window.location.pathname})}).catch(()=>{}));const tryLinkPendingReferral=()=>{const pendingCode=localStorage.getItem("wm_pending_referral_code");pendingCode&&window.WishAuth&&typeof window.WishAuth.onAuthStateChange=="function"&&window.WishAuth.onAuthStateChange(user=>{if(user&&user.id){const linkedKey=`wm_ref_linked_${user.id}`;if(localStorage.getItem(linkedKey))return;fetch("/api/referrals/link-signup",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({referralCode:pendingCode})}).then(r=>r.json()).then(res=>{res&&(res.success||res.reason==="ALREADY_ATTRIBUTED")&&localStorage.setItem(linkedKey,"1")}).catch(()=>{})}})};document.readyState==="loading"?document.addEventListener("DOMContentLoaded",tryLinkPendingReferral):tryLinkPendingReferral()}catch{}})()})();

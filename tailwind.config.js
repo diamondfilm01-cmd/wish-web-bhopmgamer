@@ -1,12 +1,26 @@
-const sharedTailwindConfig = {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   darkMode: ['selector', '[data-never-dark-mode]'],
+  content: [
+    './public/*.html',
+    './public/js/*.js'
+  ],
+  safelist: [
+    'hidden', 'block', 'flex', 'inline-flex', 'grid', 'contents', 'overflow-hidden',
+    'opacity-40', 'opacity-50', 'opacity-100', 'pointer-events-none',
+    'ring-2', 'ring-purple-500', 'ring-pink-500', 'ring-emerald-500'
+  ],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-        display: ['"Plus Jakarta Sans"', '"Outfit"', 'sans-serif'],
-        serifAccent: ['"Playfair Display"', 'serif'],
-        mono: ['"JetBrains Mono"', 'monospace'],
+        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Plus Jakarta Sans"', '"Outfit"', 'system-ui', 'sans-serif'],
+        serifAccent: ['"Playfair Display"', 'Georgia', 'serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
+      boxShadow: {
+        '2xs': '0 1px 1px 0 rgb(0 0 0 / 0.03)',
+        'xs': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
       },
       colors: {
         magic: {
@@ -91,19 +105,9 @@ const sharedTailwindConfig = {
         }
       }
     }
-  }
+  },
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/container-queries'),
+  ],
 };
-
-if (typeof document !== 'undefined' && document.documentElement) {
-  document.documentElement.classList.remove('dark');
-  document.documentElement.setAttribute('data-theme', 'light');
-}
-
-if (typeof window !== 'undefined') {
-  window.sharedTailwindConfig = sharedTailwindConfig;
-  window.tailwind = window.tailwind || {};
-  window.tailwind.config = sharedTailwindConfig;
-}
-if (typeof tailwind !== 'undefined') {
-  tailwind.config = sharedTailwindConfig;
-}

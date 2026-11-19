@@ -1,44 +1,24 @@
-/**
- * WishMagic Advanced Public Link, Sharing, SEO & Social Preview Engine
- * Part 15: Centralized Slug Generation, Web Share API, WhatsApp/Telegram/SMS,
- * Pure QR Code Generator with Download, Social Card Previewer, and Rich Metas
- */
-
-(function(window) {
-  'use strict';
-
-  // =========================================================================
-  // 1. SLUG & URL NORMALIZATION SERVICE
-  // =========================================================================
+(function(window2) {
+  "use strict";
   const WishSlugService = {
     /**
      * Sanitizes a string into a URL-friendly slug component
      */
     slugify(text) {
-      if (!text) return '';
-      return String(text)
-        .normalize('NFD') // Normalize accented characters
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric chars (emojis, punctuation)
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-        .replace(/^-+|-+$/g, ''); // Trim leading/trailing hyphens
+      if (!text) return "";
+      return String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
     },
-
     /**
      * Generates a 5-character collision-resistant random alphanumeric suffix
      */
     generateRandomSuffix(length = 5) {
-      const chars = '23456789abcdefghjkmnpqrstuvwxyz'; // readable subset (no 0, o, 1, l, i)
-      let result = '';
+      const chars = "23456789abcdefghjkmnpqrstuvwxyz";
+      let result = "";
       for (let i = 0; i < length; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
       }
       return result;
     },
-
     /**
      * Generates a unique, meaningful and readable slug for a wish
      * Format examples:
@@ -48,11 +28,10 @@
      */
     generateWishSlug(wishOrCustomData, existingSlugs = []) {
       const data = wishOrCustomData.customData || wishOrCustomData || {};
-      const recipient = this.slugify(data.recipient_name || data.recipientName || wishOrCustomData.recipientName || '');
-      const sender = this.slugify(data.sender_name || data.senderName || wishOrCustomData.buyerName || wishOrCustomData.senderName || '');
-      const occasion = this.slugify(data.occasion || wishOrCustomData.category || 'celebration');
-
-      let baseSlug = '';
+      const recipient = this.slugify(data.recipient_name || data.recipientName || wishOrCustomData.recipientName || "");
+      const sender = this.slugify(data.sender_name || data.senderName || wishOrCustomData.buyerName || wishOrCustomData.senderName || "");
+      const occasion = this.slugify(data.occasion || wishOrCustomData.category || "celebration");
+      let baseSlug = "";
       if (sender && recipient) {
         baseSlug = `${sender}-to-${recipient}`;
       } else if (recipient) {
@@ -60,57 +39,37 @@
       } else {
         baseSlug = `magical-${occasion}`;
       }
-
-      // Truncate base slug if too long
       if (baseSlug.length > 35) {
-        baseSlug = baseSlug.slice(0, 35).replace(/-+$/, '');
+        baseSlug = baseSlug.slice(0, 35).replace(/-+$/, "");
       }
-
-      let slug = '';
+      let slug = "";
       let attempts = 0;
-      const existingSet = new Set(existingSlugs.map(s => String(s).toLowerCase()));
-
+      const existingSet = new Set(existingSlugs.map((s) => String(s).toLowerCase()));
       do {
         const suffix = this.generateRandomSuffix(attempts > 5 ? 6 : 5);
         slug = `${baseSlug}-${suffix}`;
         attempts++;
       } while (existingSet.has(slug) && attempts < 20);
-
       return slug;
     },
-
     /**
      * Returns full canonical public URL for a given wish or slug
      */
     getPublicUrl(wishOrSlug) {
-      const origin = (typeof window !== 'undefined' && window.location && window.location.origin) 
-        ? window.location.origin 
-        : 'https://wishmagic.live';
-
-      if (typeof wishOrSlug === 'string') {
-        const clean = wishOrSlug.replace(/^\/+/, '').replace(/^w\//, '');
+      const origin = typeof window2 !== "undefined" && window2.location && window2.location.origin ? window2.location.origin : "https://wishmagic.live";
+      if (typeof wishOrSlug === "string") {
+        const clean = wishOrSlug.replace(/^\/+/, "").replace(/^w\//, "");
         return `${origin}/w/${clean}`;
       }
-
       const wish = wishOrSlug || {};
-      const identifier = wish.slug || wish.id || 'special-celebration';
+      const identifier = wish.slug || wish.id || "special-celebration";
       return `${origin}/w/${identifier}`;
     }
   };
-
-  // =========================================================================
-  // 2. EMBEDDED ISO/IEC 18004 COMPLIANT QR CODE ENGINE (Pure Vector & Canvas)
-  // =========================================================================
-  /**
-   * Ultra-reliable, 100% standard ISO/IEC 18004 QR Code Generator.
-   * Encodes URLs into standard spec QR matrix with Reed-Solomon Error Correction (Level M).
-   * Compatible with all mobile cameras, Google Lens, iOS Camera, WhatsApp, and QR scanners.
-   */
   const WishQRCodeEngine = (function() {
     const QRMode = { NUMBER: 1, ALPHA_NUM: 2, BYTE: 4, KANJI: 8 };
     const QREC = { L: 1, M: 0, Q: 3, H: 2 };
     const QRMask = { P0: 0, P1: 1, P2: 2, P3: 3, P4: 4, P5: 5, P6: 6, P7: 7 };
-
     const QRMath = {
       glog(n) {
         if (n < 1) throw new Error("glog(" + n + ")");
@@ -124,11 +83,9 @@
       EXP_TABLE: new Array(256),
       LOG_TABLE: new Array(256)
     };
-
     for (let i = 0; i < 8; i++) QRMath.EXP_TABLE[i] = 1 << i;
     for (let i = 8; i < 256; i++) QRMath.EXP_TABLE[i] = QRMath.EXP_TABLE[i - 4] ^ QRMath.EXP_TABLE[i - 5] ^ QRMath.EXP_TABLE[i - 6] ^ QRMath.EXP_TABLE[i - 8];
     for (let i = 0; i < 255; i++) QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]] = i;
-
     function QRPolynomial(num, shift) {
       let offset = 0;
       while (offset < num.length && num[offset] === 0) offset++;
@@ -136,10 +93,13 @@
       for (let i = 0; i < num.length - offset; i++) this.num[i] = num[i + offset];
       for (let i = num.length - offset; i < this.num.length; i++) this.num[i] = 0;
     }
-
     QRPolynomial.prototype = {
-      get(i) { return this.num[i]; },
-      getLength() { return this.num.length; },
+      get(i) {
+        return this.num[i];
+      },
+      getLength() {
+        return this.num.length;
+      },
       multiply(e) {
         const num = new Array(this.getLength() + e.getLength() - 1).fill(0);
         for (let i = 0; i < this.getLength(); i++) {
@@ -160,27 +120,60 @@
         return new QRPolynomial(num, 0).mod(e);
       }
     };
-
     const RS_TABLE = [
-      [1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9],
-      [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16],
-      [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13],
-      [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9],
-      [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12],
-      [2, 86, 68], [4, 43, 27], [4, 43, 19], [4, 43, 15],
-      [2, 98, 78], [4, 49, 31], [2, 32, 14, 4, 33, 15], [4, 39, 13, 1, 40, 14],
-      [2, 121, 97], [2, 60, 38, 2, 61, 39], [4, 40, 18, 2, 41, 19], [4, 40, 14, 2, 41, 15],
-      [2, 146, 116], [3, 58, 36, 2, 59, 37], [4, 36, 16, 4, 37, 17], [4, 36, 12, 4, 37, 13],
-      [2, 86, 68, 2, 87, 69], [4, 69, 43, 1, 70, 44], [6, 43, 19, 2, 44, 20], [6, 43, 15, 2, 44, 16],
-      [4, 101, 81], [1, 80, 50, 4, 81, 51], [4, 50, 22, 4, 51, 23], [3, 36, 12, 8, 37, 13],
-      [2, 116, 92, 2, 117, 93], [6, 58, 36, 2, 59, 37], [4, 46, 20, 6, 47, 21], [7, 42, 14, 4, 43, 15]
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15]
     ];
-
     function QRRSBlock(totalCount, dataCount) {
       this.totalCount = totalCount;
       this.dataCount = dataCount;
     }
-
     QRRSBlock.getRSBlocks = function(type, ec) {
       const idx = (type - 1) * 4 + (ec === QREC.L ? 0 : ec === QREC.M ? 1 : ec === QREC.Q ? 2 : 3);
       const row = RS_TABLE[idx];
@@ -194,71 +187,81 @@
       }
       return list;
     };
-
     function QRBitBuffer() {
       this.buffer = [];
       this.length = 0;
     }
-
     QRBitBuffer.prototype = {
       get(i) {
-        return ((this.buffer[Math.floor(i / 8)] >>> (7 - i % 8)) & 1) === 1;
+        return (this.buffer[Math.floor(i / 8)] >>> 7 - i % 8 & 1) === 1;
       },
       put(num, len) {
         for (let i = 0; i < len; i++) {
-          this.putBit(((num >>> (len - i - 1)) & 1) === 1);
+          this.putBit((num >>> len - i - 1 & 1) === 1);
         }
       },
       putBit(bit) {
         const idx = Math.floor(this.length / 8);
         if (this.buffer.length <= idx) this.buffer.push(0);
-        if (bit) this.buffer[idx] |= (0x80 >>> (this.length % 8));
+        if (bit) this.buffer[idx] |= 128 >>> this.length % 8;
         this.length++;
       }
     };
-
     function QR8BitByte(data) {
       this.mode = QRMode.BYTE;
       this.data = data;
       this.bytes = [];
       for (let i = 0; i < data.length; i++) {
         const c = data.charCodeAt(i);
-        if (c > 0x10000) {
-          this.bytes.push(0xF0 | ((c & 0x1C0000) >>> 18), 0x80 | ((c & 0x3F000) >>> 12), 0x80 | ((c & 0xFC0) >>> 6), 0x80 | (c & 0x3F));
-        } else if (c > 0x800) {
-          this.bytes.push(0xE0 | ((c & 0xF000) >>> 12), 0x80 | ((c & 0xFC0) >>> 6), 0x80 | (c & 0x3F));
-        } else if (c > 0x80) {
-          this.bytes.push(0xC0 | ((c & 0x7C0) >>> 6), 0x80 | (c & 0x3F));
+        if (c > 65536) {
+          this.bytes.push(240 | (c & 1835008) >>> 18, 128 | (c & 258048) >>> 12, 128 | (c & 4032) >>> 6, 128 | c & 63);
+        } else if (c > 2048) {
+          this.bytes.push(224 | (c & 61440) >>> 12, 128 | (c & 4032) >>> 6, 128 | c & 63);
+        } else if (c > 128) {
+          this.bytes.push(192 | (c & 1984) >>> 6, 128 | c & 63);
         } else {
           this.bytes.push(c);
         }
       }
     }
-
     QR8BitByte.prototype = {
-      getLength() { return this.bytes.length; },
+      getLength() {
+        return this.bytes.length;
+      },
       write(buf) {
         for (let i = 0; i < this.bytes.length; i++) buf.put(this.bytes[i], 8);
       }
     };
-
     const QRUtil = {
       PATTERN_POS: [
-        [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34],
-        [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58]
+        [],
+        [6, 18],
+        [6, 22],
+        [6, 26],
+        [6, 30],
+        [6, 34],
+        [6, 22, 38],
+        [6, 24, 42],
+        [6, 26, 46],
+        [6, 28, 50],
+        [6, 30, 54],
+        [6, 32, 58]
       ],
-      G15: (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0),
-      G15_MASK: (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1),
+      G15: 1 << 10 | 1 << 8 | 1 << 5 | 1 << 4 | 1 << 2 | 1 << 1 | 1 << 0,
+      G15_MASK: 1 << 14 | 1 << 12 | 1 << 10 | 1 << 4 | 1 << 1,
       getBCHTypeInfo(data) {
         let d = data << 10;
         while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15) >= 0) {
-          d ^= (QRUtil.G15 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15)));
+          d ^= QRUtil.G15 << QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15);
         }
-        return ((data << 10) | d) ^ QRUtil.G15_MASK;
+        return (data << 10 | d) ^ QRUtil.G15_MASK;
       },
       getBCHDigit(data) {
         let digit = 0;
-        while (data !== 0) { digit++; data >>>= 1; }
+        while (data !== 0) {
+          digit++;
+          data >>>= 1;
+        }
         return digit;
       },
       getPatternPosition(type) {
@@ -266,15 +269,24 @@
       },
       getMask(p, i, j) {
         switch (p) {
-          case QRMask.P0: return (i + j) % 2 === 0;
-          case QRMask.P1: return i % 2 === 0;
-          case QRMask.P2: return j % 3 === 0;
-          case QRMask.P3: return (i + j) % 3 === 0;
-          case QRMask.P4: return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
-          case QRMask.P5: return ((i * j) % 2) + ((i * j) % 3) === 0;
-          case QRMask.P6: return (((i * j) % 2) + ((i * j) % 3)) % 2 === 0;
-          case QRMask.P7: return (((i * j) % 3) + ((i + j) % 2)) % 2 === 0;
-          default: return false;
+          case QRMask.P0:
+            return (i + j) % 2 === 0;
+          case QRMask.P1:
+            return i % 2 === 0;
+          case QRMask.P2:
+            return j % 3 === 0;
+          case QRMask.P3:
+            return (i + j) % 3 === 0;
+          case QRMask.P4:
+            return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
+          case QRMask.P5:
+            return i * j % 2 + i * j % 3 === 0;
+          case QRMask.P6:
+            return (i * j % 2 + i * j % 3) % 2 === 0;
+          case QRMask.P7:
+            return (i * j % 3 + (i + j) % 2) % 2 === 0;
+          default:
+            return false;
         }
       },
       getErrorCorrectPolynomial(len) {
@@ -286,9 +298,9 @@
       },
       getLengthInBits(mode, type) {
         if (type < 10) {
-          return mode === QRMode.BYTE ? 8 : (mode === QRMode.ALPHA_NUM ? 9 : 10);
+          return mode === QRMode.BYTE ? 8 : mode === QRMode.ALPHA_NUM ? 9 : 10;
         }
-        return mode === QRMode.BYTE ? 16 : (mode === QRMode.ALPHA_NUM ? 11 : 12);
+        return mode === QRMode.BYTE ? 16 : mode === QRMode.ALPHA_NUM ? 11 : 12;
       },
       getLostPoint(qr) {
         const mc = qr.getModuleCount();
@@ -305,7 +317,7 @@
                 if (dark === qr.isDark(r + dr, c + dc)) sc++;
               }
             }
-            if (sc > 5) lp += (3 + sc - 5);
+            if (sc > 5) lp += 3 + sc - 5;
           }
         }
         for (let r = 0; r < mc - 1; r++) {
@@ -321,7 +333,6 @@
         return lp;
       }
     };
-
     function QRCodeModel(typeNumber, errorCorrectLevel) {
       this.typeNumber = typeNumber;
       this.errorCorrectLevel = errorCorrectLevel;
@@ -330,7 +341,6 @@
       this.dataCache = null;
       this.dataList = [];
     }
-
     QRCodeModel.prototype = {
       addData(data) {
         this.dataList.push(new QR8BitByte(data));
@@ -340,7 +350,9 @@
         if (r < 0 || this.moduleCount <= r || c < 0 || this.moduleCount <= c) return false;
         return Boolean(this.modules[r][c]);
       },
-      getModuleCount() { return this.moduleCount; },
+      getModuleCount() {
+        return this.moduleCount;
+      },
       make() {
         if (this.typeNumber < 1) {
           let type = 1;
@@ -383,7 +395,7 @@
           if (row + r <= -1 || this.moduleCount <= row + r) continue;
           for (let c = -1; c <= 7; c++) {
             if (col + c <= -1 || this.moduleCount <= col + c) continue;
-            if ((0 <= r && r <= 6 && (c === 0 || c === 6)) || (0 <= c && c <= 6 && (r === 0 || r === 6)) || (2 <= r && r <= 4 && 2 <= c && c <= 4)) {
+            if (0 <= r && r <= 6 && (c === 0 || c === 6) || 0 <= c && c <= 6 && (r === 0 || r === 6) || 2 <= r && r <= 4 && 2 <= c && c <= 4) {
               this.modules[row + r][col + c] = true;
             } else {
               this.modules[row + r][col + c] = false;
@@ -397,18 +409,21 @@
         for (let i = 0; i < 8; i++) {
           this.makeImpl(true, i);
           const lp = QRUtil.getLostPoint(this);
-          if (i === 0 || minLp > lp) { minLp = lp; best = i; }
+          if (i === 0 || minLp > lp) {
+            minLp = lp;
+            best = i;
+          }
         }
         return best;
       },
       setupTimingPattern() {
         for (let r = 8; r < this.moduleCount - 8; r++) {
           if (this.modules[r][6] !== null) continue;
-          this.modules[r][6] = (r % 2 === 0);
+          this.modules[r][6] = r % 2 === 0;
         }
         for (let c = 8; c < this.moduleCount - 8; c++) {
           if (this.modules[6][c] !== null) continue;
-          this.modules[6][c] = (c % 2 === 0);
+          this.modules[6][c] = c % 2 === 0;
         }
       },
       setupPositionAdjustPattern() {
@@ -420,7 +435,7 @@
             if (this.modules[row][col] !== null) continue;
             for (let r = -2; r <= 2; r++) {
               for (let c = -2; c <= 2; c++) {
-                if (r === -2 || r === 2 || c === -2 || c === 2 || (r === 0 && c === 0)) {
+                if (r === -2 || r === 2 || c === -2 || c === 2 || r === 0 && c === 0) {
                   this.modules[row + r][col + c] = true;
                 } else {
                   this.modules[row + r][col + c] = false;
@@ -431,16 +446,16 @@
         }
       },
       setupTypeInfo(test, maskPattern) {
-        const data = (this.errorCorrectLevel << 3) | maskPattern;
+        const data = this.errorCorrectLevel << 3 | maskPattern;
         const bits = QRUtil.getBCHTypeInfo(data);
         for (let i = 0; i < 15; i++) {
-          const mod = (!test && ((bits >> i) & 1) === 1);
+          const mod = !test && (bits >> i & 1) === 1;
           if (i < 6) this.modules[i][8] = mod;
           else if (i < 8) this.modules[i + 1][8] = mod;
           else this.modules[this.moduleCount - 15 + i][8] = mod;
         }
         for (let i = 0; i < 15; i++) {
-          const mod = (!test && ((bits >> i) & 1) === 1);
+          const mod = !test && (bits >> i & 1) === 1;
           if (i < 8) this.modules[8][this.moduleCount - i - 1] = mod;
           else if (i < 9) this.modules[8][15 - i - 1 + 1] = mod;
           else this.modules[8][15 - i - 1] = mod;
@@ -459,13 +474,16 @@
               if (this.modules[row][col - c] === null) {
                 let dark = false;
                 if (byteIndex < data.length) {
-                  dark = (((data[byteIndex] >>> bitIndex) & 1) === 1);
+                  dark = (data[byteIndex] >>> bitIndex & 1) === 1;
                 }
                 const mask = QRUtil.getMask(maskPattern, row, col - c);
                 if (mask) dark = !dark;
                 this.modules[row][col - c] = dark;
                 bitIndex--;
-                if (bitIndex === -1) { byteIndex++; bitIndex = 7; }
+                if (bitIndex === -1) {
+                  byteIndex++;
+                  bitIndex = 7;
+                }
               }
             }
             row += inc;
@@ -478,7 +496,6 @@
         }
       }
     };
-
     QRCodeModel.createData = function(type, ec, dataList) {
       const rsBlocks = QRRSBlock.getRSBlocks(type, ec);
       const buffer = new QRBitBuffer();
@@ -494,13 +511,12 @@
       while (buffer.length % 8 !== 0) buffer.putBit(false);
       while (true) {
         if (buffer.length >= totalDataCount * 8) break;
-        buffer.put(0xEC, 8);
+        buffer.put(236, 8);
         if (buffer.length >= totalDataCount * 8) break;
-        buffer.put(0x11, 8);
+        buffer.put(17, 8);
       }
       return QRCodeModel.createBytes(buffer, rsBlocks);
     };
-
     QRCodeModel.createBytes = function(buffer, rsBlocks) {
       let offset = 0;
       let maxDcCount = 0;
@@ -514,7 +530,7 @@
         maxEcCount = Math.max(maxEcCount, ecCount);
         dcdata[r] = new Array(dcCount);
         for (let i = 0; i < dcdata[r].length; i++) {
-          dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+          dcdata[r][i] = 255 & buffer.buffer[i + offset];
         }
         offset += dcCount;
         const rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
@@ -523,7 +539,7 @@
         ecdata[r] = new Array(rsPoly.getLength() - 1);
         for (let i = 0; i < ecdata[r].length; i++) {
           const modIndex = i + modPoly.getLength() - ecdata[r].length;
-          ecdata[r][i] = (modIndex >= 0) ? modPoly.get(modIndex) : 0;
+          ecdata[r][i] = modIndex >= 0 ? modPoly.get(modIndex) : 0;
         }
       }
       let totalCodeCount = 0;
@@ -542,12 +558,11 @@
       }
       return data;
     };
-
     return {
-      createMatrix(text, ecLevelName = 'M') {
-        const ecLevel = QREC[ecLevelName] !== undefined ? QREC[ecLevelName] : QREC.M;
+      createMatrix(text, ecLevelName = "M") {
+        const ecLevel = QREC[ecLevelName] !== void 0 ? QREC[ecLevelName] : QREC.M;
         const qr = new QRCodeModel(0, ecLevel);
-        qr.addData(String(text || 'https://wishmagic.live'));
+        qr.addData(String(text || "https://wishmagic.live"));
         qr.make();
         const count = qr.getModuleCount();
         const matrix = [];
@@ -562,21 +577,18 @@
       }
     };
   })();
-
   const WishQRCodeService = {
     // Helper to generate a 100% spec-compliant, crisp, scannable QR Code SVG string
     generateQRCodeSVG(text, options = {}) {
       const size = options.size || 220;
-      const fgColor = options.fgColor || '#0c0217';
-      const bgColor = options.bgColor || '#ffffff';
-      const margin = options.margin !== undefined ? options.margin : 4; // standard ISO 4-module quiet zone
-
-      const rawMatrix = WishQRCodeEngine.createMatrix(text, options.ecLevel || 'M');
+      const fgColor = options.fgColor || "#0c0217";
+      const bgColor = options.bgColor || "#ffffff";
+      const margin = options.margin !== void 0 ? options.margin : 4;
+      const rawMatrix = WishQRCodeEngine.createMatrix(text, options.ecLevel || "M");
       const matrixSize = rawMatrix.length;
-      const totalModules = matrixSize + (margin * 2);
+      const totalModules = matrixSize + margin * 2;
       const cellSize = size / totalModules;
-
-      let rects = '';
+      let rects = "";
       for (let r = 0; r < matrixSize; r++) {
         for (let c = 0; c < matrixSize; c++) {
           if (rawMatrix[r][c]) {
@@ -588,35 +600,27 @@
           }
         }
       }
-
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges">
         <rect width="${size}" height="${size}" fill="${bgColor}"/>
         <g>${rects}</g>
       </svg>`;
     },
-
     // Draws 100% standard scannable QR code directly onto an HTML Canvas
     drawQRCodeToCanvas(text, canvas, options = {}) {
       if (!canvas) return;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       const size = options.size || canvas.width || 320;
       canvas.width = size;
       canvas.height = size;
-
-      const fgColor = options.fgColor || '#0c0217';
-      const bgColor = options.bgColor || '#ffffff';
-      const margin = options.margin !== undefined ? options.margin : 4; // standard ISO 4-module quiet zone
-
-      const rawMatrix = WishQRCodeEngine.createMatrix(text, options.ecLevel || 'M');
+      const fgColor = options.fgColor || "#0c0217";
+      const bgColor = options.bgColor || "#ffffff";
+      const margin = options.margin !== void 0 ? options.margin : 4;
+      const rawMatrix = WishQRCodeEngine.createMatrix(text, options.ecLevel || "M");
       const matrixSize = rawMatrix.length;
-      const totalModules = matrixSize + (margin * 2);
+      const totalModules = matrixSize + margin * 2;
       const cellSize = size / totalModules;
-
-      // Fill clean background
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, size, size);
-
-      // Draw high-contrast modules
       ctx.fillStyle = fgColor;
       for (let r = 0; r < matrixSize; r++) {
         for (let c = 0; c < matrixSize; c++) {
@@ -628,187 +632,153 @@
         }
       }
     },
-
     // Standalone direct QR Code PNG download
-    downloadQRCodePNG(text, filename = 'wishmagic-qr.png', size = 320) {
+    downloadQRCodePNG(text, filename = "wishmagic-qr.png", size = 320) {
       if (!text) {
-        if (window.WishToast) window.WishToast.show({ title: 'Error', message: 'No valid URL provided for QR code.', type: 'warning' });
+        if (window2.WishToast) window2.WishToast.show({ title: "Error", message: "No valid URL provided for QR code.", type: "warning" });
         return;
       }
       try {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         this.drawQRCodeToCanvas(text, canvas, { size });
-        const safeFilename = (filename || 'wishmagic-qr.png').replace(/[^a-z0-9_.-]/gi, '_');
-        const link = document.createElement('a');
-        link.download = safeFilename.endsWith('.png') ? safeFilename : `${safeFilename}.png`;
-        link.href = canvas.toDataURL('image/png');
+        const safeFilename = (filename || "wishmagic-qr.png").replace(/[^a-z0-9_.-]/gi, "_");
+        const link = document.createElement("a");
+        link.download = safeFilename.endsWith(".png") ? safeFilename : `${safeFilename}.png`;
+        link.href = canvas.toDataURL("image/png");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       } catch (err) {
-        console.error('[WishQRCodeService] PNG download failed:', err);
-        if (window.WishToast) window.WishToast.show({ title: 'Download Error', message: 'Could not export QR code image.', type: 'error' });
+        console.error("[WishQRCodeService] PNG download failed:", err);
+        if (window2.WishToast) window2.WishToast.show({ title: "Download Error", message: "Could not export QR code image.", type: "error" });
       }
     },
-
     // Standalone direct QR Code SVG download
-    downloadQRCodeSVG(text, filename = 'wishmagic-qr.svg', size = 320) {
+    downloadQRCodeSVG(text, filename = "wishmagic-qr.svg", size = 320) {
       if (!text) {
-        if (window.WishToast) window.WishToast.show({ title: 'Error', message: 'No valid URL provided for QR code.', type: 'warning' });
+        if (window2.WishToast) window2.WishToast.show({ title: "Error", message: "No valid URL provided for QR code.", type: "warning" });
         return;
       }
       try {
         const svg = this.generateQRCodeSVG(text, { size });
-        const safeFilename = (filename || 'wishmagic-qr.svg').replace(/[^a-z0-9_.-]/gi, '_');
-        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const safeFilename = (filename || "wishmagic-qr.svg").replace(/[^a-z0-9_.-]/gi, "_");
+        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = safeFilename.endsWith('.svg') ? safeFilename : `${safeFilename}.svg`;
+        const link = document.createElement("a");
+        link.download = safeFilename.endsWith(".svg") ? safeFilename : `${safeFilename}.svg`;
         link.href = url;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setTimeout(() => URL.revokeObjectURL(url), 1e3);
       } catch (err) {
-        console.error('[WishQRCodeService] SVG download failed:', err);
-        if (window.WishToast) window.WishToast.show({ title: 'Download Error', message: 'Could not export QR code SVG.', type: 'error' });
+        console.error("[WishQRCodeService] SVG download failed:", err);
+        if (window2.WishToast) window2.WishToast.show({ title: "Download Error", message: "Could not export QR code SVG.", type: "error" });
       }
     },
-
     // Generates a downloadable high-resolution greeting print card with QR code
-    downloadQRCardPNG(url, recipientName = 'Someone Special', title = 'Celebration Surprise') {
+    downloadQRCardPNG(url, recipientName = "Someone Special", title = "Celebration Surprise") {
       if (!url) {
-        if (window.WishToast) window.WishToast.show({ title: 'Error', message: 'No valid celebration URL found for print card.', type: 'warning' });
+        if (window2.WishToast) window2.WishToast.show({ title: "Error", message: "No valid celebration URL found for print card.", type: "warning" });
         return;
       }
       try {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         const cardWidth = 800;
         const cardHeight = 1100;
         canvas.width = cardWidth;
         canvas.height = cardHeight;
-        const ctx = canvas.getContext('2d');
-
-        // 1. Luxury Dark Gradient Background
+        const ctx = canvas.getContext("2d");
         const grad = ctx.createLinearGradient(0, 0, cardWidth, cardHeight);
-        grad.addColorStop(0, '#19062e');
-        grad.addColorStop(0.5, '#0c0217');
-        grad.addColorStop(1, '#05000a');
+        grad.addColorStop(0, "#19062e");
+        grad.addColorStop(0.5, "#0c0217");
+        grad.addColorStop(1, "#05000a");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, cardWidth, cardHeight);
-
-        // 2. Decorative Border & Glow Orbs
-        ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
+        ctx.strokeStyle = "rgba(236, 72, 153, 0.4)";
         ctx.lineWidth = 4;
         ctx.strokeRect(30, 30, cardWidth - 60, cardHeight - 60);
-
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
+        ctx.strokeStyle = "rgba(168, 85, 247, 0.2)";
         ctx.lineWidth = 1;
         ctx.strokeRect(40, 40, cardWidth - 80, cardHeight - 80);
-
-        // 3. Top Header Typography
-        ctx.fillStyle = '#fdf2f8';
+        ctx.fillStyle = "#fdf2f8";
         ctx.font = 'bold 36px "Outfit", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('A SPECIAL SURPRISE FOR YOU', cardWidth / 2, 120);
-
-        ctx.fillStyle = '#f472b6';
+        ctx.textAlign = "center";
+        ctx.fillText("A SPECIAL SURPRISE FOR YOU", cardWidth / 2, 120);
+        ctx.fillStyle = "#f472b6";
         ctx.font = 'bold 54px "Playfair Display", serif';
         ctx.fillText(recipientName, cardWidth / 2, 195);
-
-        ctx.fillStyle = 'rgba(216, 180, 254, 0.8)';
+        ctx.fillStyle = "rgba(216, 180, 254, 0.8)";
         ctx.font = '22px "Plus Jakarta Sans", sans-serif';
-        ctx.fillText('Scan this magic code with your phone camera to unwrap ✨', cardWidth / 2, 250);
-
-        // 4. Center QR Canvas Card
+        ctx.fillText("Scan this magic code with your phone camera to unwrap \u2728", cardWidth / 2, 250);
         const qrBoxSize = 440;
         const qrBoxX = (cardWidth - qrBoxSize) / 2;
         const qrBoxY = 310;
-
-        // White card backing
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
+        if (typeof ctx.roundRect === "function") {
           ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 28);
         } else {
           ctx.fillRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize);
         }
         ctx.fill();
-
-        // Draw standard scannable QR code onto center
-        const qrTempCanvas = document.createElement('canvas');
+        const qrTempCanvas = document.createElement("canvas");
         this.drawQRCodeToCanvas(url, qrTempCanvas, {
           size: qrBoxSize - 40,
-          fgColor: '#0a0114',
-          bgColor: '#ffffff',
+          fgColor: "#0a0114",
+          bgColor: "#ffffff",
           margin: 4
         });
         ctx.drawImage(qrTempCanvas, qrBoxX + 20, qrBoxY + 20);
-
-        // 5. Bottom Instructions & Vanity URL
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = "#ffffff";
         ctx.font = 'bold 26px "Outfit", sans-serif';
-        ctx.fillText('🎁 Interactive Celebration Website', cardWidth / 2, 820);
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.font = '20px monospace';
-        const displayUrl = url.replace(/^https?:\/\//, '');
+        ctx.fillText("\u{1F381} Interactive Celebration Website", cardWidth / 2, 820);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.font = "20px monospace";
+        const displayUrl = url.replace(/^https?:\/\//, "");
         ctx.fillText(displayUrl, cardWidth / 2, 865);
-
-        ctx.fillStyle = 'rgba(244, 114, 182, 0.8)';
+        ctx.fillStyle = "rgba(244, 114, 182, 0.8)";
         ctx.font = 'bold 20px "Great Vibes", cursive, sans-serif';
-        ctx.fillText('Handcrafted with love on WishMagic', cardWidth / 2, 980);
-
-        // 6. Trigger Download
-        const link = document.createElement('a');
-        const cleanRecipient = (WishSlugService.slugify ? WishSlugService.slugify(recipientName) : recipientName.replace(/[^a-z0-9]/gi, '-')) || 'card';
+        ctx.fillText("Handcrafted with love on WishMagic", cardWidth / 2, 980);
+        const link = document.createElement("a");
+        const cleanRecipient = (WishSlugService.slugify ? WishSlugService.slugify(recipientName) : recipientName.replace(/[^a-z0-9]/gi, "-")) || "card";
         const filename = `WishMagic-QR-${cleanRecipient}.png`;
         link.download = filename;
-        link.href = canvas.toDataURL('image/png');
+        link.href = canvas.toDataURL("image/png");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
-        // Part 16: Track Event
-        if (window.WishAnalyticsService) {
-          window.WishAnalyticsService.trackEvent('qr_generated', {
+        if (window2.WishAnalyticsService) {
+          window2.WishAnalyticsService.trackEvent("qr_generated", {
             recipientName,
             metadata: { title, url }
           });
         }
       } catch (err) {
-        console.error('[WishQRCodeService] Print card export failed:', err);
-        if (window.WishToast) window.WishToast.show({ title: 'Export Failed', message: 'Could not generate greeting card image.', type: 'error' });
+        console.error("[WishQRCodeService] Print card export failed:", err);
+        if (window2.WishToast) window2.WishToast.show({ title: "Export Failed", message: "Could not generate greeting card image.", type: "error" });
       }
     }
   };
-
-  // =========================================================================
-  // 3. SOCIAL PREVIEW METADATA & CARD BUILDER
-  // =========================================================================
   const WishSocialPreview = {
     /**
      * Generates normalized OpenGraph and Twitter social card metadata
      */
     getSocialMetadata(wishOrData, template = null) {
-      const data = (wishOrData && wishOrData.customData) || wishOrData || {};
-      const recipient = data.recipient_name || data.recipientName || 'Someone Special';
-      const sender = data.sender_name || data.senderName || 'Someone Who Cares';
-      const occasion = (template && template.category) || data.occasion || 'Celebration';
+      const data = wishOrData && wishOrData.customData || wishOrData || {};
+      const recipient = data.recipient_name || data.recipientName || "Someone Special";
+      const sender = data.sender_name || data.senderName || "Someone Who Cares";
+      const occasion = template && template.category || data.occasion || "Celebration";
       const publicUrl = WishSlugService.getPublicUrl(wishOrData);
-
-      // Hero image resolution (prioritize photo_1 or cover photo or template thumbnail)
-      let imageUrl = data.cover_photo || data.photo_1 || (data.photos && data.photos[0] && data.photos[0].src);
+      let imageUrl = data.cover_photo || data.photo_1 || data.photos && data.photos[0] && data.photos[0].src;
       if (!imageUrl && template) {
-        imageUrl = template.thumbnail || (template.previewImages && template.previewImages[0]);
+        imageUrl = template.thumbnail || template.previewImages && template.previewImages[0];
       }
       if (!imageUrl) {
-        imageUrl = '/assets/file_ab2082.png';
+        imageUrl = "/assets/file_ab2082.webp";
       }
-
-      const title = `${recipient}'s Magical ${occasion} Surprise ✨`;
-      const description = `A personalized celebration website created with love by ${sender} for ${recipient}. Open this link to unwrap music, photographs, and memories! 💖`;
-
+      const title = `${recipient}'s Magical ${occasion} Surprise \u2728`;
+      const description = `A personalized celebration website created with love by ${sender} for ${recipient}. Open this link to unwrap music, photographs, and memories! \u{1F496}`;
       return {
         title,
         description,
@@ -817,26 +787,24 @@
         occasion,
         publicUrl,
         imageUrl,
-        siteName: 'WishMagic'
+        siteName: "WishMagic"
       };
     },
-
     /**
      * Renders an interactive Social Card Preview visualizer
      * Allows creators to see how their link looks on WhatsApp, Twitter/X, and iMessage
      */
-    renderSocialPreviewHTML(meta, platform = 'whatsapp') {
+    renderSocialPreviewHTML(meta, platform = "whatsapp") {
       const { title, description, publicUrl, imageUrl } = meta;
-      const displayDomain = 'wishmagic.live';
-
-      if (platform === 'whatsapp') {
+      const displayDomain = "wishmagic.live";
+      if (platform === "whatsapp") {
         return `
           <div class="rounded-2xl bg-[#0b141a] p-3 text-white border border-[#202c33] shadow-lg max-w-sm mx-auto font-sans">
             <div class="rounded-xl overflow-hidden bg-[#111b21] border border-[#222e35]">
               <div class="relative w-full h-36 bg-[#182229] overflow-hidden">
                 <img src="${imageUrl}" alt="Preview" class="w-full h-full object-cover"/>
                 <div class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur text-[10px] font-bold text-emerald-400">
-                  🎁 WishMagic
+                  \u{1F381} WishMagic
                 </div>
               </div>
               <div class="p-3 space-y-1">
@@ -851,8 +819,7 @@
           </div>
         `;
       }
-
-      if (platform === 'twitter') {
+      if (platform === "twitter") {
         return `
           <div class="rounded-2xl bg-black p-3 text-white border border-neutral-800 shadow-lg max-w-sm mx-auto font-sans">
             <div class="rounded-2xl overflow-hidden border border-neutral-800 hover:border-neutral-700 transition">
@@ -868,8 +835,6 @@
           </div>
         `;
       }
-
-      // Default: iMessage / Generic Rich Card
       return `
         <div class="rounded-2xl bg-[#1c1c1e] p-3 text-white border border-[#2c2c2e] shadow-lg max-w-sm mx-auto font-sans">
           <div class="rounded-xl overflow-hidden bg-[#2c2c2e]">
@@ -886,32 +851,27 @@
       `;
     }
   };
-
-  // =========================================================================
-  // 4. UNIVERSAL SHARE SYSTEM (Web Share, WhatsApp, Telegram, SMS, QR Modal)
-  // =========================================================================
   const WishShareSystem = {
     // Expose subservices
     slug: WishSlugService,
     qr: WishQRCodeService,
     preview: WishSocialPreview,
-
     /**
      * Prepares pre-composed share text and URLs for different social channels
      */
     getShareChannels(wishOrData, template = null) {
       const meta = WishSocialPreview.getSocialMetadata(wishOrData, template);
       const { recipient, publicUrl } = meta;
+      const rawMsg = `\u2728 Hey ${recipient}! I crafted a magical personalized celebration surprise website just for you \u{1F381}.
 
-      const rawMsg = `✨ Hey ${recipient}! I crafted a magical personalized celebration surprise website just for you 🎁.\n\nOpen it here to unwrap: ${publicUrl} 💖`;
+Open it here to unwrap: ${publicUrl} \u{1F496}`;
       const encodedMsg = encodeURIComponent(rawMsg);
       const encodedUrl = encodeURIComponent(publicUrl);
-      const encodedTitle = encodeURIComponent(`A Special Celebration For ${recipient} ✨`);
-
+      const encodedTitle = encodeURIComponent(`A Special Celebration For ${recipient} \u2728`);
       return {
         whatsapp: `https://api.whatsapp.com/send?text=${encodedMsg}`,
-        telegram: `https://t.telegram.org/share/url?url=${encodedUrl}&text=${encodeURIComponent(`✨ Personalized Celebration Surprise for ${recipient}!`)}`,
-        twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodeURIComponent(`Created a magical celebration surprise for ${recipient} on @WishMagic ✨`)}`,
+        telegram: `https://t.telegram.org/share/url?url=${encodedUrl}&text=${encodeURIComponent(`\u2728 Personalized Celebration Surprise for ${recipient}!`)}`,
+        twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodeURIComponent(`Created a magical celebration surprise for ${recipient} on @WishMagic \u2728`)}`,
         facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
         sms: `sms:?&body=${encodedMsg}`,
         email: `mailto:?subject=${encodedTitle}&body=${encodedMsg}`,
@@ -919,34 +879,31 @@
         meta
       };
     },
-
     /**
      * Executes Native Web Share API if supported by the browser (mobile phones, Safari, Chrome)
      */
     async shareNative(wishOrData, template = null) {
       const meta = WishSocialPreview.getSocialMetadata(wishOrData, template);
       if (!meta.publicUrl) return false;
-
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
         try {
           await navigator.share({
             title: meta.title,
-            text: `✨ Special personalized celebration website created for ${meta.recipient}!`,
+            text: `\u2728 Special personalized celebration website created for ${meta.recipient}!`,
             url: meta.publicUrl
           });
-          if (window.WishAnalyticsService) {
-            window.WishAnalyticsService.trackEvent('wish_shared', {
-              method: 'web_share',
+          if (window2.WishAnalyticsService) {
+            window2.WishAnalyticsService.trackEvent("wish_shared", {
+              method: "web_share",
               url: meta.publicUrl
             });
           }
           return true;
         } catch (e) {
-          if (e.name === 'AbortError') {
-            // User cancelled share sheet — this is not an error and must not trigger failure alerts or modal fallback
+          if (e.name === "AbortError") {
             return false;
           }
-          console.warn('[WishShareSystem] Native share failed, opening modal fallback:', e);
+          console.warn("[WishShareSystem] Native share failed, opening modal fallback:", e);
           this.openShareModal(wishOrData, { template });
           return false;
         }
@@ -955,31 +912,27 @@
         return false;
       }
     },
-
     /**
      * Robust Clipboard Copy with fallback and truthful UI states
      */
     async copyLink(urlOrWish, feedbackEl = null) {
-      let url = typeof urlOrWish === 'string' ? urlOrWish : WishSlugService.getPublicUrl(urlOrWish);
-      if (!url || typeof url !== 'string' || !url.trim()) {
-        if (window.WishToast) {
-          window.WishToast.show({
-            title: 'No Link Available',
-            message: 'No celebration link is ready to copy.',
-            type: 'warning'
+      let url = typeof urlOrWish === "string" ? urlOrWish : WishSlugService.getPublicUrl(urlOrWish);
+      if (!url || typeof url !== "string" || !url.trim()) {
+        if (window2.WishToast) {
+          window2.WishToast.show({
+            title: "No Link Available",
+            message: "No celebration link is ready to copy.",
+            type: "warning"
           });
         }
         return false;
       }
-
       url = url.trim();
       let copied = false;
-
       if (feedbackEl) {
         feedbackEl.disabled = true;
       }
-
-      if (navigator.clipboard && window.isSecureContext) {
+      if (navigator.clipboard && window2.isSecureContext) {
         try {
           await navigator.clipboard.writeText(url);
           copied = true;
@@ -987,30 +940,28 @@
           copied = false;
         }
       }
-
       if (!copied) {
         try {
-          const textArea = document.createElement('textarea');
+          const textArea = document.createElement("textarea");
           textArea.value = url;
-          textArea.style.position = 'fixed';
-          textArea.style.top = '-9999px';
-          textArea.style.left = '-9999px';
-          textArea.style.opacity = '0';
+          textArea.style.position = "fixed";
+          textArea.style.top = "-9999px";
+          textArea.style.left = "-9999px";
+          textArea.style.opacity = "0";
           document.body.appendChild(textArea);
           textArea.focus();
           textArea.select();
           textArea.setSelectionRange(0, 99999);
-          copied = document.execCommand('copy');
+          copied = document.execCommand("copy");
           document.body.removeChild(textArea);
         } catch (e) {
           copied = false;
         }
       }
-
       if (feedbackEl) {
         const prev = feedbackEl.innerHTML;
         if (copied) {
-          feedbackEl.innerHTML = '<span>Copied! ✨</span>';
+          feedbackEl.innerHTML = "<span>Copied! \u2728</span>";
         } else {
           feedbackEl.innerHTML = '<span class="text-rose-300">Copy Failed</span>';
         }
@@ -1019,41 +970,35 @@
           feedbackEl.disabled = false;
         }, 2200);
       }
-
       if (copied) {
-        // Part 16: Track Event
-        if (window.WishAnalyticsService) {
-          window.WishAnalyticsService.trackEvent('share_link_copied', {
+        if (window2.WishAnalyticsService) {
+          window2.WishAnalyticsService.trackEvent("share_link_copied", {
             metadata: { url }
           });
         }
-
-        // Part 17: Toast Feedback
-        if (window.WishToast) {
-          window.WishToast.show({
-            title: 'Link Copied! 📋',
-            message: 'Public celebration URL copied to clipboard.',
-            type: 'success'
+        if (window2.WishToast) {
+          window2.WishToast.show({
+            title: "Link Copied! \u{1F4CB}",
+            message: "Public celebration URL copied to clipboard.",
+            type: "success"
           });
         }
       } else {
-        if (window.WishToast) {
-          window.WishToast.show({
-            title: 'Copy Failed ⚠️',
-            message: 'Please select and copy the link manually.',
-            type: 'warning'
+        if (window2.WishToast) {
+          window2.WishToast.show({
+            title: "Copy Failed \u26A0\uFE0F",
+            message: "Please select and copy the link manually.",
+            type: "warning"
           });
         }
-        const modalInput = document.getElementById('modal-share-link-input');
+        const modalInput = document.getElementById("modal-share-link-input");
         if (modalInput) {
           modalInput.focus();
           modalInput.select();
         }
       }
-
       return copied;
     },
-
     /**
      * Opens the full-featured, state-of-the-art Share & Discoverability Modal
      */
@@ -1061,10 +1006,8 @@
       const template = options.template || null;
       const meta = WishSocialPreview.getSocialMetadata(wishOrData, template);
       const channels = this.getShareChannels(wishOrData, template);
-
-      // Part 16: Track Event
-      if (window.WishAnalyticsService) {
-        window.WishAnalyticsService.trackEvent('wish_shared', {
+      if (window2.WishAnalyticsService) {
+        window2.WishAnalyticsService.trackEvent("wish_shared", {
           wishId: wishOrData?.id || null,
           slug: wishOrData?.slug || null,
           recipientName: meta.recipient,
@@ -1072,17 +1015,14 @@
           metadata: { title: meta.title, publicUrl: meta.publicUrl }
         });
       }
-
-      let modal = document.getElementById('wishmagic-share-modal');
+      let modal = document.getElementById("wishmagic-share-modal");
       if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'wishmagic-share-modal';
-        modal.className = 'fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5 transition-all duration-300';
+        modal = document.createElement("div");
+        modal.id = "wishmagic-share-modal";
+        modal.className = "fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5 transition-all duration-300";
         document.body.appendChild(modal);
       }
-
-      const qrSVG = WishQRCodeService.generateQRCodeSVG(meta.publicUrl, { size: 160, rounded: true, fgColor: '#1a062f' });
-
+      const qrSVG = WishQRCodeService.generateQRCodeSVG(meta.publicUrl, { size: 160, rounded: true, fgColor: "#1a062f" });
       modal.innerHTML = `
         <div class="w-full max-w-xl bg-[#0f041d] text-white rounded-3xl border border-purple-500/30 shadow-2xl p-5 sm:p-7 flex flex-col gap-4 relative max-h-[92vh] overflow-y-auto custom-scrollbar">
           
@@ -1098,7 +1038,7 @@
           <!-- Modal Header -->
           <div class="flex items-center gap-3">
             <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center text-2xl shadow-lg shadow-pink-500/30 flex-shrink-0">
-              🎁
+              \u{1F381}
             </div>
             <div>
               <h3 class="font-display text-xl sm:text-2xl font-extrabold text-white">
@@ -1162,7 +1102,7 @@
             </div>
             <div class="flex-1 text-center sm:text-left space-y-2">
               <div class="flex items-center justify-center sm:justify-start gap-2">
-                <span class="text-base">🖨️</span>
+                <span class="text-base">\u{1F5A8}\uFE0F</span>
                 <h4 class="font-bold text-sm text-white">Printable QR Greeting Card</h4>
               </div>
               <p class="text-[11px] text-purple-300/80 leading-relaxed">
@@ -1179,7 +1119,7 @@
           <div class="space-y-2 pt-1">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-purple-200 flex items-center gap-1.5">
-                <span>📱 Social Card Preview</span>
+                <span>\u{1F4F1} Social Card Preview</span>
                 <span class="text-[10px] text-purple-400 font-normal">(How link looks when texted)</span>
               </span>
               <div class="flex items-center gap-1">
@@ -1190,42 +1130,33 @@
             </div>
 
             <div id="modal-social-preview-container">
-              ${WishSocialPreview.renderSocialPreviewHTML(meta, 'whatsapp')}
+              ${WishSocialPreview.renderSocialPreviewHTML(meta, "whatsapp")}
             </div>
           </div>
 
         </div>
       `;
-
-      modal.classList.remove('hidden');
-
-      // Attach dynamic tab switch method
+      modal.classList.remove("hidden");
       WishShareSystem._activeMeta = meta;
     },
-
     switchSocialTab(platform) {
-      const container = document.getElementById('modal-social-preview-container');
+      const container = document.getElementById("modal-social-preview-container");
       if (!container || !WishShareSystem._activeMeta) return;
-
       container.innerHTML = WishSocialPreview.renderSocialPreviewHTML(WishShareSystem._activeMeta, platform);
-
-      ['whatsapp', 'twitter', 'imessage'].forEach(p => {
+      ["whatsapp", "twitter", "imessage"].forEach((p) => {
         const btn = document.getElementById(`tab-soc-${p}`);
         if (btn) {
           if (p === platform) {
-            btn.className = 'px-2 py-0.5 rounded-lg bg-pink-500 text-white font-bold text-[10px] cursor-pointer';
+            btn.className = "px-2 py-0.5 rounded-lg bg-pink-500 text-white font-bold text-[10px] cursor-pointer";
           } else {
-            btn.className = 'px-2 py-0.5 rounded-lg text-purple-300 hover:text-white font-semibold text-[10px] cursor-pointer';
+            btn.className = "px-2 py-0.5 rounded-lg text-purple-300 hover:text-white font-semibold text-[10px] cursor-pointer";
           }
         }
       });
     }
   };
-
-  // Expose to window
-  window.WishSlugService = WishSlugService;
-  window.WishQRCodeService = WishQRCodeService;
-  window.WishSocialPreview = WishSocialPreview;
-  window.WishShareSystem = WishShareSystem;
-
-})(typeof window !== 'undefined' ? window : this);
+  window2.WishSlugService = WishSlugService;
+  window2.WishQRCodeService = WishQRCodeService;
+  window2.WishSocialPreview = WishSocialPreview;
+  window2.WishShareSystem = WishShareSystem;
+})(typeof window !== "undefined" ? window : this);

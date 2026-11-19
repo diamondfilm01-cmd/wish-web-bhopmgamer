@@ -16,23 +16,15 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script>
-    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
-      tailwind.config = sharedTailwindConfig;
-    }
-  </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
-  <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
-  <script src="js/wish-lifecycle.js"></script>
-  <script src="js/repositories.js"></script>
-  <script src="js/analytics-service.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
+  <link rel="stylesheet" href="/css/admin-tailwind.min.css?v=20261118_admin_fast_v1"/>
+<link rel="stylesheet" href="css/admin-theme.css?v=20261118_admin_fast_v1"/>
+  <script defer src="js/api-client.js"></script>
+  <script defer src="js/auth-service.js?v=20261118_minimal_v1"></script>
+  <script defer src="js/WishMagicCore.js"></script>
+  <script defer src="js/admin-theme.js?v=20261118_admin_fast_v1"></script>
+  <script defer src="/js/bundles/admin-extras.min.js?v=20261118_admin_fast_v1"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
@@ -396,56 +388,149 @@
 
   async function loadDashboard(isSilent = false) {
     const refreshIcon = document.getElementById('wm-header-live-sync-icon');
+    const cacheKey = 'overview_' + currentRange;
+
+    // 0ms Instant Paint from fast sessionStorage cache while live data refreshes
+    if (!isSilent && window.wmAdminFastCache) {
+      const cached = window.wmAdminFastCache.get(cacheKey, 300000);
+      if (cached) {
+        activeMetrics = cached;
+        renderMetrics(cached);
+      }
+    }
+
     if (!isSilent && refreshIcon) refreshIcon.classList.add('animate-spin');
 
     try {
-      const [repoMetrics, summaryRes, biRes, adminWishesRes, ordersRes] = await Promise.all([
-        (window.WishRepositories && window.WishRepositories.adminRepository)
-          ? window.WishRepositories.adminRepository.getPlatformMetrics(currentRange)
-          : Promise.resolve(null),
-        fetch('/api/admin/dashboard/summary', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
-        fetch('/api/admin/analytics/overview?range=' + encodeURIComponent(currentRange), { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
-        fetch('/api/admin/wishes?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
-        fetch('/api/admin/commerce/orders?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null)
-      ]);
-
-      const telemetryUnavailable = Boolean(!summaryRes && !biRes && !ordersRes);
-      const d1Summary = summaryRes?.data || summaryRes || {};
-      const biOverview = biRes?.data || biRes || {};
-      const ordersMetrics = ordersRes?.metrics || ordersRes?.data?.metrics || null;
-      const d1Wishes = Array.isArray(adminWishesRes?.wishes)
-        ? adminWishesRes.wishes
-        : (Array.isArray(adminWishesRes?.data?.wishes) ? adminWishesRes.data.wishes : []);
-      const d1Orders = Array.isArray(ordersRes?.orders)
-        ? ordersRes.orders
-        : (Array.isArray(ordersRes?.data?.orders) ? ordersRes.data.orders : []);
-
-      const wishMap = new Map();
-      if (repoMetrics && Array.isArray(repoMetrics.wishes)) {
-        repoMetrics.wishes.forEach(w => { if (w && w.id) wishMap.set(w.id, w); });
-      }
-      d1Wishes.forEach(w => {
-        if (w && w.id) {
-          wishMap.set(w.id, { ...(wishMap.get(w.id) || {}), ...w });
+      let bootJson = null;
+      try {
+        const bootRes = await fetch('/api/admin/overview/bootstrap?range=' + encodeURIComponent(currentRange), {
+          credentials: 'include',
+          cache: 'no-store'
+        });
+        if (bootRes && bootRes.ok) {
+          bootJson = await bootRes.json().catch(() => null);
         }
-      });
-      const mergedWishes = Array.from(wishMap.values()).sort((a, b) => {
-        const tA = new Date(a.createdAt || a.created_at || 0).getTime();
-        const tB = new Date(b.createdAt || b.created_at || 0).getTime();
-        return tB - tA;
-      });
+      } catch (_) {}
 
-      const merged = {
-        ...(repoMetrics || {}),
-        wishes: mergedWishes,
-        d1Summary,
-        biOverview,
-        ordersMetrics,
-        telemetryUnavailable,
-        d1Orders
-      };
+      let merged = null;
+      const bootData = bootJson && (bootJson.data || bootJson);
+
+      if (bootData && (bootData.summary || bootData.analytics || Array.isArray(bootData.wishes))) {
+        const d1Summary = bootData.summary || {};
+        const biOverview = bootData.analytics || {};
+        const wishesList = (Array.isArray(bootData.wishes) ? bootData.wishes : []).slice().sort((a, b) => {
+          return new Date(b.createdAt || b.created_at || 0).getTime() - new Date(a.createdAt || a.created_at || 0).getTime();
+        });
+        const templatesList = Array.isArray(bootData.templates) ? bootData.templates : [];
+        const usersList = Array.isArray(bootData.users) ? bootData.users : [];
+        const d1Orders = Array.isArray(bootData.orders) ? bootData.orders : [];
+        const ordersMetrics = bootData.ordersMetrics || null;
+
+        let activeWishes = 0, upcomingWishes = 0, expiredWishes = 0;
+        let totalViews = 0, totalShares = 0, totalFavorites = 0;
+        const wishesByCategory = {};
+        const wishesByTemplate = {};
+
+        wishesList.forEach((w) => {
+          const st = window.WishLifecycle
+            ? window.WishLifecycle.getWishStatus(w)
+            : String(w.lifecycleState || w.lifecycleStatus || w.status || 'active').toLowerCase();
+          if (st === 'expired') expiredWishes++;
+          else if (st === 'upcoming' || st === 'future') upcomingWishes++;
+          else if (st !== 'draft') activeWishes++;
+
+          totalViews += Number(w.views || w.viewCount || w.views_count || 0);
+          totalShares += Number(w.shares || w.shareCount || w.shares_count || 0);
+          totalFavorites += Number(w.favorites || w.likes || w.reactions_count || 0);
+
+          const cat = w.category || w.occasion || 'General';
+          wishesByCategory[cat] = (wishesByCategory[cat] || 0) + 1;
+          const tplKey = w.templateName || w.template_name || w.templateId || w.template_id;
+          if (tplKey) wishesByTemplate[tplKey] = (wishesByTemplate[tplKey] || 0) + 1;
+        });
+
+        const vipUsers = usersList.filter((u) => u && (u.tier === 'vip' || u.isVip || u.plan === 'vip' || u.plan === 'pro')).length;
+        const publishedTemplates = templatesList.filter((t) => t && t.isActive !== false && t.status !== 'draft').length;
+        const vipTemplates = templatesList.filter((t) => t && (t.tier === 'vip' || t.isPremium === true || Number(t.price) > 0)).length;
+
+        merged = {
+          wishes: wishesList,
+          templates: templatesList,
+          users: usersList,
+          d1Summary,
+          biOverview,
+          ordersMetrics,
+          d1Orders,
+          totalWishes: Math.max(wishesList.length, Number(d1Summary.totalWishes || 0)),
+          activeWishes: Math.max(activeWishes, Number(d1Summary.publishedWishes || 0)),
+          upcomingWishes: Math.max(upcomingWishes, Number(d1Summary.upcomingWishes || 0)),
+          expiredWishes: Math.max(expiredWishes, Number(d1Summary.expiredWishes || 0)),
+          totalUsers: Math.max(usersList.length, Number(d1Summary.totalUsers || 0)),
+          vipUsers,
+          totalTemplates: Math.max(templatesList.length, Number(d1Summary.totalTemplates || d1Summary.templateFamiliesCount || 0)),
+          publishedTemplates,
+          vipTemplates,
+          totalViews,
+          totalShares,
+          totalFavorites,
+          wishesByCategory,
+          wishesByTemplate,
+          telemetryUnavailable: false
+        };
+      } else {
+        // Fallback if bootstrap endpoint is unavailable
+        const [repoMetrics, summaryRes, biRes, adminWishesRes, ordersRes] = await Promise.all([
+          (window.WishRepositories && window.WishRepositories.adminRepository)
+            ? window.WishRepositories.adminRepository.getPlatformMetrics(currentRange)
+            : Promise.resolve(null),
+          fetch('/api/admin/dashboard/summary', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
+          fetch('/api/admin/analytics/overview?range=' + encodeURIComponent(currentRange), { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
+          fetch('/api/admin/wishes?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
+          fetch('/api/admin/commerce/orders?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null)
+        ]);
+
+        const telemetryUnavailable = Boolean(!summaryRes && !biRes && !ordersRes);
+        const d1Summary = summaryRes?.data || summaryRes || {};
+        const biOverview = biRes?.data || biRes || {};
+        const ordersMetrics = ordersRes?.metrics || ordersRes?.data?.metrics || null;
+        const d1Wishes = Array.isArray(adminWishesRes?.wishes)
+          ? adminWishesRes.wishes
+          : (Array.isArray(adminWishesRes?.data?.wishes) ? adminWishesRes.data.wishes : []);
+        const d1Orders = Array.isArray(ordersRes?.orders)
+          ? ordersRes.orders
+          : (Array.isArray(ordersRes?.data?.orders) ? ordersRes.data.orders : []);
+
+        const wishMap = new Map();
+        if (repoMetrics && Array.isArray(repoMetrics.wishes)) {
+          repoMetrics.wishes.forEach(w => { if (w && w.id) wishMap.set(w.id, w); });
+        }
+        d1Wishes.forEach(w => {
+          if (w && w.id) {
+            wishMap.set(w.id, { ...(wishMap.get(w.id) || {}), ...w });
+          }
+        });
+        const mergedWishes = Array.from(wishMap.values()).sort((a, b) => {
+          const tA = new Date(a.createdAt || a.created_at || 0).getTime();
+          const tB = new Date(b.createdAt || b.created_at || 0).getTime();
+          return tB - tA;
+        });
+
+        merged = {
+          ...(repoMetrics || {}),
+          wishes: mergedWishes,
+          d1Summary,
+          biOverview,
+          ordersMetrics,
+          telemetryUnavailable,
+          d1Orders
+        };
+      }
 
       activeMetrics = merged;
+      if (window.wmAdminFastCache && merged && !merged.telemetryUnavailable) {
+        window.wmAdminFastCache.set(cacheKey, merged);
+      }
       renderMetrics(merged);
 
       const syncEl = document.getElementById('dashboard-live-sync-status');

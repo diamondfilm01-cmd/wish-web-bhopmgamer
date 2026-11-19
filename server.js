@@ -143,6 +143,8 @@ import {
   RazorpayAdapter,
   resolveAuthoritativeProduct,
   evaluateUserEntitlement,
+  parseWishBundleProductId,
+  templateSupportsPhotoUpload,
   createCheckoutSession,
   verifyAndFinalizePayment,
   processRazorpayWebhook,
@@ -1492,7 +1494,7 @@ function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
     tier: template.tier || (template.isPremium ? 'vip' : 'free'),
     price: template.price !== undefined ? Number(template.price) : (template.tier === 'vip' ? 49 : 0),
     isPremium: Boolean(template.tier === 'vip' || template.isPremium || template.price > 0),
-    thumbnail: template.thumbnail || template.previewImage || '/assets/file_ab2082.png',
+    thumbnail: template.thumbnail || template.previewImage || '/assets/file_ab2082.webp',
     theme: template.theme || {
       mood: 'Joyful & Celebratory',
       accentColor: '#ec4899',
@@ -1660,6 +1662,11 @@ function slugifyText(text) {
     .replace(/^-+|-+$/g, '');
 }
 
+function isReservedSlug(slug) {
+  if (!slug || typeof slug !== 'string') return false;
+  return RESERVED_SLUGS.has(slug.toLowerCase().trim());
+}
+
 function isValidSlug(slug) {
   if (!slug || typeof slug !== 'string') return false;
   const s = slug.toLowerCase().trim();
@@ -1814,7 +1821,7 @@ app.get(['/templates-store/:templateId', '/templates-store/:templateId/*', '/tem
     </p>
     <div class="my-4 p-4 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl max-w-xs mx-auto">
       <div class="aspect-square rounded-2xl overflow-hidden bg-purple-950/60 mb-2">
-        <img class="w-full h-full object-cover" data-wm="photo_1" src="/assets/file_ab2082.png" alt="Memory" onerror="this.src='/assets/file_ab2082.png'"/>
+        <img class="w-full h-full object-cover" data-wm="photo_1" src="/assets/file_ab2082.webp" alt="Memory" onerror="this.src='/assets/file_ab2082.webp'"/>
       </div>
     </div>
     <div class="mt-8 text-xs font-semibold text-purple-300">
@@ -1998,7 +2005,7 @@ const DEFAULT_SERVER_SITE_SETTINGS = {
   heroBgMode: 'image',
   hero3dFloatingEnabled: true,
   heroTouchBurstEnabled: true,
-  heroImageUrl: '/assets/file_ab2082.png',
+  heroImageUrl: '/assets/file_ab2082.webp',
   heroStyle: 'cosmic-purple',
   heroCta1: 'Explore Magic',
   heroCta2: 'Create Your Wish',
@@ -2139,7 +2146,7 @@ function validateServerSiteSettings(settings) {
   const promoBannerActive = s.promoBannerActive !== undefined ? Boolean(s.promoBannerActive) : current.promoBannerActive;
   const promoBannerText = String(s.promoBannerText !== undefined ? s.promoBannerText : current.promoBannerText).trim();
 
-  const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (current.heroImageUrl || '/assets/file_ab2082.png');
+  const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (current.heroImageUrl || '/assets/file_ab2082.webp');
   const heroBgMode = (s.heroBgMode === 'gradient' || s.heroBgMode === 'custom-photo' || s.heroBgMode === '3d-magic') ? s.heroBgMode : 'image';
   const hero3dFloatingEnabled = s.hero3dFloatingEnabled !== undefined ? Boolean(s.hero3dFloatingEnabled) : (current.hero3dFloatingEnabled !== false);
   const heroTouchBurstEnabled = s.heroTouchBurstEnabled !== undefined ? Boolean(s.heroTouchBurstEnabled) : (current.heroTouchBurstEnabled !== false);
@@ -2183,12 +2190,12 @@ function formatServerPublicSiteSettings(settings) {
     heroSubheadline: settings.heroSubheadline,
     heroGiftIcon: settings.heroGiftIcon,
     heroBgMode,
-    heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
+    heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.webp',
     heroStyle: settings.heroStyle,
     heroStyleGradient: pureGrad,
     heroEffectiveBackground: heroBgMode === 'gradient'
       ? pureGrad
-      : `url('${settings.heroImageUrl || '/assets/file_ab2082.png'}') center / cover no-repeat`,
+      : `url('${settings.heroImageUrl || '/assets/file_ab2082.webp'}') center / cover no-repeat`,
     heroCta1: settings.heroCta1,
     heroCta2: settings.heroCta2,
     brandName: settings.brandName,
@@ -3012,25 +3019,49 @@ app.get(['/api/entitlements/status', '/api/commerce/entitlements', '/api/entitle
 
   let hasVipPass = Boolean(user && (user.isPremium || user.plan === 'VIP' || user.role === 'admin'));
   let hasCustomLinkEntitlement = hasVipPass;
+  let hasYearlyLinkEntitlement = hasVipPass;
   let hasHdStyleEntitlement = hasVipPass;
   const unlockedTemplatesSet = new Set();
 
   for (const e of userEnts) {
-    const p = String(e.productId || e.product_id || e.itemType || e.item_type || e.plan || '').toLowerCase();
-    const tpl = e.templateId || e.template_id || (p.startsWith('template:') ? p.slice(9) : (p.startsWith('premium_combo:') ? p.slice(14) : null));
+    const rawP = String(e.productId || e.product_id || e.itemType || e.item_type || e.plan || '');
+    const p = rawP.toLowerCase();
+    const parsedBundle = parseWishBundleProductId(rawP);
+    const tpl = e.templateId || e.template_id || (
+      parsedBundle && parsedBundle.templateId ? parsedBundle.templateId :
+      p.startsWith('template:') ? rawP.slice(9) :
+      p.startsWith('premium_combo:') ? rawP.slice(14) :
+      p.startsWith('premium_link:') ? rawP.slice(13) :
+      p.startsWith('premium_hd:') ? rawP.slice(11) : null
+    );
     if (p === 'vip_pass' || p === 'vip' || p === 'premium') {
       hasVipPass = true;
       hasCustomLinkEntitlement = true;
+      hasYearlyLinkEntitlement = true;
       hasHdStyleEntitlement = true;
+    } else if (parsedBundle) {
+      if (parsedBundle.grantsCustomLink) hasCustomLinkEntitlement = true;
+      if (parsedBundle.grantsYearlyLink) hasYearlyLinkEntitlement = true;
+      if (parsedBundle.grantsHdPhotos) hasHdStyleEntitlement = true;
+      if (parsedBundle.grantsTemplate && tpl) unlockedTemplatesSet.add(tpl);
+    } else if (p === 'custom_link_1yr' || p === 'yearly_custom_link' || e.linkDuration === '1_year' || Number(e.validityDays) >= 365) {
+      hasCustomLinkEntitlement = true;
+      hasYearlyLinkEntitlement = true;
     } else if (p === 'personalized_link' || p === 'custom_link') {
       hasCustomLinkEntitlement = true;
-    } else if (p === 'hd_image_style_pack' || p === 'hd_style') {
+    } else if (p === 'hd_photos' || p === 'hd_image_style_pack' || p === 'hd_style') {
       hasHdStyleEntitlement = true;
     } else if (p === 'free_template_combo' || p === 'combo_99') {
       hasCustomLinkEntitlement = true;
       hasHdStyleEntitlement = true;
     } else if (p === 'premium_template_combo' || p.startsWith('premium_combo:')) {
       hasCustomLinkEntitlement = true;
+      hasHdStyleEntitlement = true;
+      if (tpl) unlockedTemplatesSet.add(tpl);
+    } else if (p === 'premium_template_custom_link' || p.startsWith('premium_link:')) {
+      hasCustomLinkEntitlement = true;
+      if (tpl) unlockedTemplatesSet.add(tpl);
+    } else if (p === 'premium_template_hd_style' || p.startsWith('premium_hd:')) {
       hasHdStyleEntitlement = true;
       if (tpl) unlockedTemplatesSet.add(tpl);
     } else if (p === 'template' || p.startsWith('template:')) {
@@ -3046,7 +3077,9 @@ app.get(['/api/entitlements/status', '/api/commerce/entitlements', '/api/entitle
     isPremium: isVip,
     hasVipPass,
     hasCustomLinkEntitlement,
+    hasYearlyLinkEntitlement,
     hasHdStyleEntitlement,
+    hasHdPhotosEntitlement: hasHdStyleEntitlement,
     unlockedTemplates: Array.from(unlockedTemplatesSet),
     activeEntitlements: userEnts,
     plan: hasVipPass ? 'VIP' : (userEnts.length > 0 ? userEnts[0].plan : (user ? 'Free' : 'Guest')),
@@ -3056,9 +3089,11 @@ app.get(['/api/entitlements/status', '/api/commerce/entitlements', '/api/entitle
       unlimitedVIPWishes: hasVipPass,
       customAudioUpload: isVip || hasHdStyleEntitlement,
       customLink: hasCustomLinkEntitlement,
+      yearlyCustomLink: hasYearlyLinkEntitlement,
+      hdPhotos: hasHdStyleEntitlement,
       hdStyle: hasHdStyleEntitlement,
       prioritySupport: hasVipPass,
-      permanentKeepsake: isVip || hasHdStyleEntitlement
+      permanentKeepsake: isVip || hasYearlyLinkEntitlement || hasHdStyleEntitlement
     }
   });
 });
@@ -3114,7 +3149,10 @@ app.post(['/api/commerce/checkout', '/api/entitlements/checkout'], async (req, r
           productName: product.productName,
           amountPaise: product.amountPaise,
           priceDisplay: product.priceDisplay,
-          currency: product.currency
+          currency: product.currency,
+          validityDays: product.validityDays || 30,
+          linkDuration: product.linkDuration || 'standard',
+          breakdown: product.breakdown || null
         } : null
       });
     }
@@ -3152,8 +3190,14 @@ app.post(['/api/commerce/checkout', '/api/entitlements/checkout'], async (req, r
       amountRupees: Math.round(session.order.amount / 100),
       currency: session.order.currency,
       keyId: session.keyId,
-      productName: session.item?.productName,
+      productId: session.order.productId || session.order.plan,
+      productName: session.item?.productName || session.order.productName,
       productType: session.item?.productType,
+      templateId: session.order.templateId || null,
+      requestedSlug: session.order.requestedSlug || null,
+      validityDays: session.order.validityDays || 30,
+      linkDuration: session.order.linkDuration || 'standard',
+      breakdown: session.order.breakdown || session.item?.breakdown || null,
       isIdempotentReplay: session.isIdempotentReplay
     });
   } catch (err) {
@@ -4228,6 +4272,61 @@ app.get('/api/templates', (req, res) => {
   }
 
   res.json({ success: true, count: templates.length, templates });
+});
+
+// Combined Storefront Bootstrap API (1 request instead of 3 on Homepage)
+app.get('/api/storefront/bootstrap', (req, res) => {
+  const rawTemplates = getTemplates();
+  const allStoredVariants = getTemplateRelationshipVariants();
+  const variantsByTplId = new Map();
+  for (const v of allStoredVariants) {
+    if (v.is_latest === 0) continue;
+    if (!v.template_id) continue;
+    if (!variantsByTplId.has(v.template_id)) variantsByTplId.set(v.template_id, []);
+    variantsByTplId.get(v.template_id).push(v);
+  }
+  const templates = rawTemplates
+    .filter(t => t.isPublished !== false && t.status !== 'draft')
+    .map(t => {
+      const storedVars = variantsByTplId.get(t.id) || [];
+      const inlineVars = Array.isArray(t.variants) ? t.variants : [];
+      const rawVars = storedVars.length > 0 ? storedVars : inlineVars;
+      const availableVariants = filterPublicAvailableVariants(rawVars, { template: t });
+      const hasVariants = Boolean(t.hasVariants || t.has_variants || availableVariants.length > 0);
+      const availableRelations = availableVariants.map(av => ({
+        id: av.relationshipId,
+        slug: av.relationshipSlug,
+        label: av.label,
+        name: av.name,
+        variantId: av.id,
+        variantSlug: av.slug,
+        icon: av.icon,
+        thumbnail: av.thumbnail
+      }));
+      return {
+        ...t,
+        familyId: t.familyId || `fam_${t.id}`,
+        hasVariants,
+        availableVariants,
+        availableRelations,
+        relationships: availableRelations.length > 0 ? availableRelations.map(ar => ar.label) : (Array.isArray(t.relationships) ? t.relationships : [])
+      };
+    });
+  const publicSettings = formatServerPublicSiteSettings(getServerSiteSettings());
+  const rawWishLinks = getServerWishLinkSettings();
+  const sampleSlug = `${rawWishLinks.random.prefix}${generateSecureRandomId(rawWishLinks.random.length, rawWishLinks.random.allowedCharacters)}`;
+  const wishLinks = { ...rawWishLinks, random: { ...rawWishLinks.random, sampleSlug } };
+  if (!req.query._t && !req.headers.authorization) {
+    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+  }
+  res.json({
+    success: true,
+    data: { templates, total: templates.length, settings: publicSettings, wishLinks },
+    templates,
+    total: templates.length,
+    settings: publicSettings,
+    wishLinks
+  });
 });
 
 // Helper to find template by ID, slug, folder, or semantic alias
@@ -5635,9 +5734,9 @@ app.post('/api/templates/create', (req, res) => {
       isPublished: isPub,
       featured: Boolean(featured),
       placement: 99,
-      thumbnail: thumbnail || '/assets/file_ab2082.png',
-      previewImage: thumbnail || '/assets/file_ab2082.png',
-      previewImages: Array.isArray(previewImages) && previewImages.length > 0 ? previewImages : [thumbnail || '/assets/file_ab2082.png'],
+      thumbnail: thumbnail || '/assets/file_ab2082.webp',
+      previewImage: thumbnail || '/assets/file_ab2082.webp',
+      previewImages: Array.isArray(previewImages) && previewImages.length > 0 ? previewImages : [thumbnail || '/assets/file_ab2082.webp'],
       capabilities: defaultCapabilities,
       sections: ['Hero Unboxing', 'Memory Gallery', 'Personal Dedication', 'Confetti Finale'],
       features: ['Personalized Greeting', 'Interactive Animations', 'Photo Gallery', 'Music BGM'],
@@ -5657,7 +5756,7 @@ app.post('/api/templates/create', (req, res) => {
         { key: 'sender_name', label: 'Sender Name', type: 'text', defaultValue: 'Someone Special' },
         { key: 'custom_message', label: 'Celebration Message', type: 'textarea', defaultValue: 'Wishing you a magnificent day filled with endless laughter, boundless smiles, and pure magic!' },
         { key: 'event_date', label: 'Event Date', type: 'date', defaultValue: new Date().toISOString().split('T')[0] },
-        { key: 'photo_1', label: 'Memory Photo', type: 'image', defaultValue: thumbnail || '/assets/file_ab2082.png' }
+        { key: 'photo_1', label: 'Memory Photo', type: 'image', defaultValue: thumbnail || '/assets/file_ab2082.webp' }
       ],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -8952,7 +9051,7 @@ app.get('/api/admin/media/all', (req, res) => {
         title: 'Storefront Hero Celebration Artwork',
         type: 'image',
         format: 'PNG',
-        url: '/assets/file_ab2082.png',
+        url: '/assets/file_ab2082.webp',
         fileSizeFormatted: '1.54 MB',
         category: 'Hero & Showcase',
         createdAt: '2026-01-01T00:00:00.000Z'
@@ -8962,7 +9061,7 @@ app.get('/api/admin/media/all', (req, res) => {
         title: '3D Unboxing Gift Memory Frame',
         type: 'image',
         format: 'PNG',
-        url: '/assets/file_f63881.png',
+        url: '/assets/file_f63881.webp',
         fileSizeFormatted: '1.98 MB',
         category: 'Template Artwork',
         createdAt: '2026-01-01T00:00:00.000Z'
@@ -9271,7 +9370,7 @@ app.get('/api/admin/media/all', (req, res) => {
       audioCount: results.filter(r => r.type === 'audio').length,
       inUseCount: results.filter(r => r.isInUse).length,
       unusedCount: results.filter(r => !r.isInUse).length,
-      currentHeroImage: siteSettings.heroImageUrl || '/assets/file_ab2082.png'
+      currentHeroImage: siteSettings.heroImageUrl || '/assets/file_ab2082.webp'
     };
 
     res.json({
@@ -9737,7 +9836,7 @@ async function handleAdminMediaDelete(req, res, targetId) {
     // E. Reset Storefront Hero Image if it was deleted
     const siteSettings = getServerSiteSettings();
     if (siteSettings.heroImageUrl && (siteSettings.heroImageUrl === url || (id && id === 'ast_hero_section_photo'))) {
-      siteSettings.heroImageUrl = '/assets/file_ab2082.png';
+      siteSettings.heroImageUrl = '/assets/file_ab2082.webp';
       saveServerSiteSettings(siteSettings, req.user || { id: 'admin' });
     }
 
@@ -9871,7 +9970,7 @@ app.get(['/api/admin/hero-image', '/api/admin/hero/photo', '/api/admin/hero/bg-m
     return res.json({
       success: true,
       heroBgMode: settings.heroBgMode || 'image',
-      heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
+      heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.webp',
       heroStyle: settings.heroStyle || 'cosmic-purple',
       updatedAt: settings.updatedAt || new Date().toISOString()
     });
@@ -10001,7 +10100,7 @@ app.get('/api/admin/user-creations', (req, res) => {
         eventDate: w.eventDate || custom.event_date || '2026-10-15',
         templateId: w.templateId || 'tpl_general',
         templateName: w.templateName || tpl.name || 'Custom Celebration',
-        templateThumbnail: tpl.thumbnail || tpl.previewImage || '/assets/file_ab2082.png',
+        templateThumbnail: tpl.thumbnail || tpl.previewImage || '/assets/file_ab2082.webp',
         customMessage: custom.custom_message || custom.message || 'Heartfelt celebration dedication.',
         userFiles: {
           photos: photos.map((p, idx) => ({
@@ -13749,21 +13848,109 @@ function releaseExpiredServerSlugs(wishes, candidateSlug, excludeWishId = '') {
 // --- Smart Wish Link Settings & Random Slug Generator in Server ---
 const WISH_LINK_SETTINGS_FILE = path.join(DATA_DIR, 'wish_link_settings.json');
 
+const DEFAULT_SERVER_VIP_PLANS = [
+  {
+    id: 'personalized_link',
+    name: 'Custom Link',
+    badge: 'CUSTOM URL',
+    price: 19,
+    originalPrice: 19,
+    billingLabel: '/ wish',
+    description: 'Create your own personalized link (/w/your-name) for any template.',
+    ctaText: 'Get Custom Link • ₹19',
+    isPopular: false,
+    isActive: true,
+    perks: {
+      freeCustomLink: true,
+      freeHdPhotos: false,
+      freeCustomStyle: false,
+      unlockVipTemplates: false,
+      customMusicVoice: false,
+      removeWatermark: false,
+      lifetimeLink: false,
+      maxPhotos: 3,
+      validityDays: 30
+    },
+    features: [
+      'Custom Branded URL (/w/your-name)',
+      'Instant Real-Time Availability Check',
+      'Works on Free & Paid Templates'
+    ]
+  },
+  {
+    id: 'hd_photos',
+    name: 'HD Photos',
+    badge: 'PHOTO TEMPLATES ONLY',
+    price: 19,
+    originalPrice: 19,
+    billingLabel: '/ wish',
+    description: 'Upload crisp High-Definition (HD) photos. Shown only on templates with photo upload.',
+    ctaText: 'Add HD Photos • ₹19',
+    isPopular: false,
+    isActive: true,
+    perks: {
+      freeCustomLink: false,
+      freeHdPhotos: true,
+      freeCustomStyle: false,
+      unlockVipTemplates: false,
+      customMusicVoice: false,
+      removeWatermark: false,
+      lifetimeLink: false,
+      maxPhotos: 16,
+      validityDays: 30
+    },
+    features: [
+      'High-Definition (HD) Photo Uploads',
+      'Only available on photo-enabled templates',
+      'Auto-hidden on text-only templates'
+    ]
+  },
+  {
+    id: 'custom_link_1yr',
+    name: '1-Year Custom Link',
+    badge: '★ 1 FULL YEAR',
+    price: 149,
+    originalPrice: 149,
+    billingLabel: '/ 1 year',
+    description: 'Keep your custom branded wish link (/w/your-name) live and active for 1 full year (365 days).',
+    ctaText: 'Get 1-Year Custom Link • ₹149',
+    isPopular: true,
+    isActive: true,
+    perks: {
+      freeCustomLink: true,
+      freeHdPhotos: false,
+      freeCustomStyle: false,
+      unlockVipTemplates: false,
+      customMusicVoice: false,
+      removeWatermark: false,
+      lifetimeLink: true,
+      maxPhotos: 6,
+      validityDays: 365
+    },
+    features: [
+      'Custom Branded URL (/w/your-name)',
+      'Active for 1 Full Year (365 Days)',
+      'Includes Custom Link — no extra ₹19 fee'
+    ]
+  }
+];
+
 const DEFAULT_SERVER_WISH_LINK_SETTINGS = {
   personalized: {
     enabled: true,
-    price: 59,
+    price: 19,
     currency: 'INR',
-    displayName: 'Custom Link Only',
+    displayName: 'Custom Link',
     description: 'Create a memorable custom link (/w/your-name) for your wish.'
   },
   addons: {
-    customLinkPrice: 59,
-    hdImageStylePrice: 59,
-    freeTemplateComboPrice: 99,
-    premiumComboAddonPrice: 70,
-    templatePriceTiers: [0, 59, 149]
+    customLinkPrice: 19,
+    hdPhotosPrice: 19,
+    hdImageStylePrice: 19,
+    yearlyCustomLinkPrice: 149,
+    templatePriceTiers: []
   },
+  vipPlans: JSON.parse(JSON.stringify(DEFAULT_SERVER_VIP_PLANS)),
   referral: {
     enabled: true,
     requiredReferrals: 7,
@@ -13786,7 +13973,19 @@ function getServerWishLinkSettings() {
       const data = fs.readFileSync(WISH_LINK_SETTINGS_FILE, 'utf8');
       const parsed = JSON.parse(data || '{}');
       if (parsed && parsed.personalized && parsed.random) {
-        return parsed;
+        const a = parsed.addons || {};
+        const cl = Number.isFinite(Number(a.customLinkPrice)) && Number(a.customLinkPrice) >= 0 ? Number(a.customLinkPrice) : (Number.isFinite(Number(parsed.personalized.price)) ? Number(parsed.personalized.price) : 19);
+        const hd = Number.isFinite(Number(a.hdPhotosPrice ?? a.hdImageStylePrice)) && Number(a.hdPhotosPrice ?? a.hdImageStylePrice) >= 0 ? Number(a.hdPhotosPrice ?? a.hdImageStylePrice) : 19;
+        const yr = Number.isFinite(Number(a.yearlyCustomLinkPrice)) && Number(a.yearlyCustomLinkPrice) >= 0 ? Number(a.yearlyCustomLinkPrice) : 149;
+        return {
+          ...DEFAULT_SERVER_WISH_LINK_SETTINGS,
+          ...parsed,
+          personalized: { ...DEFAULT_SERVER_WISH_LINK_SETTINGS.personalized, ...parsed.personalized, price: cl },
+          addons: { ...DEFAULT_SERVER_WISH_LINK_SETTINGS.addons, ...a, customLinkPrice: cl, hdPhotosPrice: hd, hdImageStylePrice: hd, yearlyCustomLinkPrice: yr },
+          vipPlans: Array.isArray(parsed.vipPlans) && parsed.vipPlans.length > 0 ? parsed.vipPlans : JSON.parse(JSON.stringify(DEFAULT_SERVER_VIP_PLANS)),
+          referral: { ...DEFAULT_SERVER_WISH_LINK_SETTINGS.referral, ...(parsed.referral || {}) },
+          random: { ...DEFAULT_SERVER_WISH_LINK_SETTINGS.random, ...(parsed.random || {}) }
+        };
       }
     }
   } catch (e) {}
@@ -13922,6 +14121,7 @@ app.post('/api/admin/settings/site/reset', (req, res) => {
 
 // Public API: Get current wish link configuration
 app.get('/api/settings/wish-links', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const settings = getServerWishLinkSettings();
   const sampleSlug = `${settings.random.prefix}${generateSecureRandomId(settings.random.length, settings.random.allowedCharacters)}`;
   res.json({
@@ -13960,6 +14160,7 @@ app.get('/api/wishes/generate-random-slug', (req, res) => {
 
 // Admin API: Get wish link configuration
 app.get('/api/admin/settings/wish-links', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const settings = getServerWishLinkSettings();
   const sampleSlug = `${settings.random.prefix}${generateSecureRandomId(settings.random.length, settings.random.allowedCharacters)}`;
   res.json({
@@ -13974,16 +14175,20 @@ app.get('/api/admin/settings/wish-links', (req, res) => {
   });
 });
 
-// Admin API: Save wish link configuration
+// Admin API: Save wish link configuration (deep-merge + strict price validation + vipPlans persistence)
 app.all(['/api/admin/settings/wish-links'], (req, res, next) => {
   if (req.method !== 'POST' && req.method !== 'PUT') return next();
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
+  const current = getServerWishLinkSettings();
   const body = req.body.settings || req.body || {};
   const p = body.personalized || {};
   const r = body.random || {};
+  const a = body.addons || {};
+  const refCfg = body.referral || {};
 
-  const pEnabled = p.enabled !== undefined ? Boolean(p.enabled) : true;
-  const rEnabled = r.enabled !== undefined ? Boolean(r.enabled) : true;
+  const pEnabled = p.enabled !== undefined ? Boolean(p.enabled) : current.personalized.enabled;
+  const rEnabled = r.enabled !== undefined ? Boolean(r.enabled) : current.random.enabled;
 
   if (!pEnabled && !rEnabled) {
     return res.status(400).json({
@@ -13995,100 +14200,107 @@ app.all(['/api/admin/settings/wish-links'], (req, res, next) => {
     });
   }
 
-  const price = Number(p.price !== undefined ? p.price : 49);
-  if (isNaN(price) || price < 0 || price > 100000) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        code: 'INVALID_PRICE',
-        message: 'Personalized link price must be a valid non-negative number up to 100,000.'
-      }
-    });
-  }
+  const parseValidPrice = (raw, fallback, label) => {
+    if (raw === undefined) return { ok: true, value: fallback };
+    if (raw === '' || raw === null || typeof raw === 'boolean') {
+      return { ok: false, error: `${label} must be a valid non-negative number up to 100,000.` };
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || n > 100000) {
+      return { ok: false, error: `${label} must be a valid non-negative number up to 100,000.` };
+    }
+    return { ok: true, value: n };
+  };
 
-  const currency = String(p.currency || 'INR').trim().toUpperCase();
+  const clRaw = a.customLinkPrice !== undefined ? a.customLinkPrice : p.price;
+  const clCheck = parseValidPrice(clRaw, current.addons.customLinkPrice ?? 19, 'Custom Link price');
+  if (!clCheck.ok) return res.status(400).json({ success: false, error: { code: 'INVALID_PRICE', message: clCheck.error } });
+
+  const hdRaw = a.hdPhotosPrice !== undefined ? a.hdPhotosPrice : a.hdImageStylePrice;
+  const hdCheck = parseValidPrice(hdRaw, current.addons.hdPhotosPrice ?? current.addons.hdImageStylePrice ?? 19, 'HD Photos price');
+  if (!hdCheck.ok) return res.status(400).json({ success: false, error: { code: 'INVALID_PRICE', message: hdCheck.error } });
+
+  const yrCheck = parseValidPrice(a.yearlyCustomLinkPrice, current.addons.yearlyCustomLinkPrice ?? 149, '1-Year Custom Link price');
+  if (!yrCheck.ok) return res.status(400).json({ success: false, error: { code: 'INVALID_PRICE', message: yrCheck.error } });
+
+  const currency = String(p.currency !== undefined ? p.currency : (current.personalized.currency || 'INR')).trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) {
     return res.status(400).json({
       success: false,
-      error: {
-        code: 'INVALID_CURRENCY',
-        message: 'Currency must be a valid 3-letter ISO code (e.g. INR, USD).'
-      }
+      error: { code: 'INVALID_CURRENCY', message: 'Currency must be a valid 3-letter ISO code (e.g. INR, USD).' }
     });
   }
 
-  const length = parseInt(r.length !== undefined ? r.length : 6, 10);
+  const length = parseInt(r.length !== undefined ? r.length : current.random.length, 10);
   if (isNaN(length) || length < 5 || length > 20) {
     return res.status(400).json({
       success: false,
-      error: {
-        code: 'INVALID_LENGTH',
-        message: 'Random ID length must be an integer between 5 and 20.'
-      }
+      error: { code: 'INVALID_LENGTH', message: 'Random ID length must be an integer between 5 and 20.' }
     });
   }
 
-  const rawPrefix = String(r.prefix !== undefined ? r.prefix : 'wish-').trim().toLowerCase();
+  const rawPrefix = String(r.prefix !== undefined ? r.prefix : current.random.prefix).trim().toLowerCase();
   if (!/^[a-z0-9]+-?$/.test(rawPrefix) || rawPrefix.length > 20) {
     return res.status(400).json({
       success: false,
-      error: {
-        code: 'INVALID_PREFIX',
-        message: 'Random prefix must contain only lowercase letters, numbers, and an optional trailing hyphen (e.g. "wish-" or "w-").'
-      }
+      error: { code: 'INVALID_PREFIX', message: 'Random prefix must contain only lowercase letters, numbers, and an optional trailing hyphen (e.g. "wish-" or "w-").' }
     });
   }
   const cleanPrefixCore = rawPrefix.replace(/-+$/, '');
   if (cleanPrefixCore !== 'w' && cleanPrefixCore !== 'wish' && isReservedSlug(cleanPrefixCore)) {
     return res.status(400).json({
       success: false,
-      error: {
-        code: 'RESERVED_PREFIX',
-        message: `Prefix "${rawPrefix}" collides with a reserved platform route.`
-      }
+      error: { code: 'RESERVED_PREFIX', message: `Prefix "${rawPrefix}" collides with a reserved platform route.` }
     });
   }
 
-  const allowed = String(r.allowedCharacters || 'abcdefghijklmnopqrstuvwxyz0123456789').trim();
+  const allowed = String(r.allowedCharacters !== undefined ? r.allowedCharacters : current.random.allowedCharacters).trim();
   if (!/^[a-zA-Z0-9]+$/.test(allowed) || allowed.length < 5) {
     return res.status(400).json({
       success: false,
-      error: {
-        code: 'INVALID_CHARACTERS',
-        message: 'Allowed characters must contain only alphanumeric characters (at least 5 characters).'
-      }
+      error: { code: 'INVALID_CHARACTERS', message: 'Allowed characters must contain only alphanumeric characters (at least 5 characters).' }
     });
   }
 
-  const a = body.addons || {};
-  const refCfg = body.referral || {};
-  const customLinkPrice = Number(a.customLinkPrice !== undefined ? a.customLinkPrice : price);
-  const hdImageStylePrice = Number(a.hdImageStylePrice !== undefined ? a.hdImageStylePrice : 59);
-  const freeTemplateComboPrice = Number(a.freeTemplateComboPrice !== undefined ? a.freeTemplateComboPrice : 99);
-  const premiumComboAddonPrice = Number(a.premiumComboAddonPrice !== undefined ? a.premiumComboAddonPrice : 70);
-  const requiredReferrals = Math.max(1, parseInt(refCfg.requiredReferrals !== undefined ? refCfg.requiredReferrals : 7, 10) || 7);
+  const customLinkPrice = clCheck.value;
+  const hdPhotosPrice = hdCheck.value;
+  const yearlyCustomLinkPrice = yrCheck.value;
+  const requiredReferrals = Math.max(1, parseInt(refCfg.requiredReferrals !== undefined ? refCfg.requiredReferrals : (current.referral?.requiredReferrals || 7), 10) || 7);
+
+  let nextVipPlans = Array.isArray(body.vipPlans)
+    ? body.vipPlans.filter(vp => vp && typeof vp === 'object' && vp.id)
+    : (Array.isArray(current.vipPlans) && current.vipPlans.length > 0 ? JSON.parse(JSON.stringify(current.vipPlans)) : JSON.parse(JSON.stringify(DEFAULT_SERVER_VIP_PLANS)));
+
+  nextVipPlans = nextVipPlans.map(pl => {
+    const copy = { ...pl };
+    if (copy.id === 'personalized_link') copy.price = customLinkPrice;
+    if (copy.id === 'hd_photos' || copy.id === 'hd_image_style_pack') copy.price = hdPhotosPrice;
+    if (copy.id === 'custom_link_1yr') copy.price = yearlyCustomLinkPrice;
+    return copy;
+  });
 
   const normalized = {
     personalized: {
       enabled: pEnabled,
       price: customLinkPrice,
       currency,
-      displayName: String(p.displayName || 'Custom Link Only').trim().substring(0, 50),
-      description: String(p.description || 'Create a memorable custom link (/w/your-name) for your wish.').trim().substring(0, 150)
+      displayName: String(p.displayName !== undefined ? p.displayName : current.personalized.displayName).trim().substring(0, 50),
+      description: String(p.description !== undefined ? p.description : current.personalized.description).trim().substring(0, 150)
     },
     addons: {
       customLinkPrice,
-      hdImageStylePrice,
-      freeTemplateComboPrice,
-      premiumComboAddonPrice,
-      templatePriceTiers: Array.isArray(a.templatePriceTiers) ? a.templatePriceTiers.map(Number) : [0, 59, 149]
+      hdPhotosPrice,
+      hdImageStylePrice: hdPhotosPrice,
+      yearlyCustomLinkPrice,
+      templatePriceTiers: Array.isArray(a.templatePriceTiers) ? a.templatePriceTiers.map(Number).filter(n => Number.isFinite(n) && n >= 0) : (current.addons?.templatePriceTiers || [])
     },
+    vipPlans: nextVipPlans,
     referral: {
-      enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : true,
+      enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : (current.referral?.enabled ?? true),
       requiredReferrals,
-      countFreeTemplates: refCfg.countFreeTemplates !== undefined ? Boolean(refCfg.countFreeTemplates) : true,
+      countFreeTemplates: refCfg.countFreeTemplates !== undefined ? Boolean(refCfg.countFreeTemplates) : (current.referral?.countFreeTemplates ?? true),
       rewardType: 'FREE_CUSTOM_LINK',
-      rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits || 1, 10) || 1)
+      rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits !== undefined ? refCfg.rewardCredits : (current.referral?.rewardCredits || 1), 10) || 1)
     },
     random: {
       enabled: rEnabled,
@@ -14122,16 +14334,18 @@ app.get('/api/wishes/slug-availability', (req, res) => {
 
     if (!rawSlug || !normalized || !isValidSlug(normalized)) {
       const isReserved = isReservedSlug(normalized);
+      const invalidPayload = {
+        available: false,
+        slug: normalized || rawSlug,
+        reason: isReserved ? 'reserved' : 'invalid',
+        message: isReserved
+          ? 'This link is reserved for system use. Please choose another.'
+          : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).'
+      };
       return res.json({
         success: true,
-        data: {
-          available: false,
-          slug: normalized || rawSlug,
-          reason: isReserved ? 'reserved' : 'invalid',
-          message: isReserved
-            ? 'This link is reserved for system use. Please choose another.'
-            : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).'
-        }
+        data: invalidPayload,
+        ...invalidPayload
       });
     }
 
@@ -14139,25 +14353,29 @@ app.get('/api/wishes/slug-availability', (req, res) => {
     const existing = releaseExpiredServerSlugs(wishes, normalized, excludeWishId);
 
     if (!existing) {
+      const availPayload = {
+        available: true,
+        slug: normalized,
+        message: 'This link is available!'
+      };
       return res.json({
         success: true,
-        data: {
-          available: true,
-          slug: normalized,
-          message: 'This link is available!'
-        }
+        data: availPayload,
+        ...availPayload
       });
     }
 
     if (excludeWishId && existing.id === excludeWishId) {
+      const currentPayload = {
+        available: true,
+        slug: normalized,
+        isCurrent: true,
+        message: 'This is your current link.'
+      };
       return res.json({
         success: true,
-        data: {
-          available: true,
-          slug: normalized,
-          isCurrent: true,
-          message: 'This is your current link.'
-        }
+        data: currentPayload,
+        ...currentPayload
       });
     }
 
@@ -14174,15 +14392,17 @@ app.get('/api/wishes/slug-availability', (req, res) => {
       }
     }
 
+    const takenPayload = {
+      available: false,
+      slug: normalized,
+      reason: 'taken',
+      alternatives,
+      message: 'That link is already taken. Try another one.'
+    };
     return res.json({
       success: true,
-      data: {
-        available: false,
-        slug: normalized,
-        reason: 'taken',
-        alternatives,
-        message: 'That link is already taken. Try another one.'
-      }
+      data: takenPayload,
+      ...takenPayload
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Could not check link availability right now.' });
@@ -14220,18 +14440,55 @@ app.post('/api/wishes', (req, res) => {
 
     const templates = getTemplates();
     const template = templates.find(t => t.id === templateId);
+    const allEntitlements = getEntitlements();
+    const tplEntitlementEval = evaluateUserEntitlement({
+      user: req.user,
+      templateId,
+      entitlements: allEntitlements,
+      templates
+    });
 
-    const isVip = tier === 'vip' || (template && template.tier === 'vip') || (price && Number(price) > 0) || (payment && payment.status === 'Completed');
-    const isUserPremium = Boolean(req.user.isPremium || req.user.plan === 'VIP' || req.user.role === 'admin' || req.user.isAdmin);
+    const userActiveEnts = (allEntitlements || []).filter(e =>
+      (e.userId === req.user.id || e.user_id === req.user.id) &&
+      (e.status === 'active' || e.status === 'ACTIVE')
+    );
+    const hasVerifiedPaidOrder = Boolean(
+      (req.body.orderId || (payment && payment.orderId) || customData.verifiedOrderId) &&
+      getOrders().some(o =>
+        o.id === (req.body.orderId || (payment && payment.orderId) || customData.verifiedOrderId) &&
+        (o.userId === req.user.id || o.user_id === req.user.id) &&
+        o.status === 'PAID'
+      )
+    );
+    const hasYearlyLinkEnt = Boolean(
+      req.user.isPremium || req.user.plan === 'VIP' || req.user.role === 'admin' || req.user.isAdmin ||
+      userActiveEnts.some(e => {
+        const ep = String(e.productId || e.product_id || e.plan || '');
+        const parsedB = parseWishBundleProductId(ep);
+        return ep === 'vip_pass' || ep === 'custom_link_1yr' || (parsedB && parsedB.grantsYearlyLink) || e.linkDuration === '1_year' || Number(e.validityDays) >= 365;
+      })
+    );
 
-    if (isVip && !isUserPremium && (!payment || payment.status !== 'Completed')) {
+    const templateRequiresPayment = Boolean(template && Number(template.price) > 0);
+    const isVip = templateRequiresPayment || tier === 'vip' || (price && Number(price) > 0);
+    const isUserPremium = Boolean(
+      req.user.isPremium ||
+      req.user.plan === 'VIP' ||
+      req.user.role === 'admin' ||
+      req.user.isAdmin ||
+      hasVerifiedPaidOrder ||
+      (tplEntitlementEval && tplEntitlementEval.allowed && !tplEntitlementEval.isFree)
+    );
+
+    if (templateRequiresPayment && !isUserPremium && !(req.body.status === 'draft' || req.body.isDraft || customData.isDraft)) {
       return res.status(403).json({
         success: false,
-        error: { code: 'PREMIUM_REQUIRED', message: 'VIP subscription required to create a VIP celebration wish.' }
+        error: { code: 'PREMIUM_REQUIRED', message: 'Template unlock or verified payment required to publish this paid template.' }
       });
     }
 
-    const wishPrice = isVip ? (Number(price) || (template && template.price) || 49) : 0;
+    const authoritativeTplPrice = template ? Math.max(0, Number(template.price) || 0) : 0;
+    const wishPrice = authoritativeTplPrice > 0 ? authoritativeTplPrice : Math.max(0, Number(price) || 0);
     const wishId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
 
     // Contact/Buyer Details
@@ -14359,7 +14616,14 @@ app.post('/api/wishes', (req, res) => {
       buyerContact,
       recipientName: customData.recipient_name || customData.recipientName || 'Special Person',
       eventDate,
+      linkDuration: (req.body.linkDuration === '1_year' || customData.linkDuration === '1_year') && hasYearlyLinkEnt ? '1_year' : 'standard',
+      validityDays: (req.body.linkDuration === '1_year' || customData.linkDuration === '1_year') && hasYearlyLinkEnt ? 365 : 30,
       expiryDate: (function() {
+        const wantsYearly = (req.body.linkDuration === '1_year' || customData.linkDuration === '1_year') && hasYearlyLinkEnt;
+        if (wantsYearly) {
+          const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+          return oneYearLater.toISOString().split('T')[0];
+        }
         const clean = String(eventDate || '').includes('T') ? String(eventDate).split('T')[0] : String(eventDate || '').trim();
         const parts = clean.split('-').map(Number);
         if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
@@ -14718,21 +14982,32 @@ app.put('/api/wishes/:id', (req, res) => {
 
     const updatedStatus = status !== undefined ? status : (isDraft !== undefined ? (isDraft ? 'draft' : 'published') : current.status);
     const updatedIsDraft = isDraft !== undefined ? isDraft : (updatedStatus === 'draft');
+    const resolvedRecipientName = recipientName || (customData && (customData.recipient_name || customData.recipientName)) || current.recipientName;
+    const resolvedBuyerName = buyerName || (customData && (customData.sender_name || customData.senderName)) || current.buyerName;
+    const resolvedEventDate = eventDate || (customData && (customData.event_date || customData.eventDate)) || current.eventDate;
 
     wishes[idx] = {
       ...current,
       lock_version: nextLockVersion,
       slug: targetSlug,
-      recipientName: recipientName || current.recipientName,
-      buyerName: buyerName || current.buyerName,
-      eventDate: eventDate || current.eventDate,
+      recipientName: resolvedRecipientName,
+      buyerName: resolvedBuyerName,
+      eventDate: resolvedEventDate,
       status: updatedStatus,
       isDraft: updatedIsDraft,
-      customData: customData ? { ...current.customData, ...customData, isDraft: updatedIsDraft } : current.customData,
+      customData: customData ? { ...current.customData, ...customData, slug: targetSlug, customSlug: targetSlug, isDraft: updatedIsDraft } : current.customData,
       updatedAt: new Date().toISOString()
     };
     saveWishes(wishes);
-    res.json({ success: true, wish: wishes[idx], lockVersion: nextLockVersion, message: 'Wish updated successfully' });
+    res.json({
+      success: true,
+      wishId: wishes[idx].id,
+      slug: targetSlug,
+      canonicalUrl: `/w/${targetSlug}`,
+      wish: wishes[idx],
+      lockVersion: nextLockVersion,
+      message: 'Wish updated successfully'
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -15010,6 +15285,117 @@ app.get(['/api/admin/dashboard/summary', '/api/admin/dashboard', '/api/admin/ove
   }
 });
 
+// API: Combined Admin Overview Bootstrap (1 authenticated request instead of 5)
+app.get('/api/admin/overview/bootstrap', (req, res) => {
+  try {
+    if (!req.user || !(isAuthoritativeAdmin(req.user) || req.user.role === 'admin' || req.user.isAdmin)) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Administrative access required' } });
+    }
+    res.setHeader('Cache-Control', 'no-store, private');
+    cleanStaleVisitors();
+
+    const range = req.query.range || '30d';
+    const templates = getTemplates();
+    const wishes = getWishes();
+    const users = getUsers();
+    const media = getMedia();
+    const orders = typeof getOrders === 'function' ? getOrders() : [];
+    const festivals = typeof getFestivals === 'function' ? getFestivals() : [];
+
+    let totalRevenue = 0;
+    let vipWishes = 0;
+    let publishedWishes = 0;
+    let draftWishes = 0;
+    let upcomingWishes = 0;
+    let expiredWishes = 0;
+
+    wishes.forEach((w) => {
+      const t = templates.find((tpl) => tpl.id === w.templateId);
+      const isVip = w.tier === 'vip' || (t && t.tier === 'vip') || (w.price && w.price > 0) || (w.payment && w.payment.status === 'Completed');
+      const price = isVip ? (w.price || (t && t.price) || 49) : 0;
+      if (isVip) {
+        vipWishes++;
+        totalRevenue += price;
+      }
+      const status = computeWishStatus(w);
+      if (w.status === 'draft' || w.isDraft) draftWishes++;
+      else if (status === 'expired') expiredWishes++;
+      else if (status === 'upcoming' || status === 'future') upcomingWishes++;
+      else publishedWishes++;
+    });
+
+    const activeFestivals = Array.isArray(festivals)
+      ? festivals.filter((f) => f && (f.isActive !== false && f.status !== 'archived')).length
+      : 0;
+
+    const summary = {
+      totalUsers: users.length,
+      totalWishes: wishes.length,
+      publishedWishes,
+      draftWishes,
+      upcomingWishes,
+      expiredWishes,
+      totalTemplates: templates.length,
+      templateFamiliesCount: templates.length,
+      activeFestivals,
+      paidOrders: vipWishes,
+      totalOrders: vipWishes,
+      totalRevenue,
+      liveVisitorsCount: activeVisitors.size,
+      mediaCount: media.length
+    };
+
+    let analytics = {};
+    try {
+      const dateBounds = getDateRangeBounds(range, null, null);
+      const datasets = getBiDatasets();
+      analytics = calculateExecutiveOverview({
+        users: datasets.users,
+        wishes: datasets.wishes,
+        orders: datasets.orders,
+        refunds: datasets.refunds,
+        entitlements: datasets.entitlements,
+        templates: datasets.templates,
+        events: datasets.events,
+        dateBounds
+      }) || {};
+    } catch (_) {}
+
+    const enrichedWishesRes = typeof listAdminWishesEnriched === 'function'
+      ? listAdminWishesEnriched(wishes, users, { limit: 50 })
+      : { wishes: wishes.slice(0, 50) };
+
+    let paidOrdersCount = 0;
+    let netRevenueRupees = 0;
+    orders.forEach((o) => {
+      const st = String(o.status || o.payment_status || '').toUpperCase();
+      if (st === 'PAID' || st === 'PARTIALLY_REFUNDED') {
+        paidOrdersCount++;
+        const net = o.netAmountRupees !== undefined
+          ? Number(o.netAmountRupees)
+          : (o.amountRupees !== undefined ? Number(o.amountRupees) : Math.round(Number(o.amount || 0) / 100));
+        netRevenueRupees += Math.max(0, net || 0);
+      }
+    });
+
+    const payload = {
+      summary,
+      analytics,
+      wishes: Array.isArray(enrichedWishesRes.wishes) ? enrichedWishesRes.wishes.slice(0, 50) : wishes.slice(0, 50),
+      orders: orders.slice(0, 50),
+      ordersMetrics: { paidOrders: paidOrdersCount, netRevenueRupees, totalOrders: orders.length },
+      templates,
+      users: users.slice(0, 100),
+      range,
+      syncedAt: new Date().toISOString()
+    };
+
+    res.json({ success: true, data: payload, ...payload });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // API: Public Link Generation and Verification Contract (Stage 4)
 app.all(['/api/wishes/:id/public-link', '/api/wishes/public-link'], (req, res) => {
   try {
@@ -15129,9 +15515,9 @@ app.get(['/account', '/account.html', '/profile', '/profile.html', '/settings', 
   res.sendFile(path.join(__dirname, 'public', 'account.html'));
 });
 
-// Premium Upgrade Route: /premium and /pricing
-app.get(['/premium', '/premium.html', '/pricing', '/pricing.html'], (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'premium.html'));
+// Pricing & Checkout Route: /pricing, /premium, and legacy /checkout
+app.get(['/premium', '/premium.html', '/pricing', '/pricing.html', '/checkout', '/checkout.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pricing.html'));
 });
 
 // Dedicated Template Preview Route: /template/:templateId, /template/:templateId/, /template-preview.html
@@ -15335,7 +15721,7 @@ app.get(['/w/:id', '/wish/:id'], (req, res) => {
   if (!coverPhoto && template) {
     coverPhoto = template.thumbnail || (template.previewImages && template.previewImages[0]);
   }
-  if (!coverPhoto) coverPhoto = '/assets/file_ab2082.png';
+  if (!coverPhoto) coverPhoto = '/assets/file_ab2082.webp';
   if (!coverPhoto.startsWith('http')) {
     coverPhoto = `${baseUrl}${coverPhoto.startsWith('/') ? '' : '/'}${coverPhoto}`;
   }

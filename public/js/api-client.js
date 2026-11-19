@@ -1,123 +1,92 @@
-/**
- * WishMagic Centralized API Client Layer
- * Part 28: Full Frontend <-> Worker API Contract & End-to-End Regression Lock
- * 
- * Provides unified HTTP operations, structured error classification,
- * credentials handling, CSRF token attachment, retry policies, and centralized configuration.
- */
-
-(function(window) {
-  'use strict';
-
-  // Centralized Application & API Configuration
+(function(window2) {
+  "use strict";
   const WishConfig = {
-    API_BASE_URL: (typeof window !== 'undefined' && window.WISHMAGIC_API_BASE_URL) || '',
-    PUBLIC_APP_URL: (typeof window !== 'undefined' && (window.WISHMAGIC_PUBLIC_APP_URL || (window.location && window.location.origin))) || 'https://wishmagic.live',
-    REQUEST_TIMEOUT_MS: 15000,
+    API_BASE_URL: typeof window2 !== "undefined" && window2.WISHMAGIC_API_BASE_URL || "",
+    PUBLIC_APP_URL: typeof window2 !== "undefined" && (window2.WISHMAGIC_PUBLIC_APP_URL || window2.location && window2.location.origin) || "https://wishmagic.live",
+    REQUEST_TIMEOUT_MS: 15e3,
     MAX_RETRIES: 2,
-    RETRY_DELAY_MS: 1000
+    RETRY_DELAY_MS: 1e3
   };
-
-  // =========================================================================
-  // STRUCTURED API ERROR HIERARCHY
-  // =========================================================================
-
   class WishApiError extends Error {
-    constructor(message, status = 500, code = 'API_ERROR', details = null, requestId = null) {
+    constructor(message, status = 500, code = "API_ERROR", details = null, requestId = null) {
       super(message);
-      this.name = 'WishApiError';
+      this.name = "WishApiError";
       this.status = status;
       this.code = code;
       this.details = details;
       this.requestId = requestId;
-      this.timestamp = new Date().toISOString();
+      this.timestamp = (/* @__PURE__ */ new Date()).toISOString();
     }
   }
-
   class WishAuthenticationError extends WishApiError {
-    constructor(message = 'Authentication required. Please sign in.', details = null, requestId = null) {
-      super(message, 401, 'AUTH_REQUIRED', details, requestId);
-      this.name = 'WishAuthenticationError';
+    constructor(message = "Authentication required. Please sign in.", details = null, requestId = null) {
+      super(message, 401, "AUTH_REQUIRED", details, requestId);
+      this.name = "WishAuthenticationError";
     }
   }
-
   class WishAuthorizationError extends WishApiError {
-    constructor(message = 'Access denied. You do not have permission to perform this action.', details = null, requestId = null) {
-      super(message, 403, 'FORBIDDEN', details, requestId);
-      this.name = 'WishAuthorizationError';
+    constructor(message = "Access denied. You do not have permission to perform this action.", details = null, requestId = null) {
+      super(message, 403, "FORBIDDEN", details, requestId);
+      this.name = "WishAuthorizationError";
     }
   }
-
   class WishPremiumRequiredError extends WishApiError {
-    constructor(message = 'VIP or Premium subscription required to use this template or feature.', details = null, requestId = null) {
-      super(message, 403, 'PREMIUM_REQUIRED', details, requestId);
-      this.name = 'WishPremiumRequiredError';
+    constructor(message = "VIP or Premium subscription required to use this template or feature.", details = null, requestId = null) {
+      super(message, 403, "PREMIUM_REQUIRED", details, requestId);
+      this.name = "WishPremiumRequiredError";
     }
   }
-
   class WishNotFoundError extends WishApiError {
-    constructor(message = 'The requested resource was not found.', details = null, requestId = null) {
-      super(message, 404, 'NOT_FOUND', details, requestId);
-      this.name = 'WishNotFoundError';
+    constructor(message = "The requested resource was not found.", details = null, requestId = null) {
+      super(message, 404, "NOT_FOUND", details, requestId);
+      this.name = "WishNotFoundError";
     }
   }
-
   class WishValidationError extends WishApiError {
-    constructor(message = 'Validation failed for request data.', details = null, fields = {}, requestId = null) {
-      super(message, 400, 'VALIDATION_ERROR', details, requestId);
-      this.name = 'WishValidationError';
+    constructor(message = "Validation failed for request data.", details = null, fields = {}, requestId = null) {
+      super(message, 400, "VALIDATION_ERROR", details, requestId);
+      this.name = "WishValidationError";
       this.fields = fields;
     }
   }
-
   class WishConflictError extends WishApiError {
-    constructor(message = 'A resource conflict occurred.', details = null, requestId = null) {
-      super(message, 409, 'CONFLICT', details, requestId);
-      this.name = 'WishConflictError';
+    constructor(message = "A resource conflict occurred.", details = null, requestId = null) {
+      super(message, 409, "CONFLICT", details, requestId);
+      this.name = "WishConflictError";
     }
   }
-
   class WishRateLimitError extends WishApiError {
-    constructor(message = 'Too many requests. Please try again shortly.', retryAfter = 60, details = null, requestId = null) {
-      super(message, 429, 'RATE_LIMITED', details, requestId);
-      this.name = 'WishRateLimitError';
+    constructor(message = "Too many requests. Please try again shortly.", retryAfter = 60, details = null, requestId = null) {
+      super(message, 429, "RATE_LIMITED", details, requestId);
+      this.name = "WishRateLimitError";
       this.retryAfter = retryAfter;
     }
   }
-
   class WishServerError extends WishApiError {
-    constructor(message = 'A server error occurred. Please try again later.', status = 500, details = null, requestId = null) {
-      super(message, status, 'INTERNAL_ERROR', details, requestId);
-      this.name = 'WishServerError';
+    constructor(message = "A server error occurred. Please try again later.", status = 500, details = null, requestId = null) {
+      super(message, status, "INTERNAL_ERROR", details, requestId);
+      this.name = "WishServerError";
     }
   }
-
   class WishNotConfiguredError extends WishApiError {
-    constructor(message = 'This service or integration is not yet configured in production.', details = null, requestId = null) {
-      super(message, 503, 'NOT_CONFIGURED', details, requestId);
-      this.name = 'WishNotConfiguredError';
+    constructor(message = "This service or integration is not yet configured in production.", details = null, requestId = null) {
+      super(message, 503, "NOT_CONFIGURED", details, requestId);
+      this.name = "WishNotConfiguredError";
     }
   }
-
   class WishServiceUnavailableError extends WishApiError {
-    constructor(message = 'The service is temporarily unavailable. Please try again shortly.', details = null, requestId = null) {
-      super(message, 503, 'SERVICE_UNAVAILABLE', details, requestId);
-      this.name = 'WishServiceUnavailableError';
+    constructor(message = "The service is temporarily unavailable. Please try again shortly.", details = null, requestId = null) {
+      super(message, 503, "SERVICE_UNAVAILABLE", details, requestId);
+      this.name = "WishServiceUnavailableError";
     }
   }
-
   class WishNetworkError extends WishApiError {
-    constructor(message = 'Network connection failed. Please check your internet connection.', originalError = null) {
-      super(message, 0, 'NETWORK_ERROR', originalError ? originalError.message : null);
-      this.name = 'WishNetworkError';
+    constructor(message = "Network connection failed. Please check your internet connection.", originalError = null) {
+      super(message, 0, "NETWORK_ERROR", originalError ? originalError.message : null);
+      this.name = "WishNetworkError";
       this.isNetworkError = true;
     }
   }
-
-  // =========================================================================
-  // CENTRALIZED HTTP CLIENT
-  // =========================================================================
-
   const WishApiClient = {
     Config: WishConfig,
     Errors: {
@@ -134,66 +103,51 @@
       ServiceUnavailableError: WishServiceUnavailableError,
       NetworkError: WishNetworkError
     },
-
     /**
      * Get the authoritative public wish URL
      */
     getPublicWishUrl(slugOrId) {
       if (!slugOrId) return WishConfig.PUBLIC_APP_URL;
-      const cleanSlug = String(slugOrId).replace(/^\/+/, '').replace(/^w\//, '');
-      const base = (typeof window !== 'undefined' && window.location && window.location.origin) 
-        ? window.location.origin 
-        : WishConfig.PUBLIC_APP_URL;
+      const cleanSlug = String(slugOrId).replace(/^\/+/, "").replace(/^w\//, "");
+      const base = typeof window2 !== "undefined" && window2.location && window2.location.origin ? window2.location.origin : WishConfig.PUBLIC_APP_URL;
       return `${base}/w/${cleanSlug}`;
     },
-
     invalidateCache() {
       try {
-        if (this.cache && typeof this.cache.clear === 'function') {
+        if (this.cache && typeof this.cache.clear === "function") {
           this.cache.clear();
         }
-      } catch (_) {}
+      } catch (_) {
+      }
     },
-
     /**
      * Build standard headers including authorization token and content type
      */
     _buildHeaders(customHeaders = {}, isFormData = false) {
       const headers = new Headers();
-
       if (!isFormData) {
-        headers.set('Content-Type', 'application/json; charset=utf-8');
+        headers.set("Content-Type", "application/json; charset=utf-8");
       }
-      headers.set('Accept', 'application/json');
-
-      // Add auth token from session if available (prioritize Admin Studio token on /admin routes)
+      headers.set("Accept", "application/json");
       try {
-        const isAdminContext = typeof window !== 'undefined' && window.location && window.location.pathname && window.location.pathname.startsWith('/admin');
-        let resolvedToken = '';
-
+        const isAdminContext = typeof window2 !== "undefined" && window2.location && window2.location.pathname && window2.location.pathname.startsWith("/admin");
+        let resolvedToken = "";
         if (isAdminContext) {
-          if (typeof window.getAdminStoredSessionToken === 'function') {
-            resolvedToken = window.getAdminStoredSessionToken() || '';
+          if (typeof window2.getAdminStoredSessionToken === "function") {
+            resolvedToken = window2.getAdminStoredSessionToken() || "";
           }
-          if (!resolvedToken && typeof localStorage !== 'undefined') {
-            resolvedToken = (
-              localStorage.getItem('wm_admin_session_token') ||
-              localStorage.getItem('wishmagic_admin_token') ||
-              localStorage.getItem('clay_admin_token') ||
-              ''
-            ).trim();
+          if (!resolvedToken && typeof localStorage !== "undefined") {
+            resolvedToken = (localStorage.getItem("wm_admin_session_token") || localStorage.getItem("wishmagic_admin_token") || localStorage.getItem("clay_admin_token") || "").trim();
           }
         }
-
-        if (!resolvedToken && typeof window !== 'undefined' && window.WishAuth) {
-          const session = window.WishAuth.getSession();
+        if (!resolvedToken && typeof window2 !== "undefined" && window2.WishAuth) {
+          const session = window2.WishAuth.getSession();
           if (session && session.token) {
             resolvedToken = session.token;
           }
         }
-
-        if (!resolvedToken && typeof localStorage !== 'undefined') {
-          const rawSession = localStorage.getItem('wishmagic_auth_session');
+        if (!resolvedToken && typeof localStorage !== "undefined") {
+          const rawSession = localStorage.getItem("wishmagic_auth_session");
           if (rawSession) {
             const parsed = JSON.parse(rawSession);
             if (parsed && parsed.token) {
@@ -201,67 +155,57 @@
             }
           }
           if (!resolvedToken) {
-            resolvedToken = (
-              localStorage.getItem('wm_admin_session_token') ||
-              localStorage.getItem('wishmagic_admin_token') ||
-              localStorage.getItem('clay_admin_token') ||
-              ''
-            ).trim();
+            resolvedToken = (localStorage.getItem("wm_admin_session_token") || localStorage.getItem("wishmagic_admin_token") || localStorage.getItem("clay_admin_token") || "").trim();
           }
         }
-
         if (resolvedToken) {
-          headers.set('Authorization', `Bearer ${resolvedToken}`);
+          headers.set("Authorization", `Bearer ${resolvedToken}`);
         }
-      } catch (e) {}
-
-      // Apply custom headers
+      } catch (e) {
+      }
       if (customHeaders) {
         for (const [key, val] of Object.entries(customHeaders)) {
-          if (val !== undefined && val !== null) {
+          if (val !== void 0 && val !== null) {
             headers.set(key, val);
           }
         }
       }
-
       return headers;
     },
-
     /**
      * Helper to classify response status into specific error instances
      */
     _handleHttpError(status, errorBody = {}) {
       const errObj = errorBody.error || {};
-      const code = errorBody.code || errObj.code || (status === 401 ? 'AUTH_REQUIRED' : status === 403 ? 'FORBIDDEN' : 'UNKNOWN_ERROR');
+      const code = errorBody.code || errObj.code || (status === 401 ? "AUTH_REQUIRED" : status === 403 ? "FORBIDDEN" : "UNKNOWN_ERROR");
       const message = errorBody.message || errObj.message || `HTTP Error ${status}`;
       const details = errorBody.details || errObj.details || null;
       const requestId = errorBody.requestId || errObj.requestId || null;
-
-      if (status === 401 || code === 'AUTH_REQUIRED' || code === 'UNAUTHORIZED') {
+      if (status === 401 || code === "AUTH_REQUIRED" || code === "UNAUTHORIZED") {
         return new WishAuthenticationError(message, details, requestId);
       }
-      if (status === 403 && (code === 'PREMIUM_REQUIRED' || code === 'ENTITLEMENT_REQUIRED')) {
+      if (status === 403 && (code === "PREMIUM_REQUIRED" || code === "ENTITLEMENT_REQUIRED")) {
         return new WishPremiumRequiredError(message, details, requestId);
       }
-      if (status === 403 || code === 'FORBIDDEN') {
+      if (status === 403 || code === "FORBIDDEN") {
         return new WishAuthorizationError(message, details, requestId);
       }
-      if (status === 404 || code === 'NOT_FOUND') {
+      if (status === 404 || code === "NOT_FOUND") {
         return new WishNotFoundError(message, details, requestId);
       }
-      if (status === 400 || status === 422 || code === 'VALIDATION_ERROR' || code === 'BAD_REQUEST') {
+      if (status === 400 || status === 422 || code === "VALIDATION_ERROR" || code === "BAD_REQUEST") {
         return new WishValidationError(message, details, errorBody.fields || errObj.fields || {}, requestId);
       }
-      if (status === 409 || code === 'CONFLICT') {
+      if (status === 409 || code === "CONFLICT") {
         return new WishConflictError(message, details, requestId);
       }
-      if (status === 429 || code === 'RATE_LIMITED') {
+      if (status === 429 || code === "RATE_LIMITED") {
         return new WishRateLimitError(message, errorBody.retryAfter || 60, details, requestId);
       }
-      if (status === 503 && (code === 'DATABASE_UNAVAILABLE' || code === 'SERVICE_UNAVAILABLE')) {
+      if (status === 503 && (code === "DATABASE_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE")) {
         return new WishServiceUnavailableError(message, details, requestId);
       }
-      if (status === 503 || code === 'NOT_CONFIGURED' || code === 'PROVIDER_NOT_CONFIGURED') {
+      if (status === 503 || code === "NOT_CONFIGURED" || code === "PROVIDER_NOT_CONFIGURED") {
         return new WishNotConfiguredError(message, details, requestId);
       }
       if (status >= 500) {
@@ -269,64 +213,53 @@
       }
       return new WishApiError(message, status, code, details, requestId);
     },
-
     /**
      * Core request executor with timeout and retry logic
      */
     async request(endpoint, options = {}) {
-      const method = (options.method || 'GET').toUpperCase();
-      const isIdempotent = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
-      const maxRetries = options.retries !== undefined ? options.retries : (isIdempotent ? WishConfig.MAX_RETRIES : 0);
+      const method = (options.method || "GET").toUpperCase();
+      const isIdempotent = method === "GET" || method === "HEAD" || method === "OPTIONS";
+      const maxRetries = options.retries !== void 0 ? options.retries : isIdempotent ? WishConfig.MAX_RETRIES : 0;
       const timeoutMs = options.timeout || WishConfig.REQUEST_TIMEOUT_MS;
-
       let fullUrl = endpoint;
-      if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
-        const cleanBase = WishConfig.API_BASE_URL.replace(/\/+$/, '');
-        const cleanPath = endpoint.replace(/^\/+/, '/');
+      if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+        const cleanBase = WishConfig.API_BASE_URL.replace(/\/+$/, "");
+        const cleanPath = endpoint.replace(/^\/+/, "/");
         fullUrl = cleanBase ? `${cleanBase}${cleanPath}` : cleanPath;
       }
-
-      // Add query parameters if provided
-      if (options.params && typeof options.params === 'object') {
-        const urlObj = new URL(fullUrl, (typeof window !== 'undefined' && window.location ? window.location.origin : 'http://localhost'));
+      if (options.params && typeof options.params === "object") {
+        const urlObj = new URL(fullUrl, typeof window2 !== "undefined" && window2.location ? window2.location.origin : "http://localhost");
         for (const [k, v] of Object.entries(options.params)) {
-          if (v !== undefined && v !== null && v !== '') {
+          if (v !== void 0 && v !== null && v !== "") {
             urlObj.searchParams.set(k, String(v));
           }
         }
         fullUrl = urlObj.pathname + urlObj.search;
       }
-
-      const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+      const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
       const headers = this._buildHeaders(options.headers, isFormData);
-
       let body = options.body;
-      if (body && typeof body === 'object' && !isFormData && !(body instanceof Blob) && !(body instanceof ArrayBuffer)) {
+      if (body && typeof body === "object" && !isFormData && !(body instanceof Blob) && !(body instanceof ArrayBuffer)) {
         body = JSON.stringify(body);
       }
-
       let attempt = 0;
       let lastError = null;
-
       while (attempt <= maxRetries) {
-        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
         const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
-
         try {
           const fetchOptions = {
             method,
             headers,
-            body: isIdempotent ? undefined : body,
-            credentials: options.credentials || 'include',
-            signal: controller ? controller.signal : undefined
+            body: isIdempotent ? void 0 : body,
+            credentials: options.credentials || "include",
+            signal: controller ? controller.signal : void 0
           };
-
           const response = await fetch(fullUrl, fetchOptions);
           if (timeoutId) clearTimeout(timeoutId);
-
           let parsedData = null;
-          const contentType = response.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
             parsedData = await response.json().catch(() => ({}));
           } else {
             const text = await response.text();
@@ -336,99 +269,83 @@
               parsedData = { text };
             }
           }
-
           if (!response.ok) {
-            // One-time re-hydration attempt on 401 before giving up
-            if (response.status === 401 && !options._retried401 && typeof window !== 'undefined' && window.WishAuth && typeof window.WishAuth.hydrateSessionFromServer === 'function') {
+            if (response.status === 401 && !options._retried401 && typeof window2 !== "undefined" && window2.WishAuth && typeof window2.WishAuth.hydrateSessionFromServer === "function") {
               try {
-                const refreshed = await window.WishAuth.hydrateSessionFromServer();
+                const refreshed = await window2.WishAuth.hydrateSessionFromServer();
                 if (refreshed) {
                   return await this.request(endpoint, { ...options, _retried401: true });
                 }
-              } catch (rehydrateErr) {}
+              } catch (rehydrateErr) {
+              }
             }
             throw this._handleHttpError(response.status, parsedData || {});
           }
-
           return parsedData;
         } catch (err) {
           if (timeoutId) clearTimeout(timeoutId);
           lastError = err;
-
-          // Check if error is network/abort
-          if (err.name === 'AbortError') {
+          if (err.name === "AbortError") {
             lastError = new WishNetworkError(`Request timed out after ${timeoutMs}ms`, err);
           } else if (!(err instanceof WishApiError)) {
-            lastError = new WishNetworkError('Network error during request: ' + err.message, err);
+            lastError = new WishNetworkError("Network error during request: " + err.message, err);
           }
-
-          // Non-retryable errors (e.g. 400, 401, 403, 404, 422)
           if (lastError instanceof WishApiError && lastError.status > 0 && lastError.status < 500 && lastError.status !== 429) {
             throw lastError;
           }
-
           attempt++;
           if (attempt <= maxRetries) {
             const delay = WishConfig.RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, delay));
           }
         }
       }
-
       throw lastError;
     },
-
     // Convenience HTTP Verbs
     async get(endpoint, params = null, options = {}) {
-      return await this.request(endpoint, { ...options, method: 'GET', params });
+      return await this.request(endpoint, { ...options, method: "GET", params });
     },
-
     async post(endpoint, body = {}, options = {}) {
-      return await this.request(endpoint, { ...options, method: 'POST', body });
+      return await this.request(endpoint, { ...options, method: "POST", body });
     },
-
     async put(endpoint, body = {}, options = {}) {
-      return await this.request(endpoint, { ...options, method: 'PUT', body });
+      return await this.request(endpoint, { ...options, method: "PUT", body });
     },
-
     async patch(endpoint, body = {}, options = {}) {
-      return await this.request(endpoint, { ...options, method: 'PATCH', body });
+      return await this.request(endpoint, { ...options, method: "PATCH", body });
     },
-
     async delete(endpoint, options = {}) {
-      return await this.request(endpoint, { ...options, method: 'DELETE' });
+      return await this.request(endpoint, { ...options, method: "DELETE" });
     },
-
     async upload(endpoint, formData, options = {}) {
       return await this.request(endpoint, {
         ...options,
-        method: 'POST',
+        method: "POST",
         body: formData,
-        retries: 0 // Do not auto-retry file uploads
+        retries: 0
+        // Do not auto-retry file uploads
       });
     }
   };
-
-  // Expose to window / module
-  if (typeof window !== 'undefined') {
-    window.WishConfig = WishConfig;
-    window.WishApiClient = WishApiClient;
-    window.apiClient = WishApiClient;
-    window.WishApiError = WishApiError;
-    window.WishAuthenticationError = WishAuthenticationError;
-    window.WishAuthorizationError = WishAuthorizationError;
-    window.WishPremiumRequiredError = WishPremiumRequiredError;
-    window.WishNotFoundError = WishNotFoundError;
-    window.WishValidationError = WishValidationError;
-    window.WishConflictError = WishConflictError;
-    window.WishRateLimitError = WishRateLimitError;
-    window.WishServerError = WishServerError;
-    window.WishNotConfiguredError = WishNotConfiguredError;
-    window.WishServiceUnavailableError = WishServiceUnavailableError;
-    window.WishNetworkError = WishNetworkError;
+  if (typeof window2 !== "undefined") {
+    window2.WishConfig = WishConfig;
+    window2.WishApiClient = WishApiClient;
+    window2.apiClient = WishApiClient;
+    window2.WishApiError = WishApiError;
+    window2.WishAuthenticationError = WishAuthenticationError;
+    window2.WishAuthorizationError = WishAuthorizationError;
+    window2.WishPremiumRequiredError = WishPremiumRequiredError;
+    window2.WishNotFoundError = WishNotFoundError;
+    window2.WishValidationError = WishValidationError;
+    window2.WishConflictError = WishConflictError;
+    window2.WishRateLimitError = WishRateLimitError;
+    window2.WishServerError = WishServerError;
+    window2.WishNotConfiguredError = WishNotConfiguredError;
+    window2.WishServiceUnavailableError = WishServiceUnavailableError;
+    window2.WishNetworkError = WishNetworkError;
   }
-
-  if (typeof module !== 'undefined' && module.exports) {
+  if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       WishConfig,
       WishApiClient,
@@ -446,5 +363,4 @@
       WishNetworkError
     };
   }
-
-})(typeof window !== 'undefined' ? window : global);
+})(typeof window !== "undefined" ? window : global);

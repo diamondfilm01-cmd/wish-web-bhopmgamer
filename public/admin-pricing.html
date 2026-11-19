@@ -16,21 +16,15 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/api-client.js"></script>
-  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
-  <script src="js/wish-lifecycle.js"></script>
-  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
-  <script>
-    if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") {
-      tailwind.config = sharedTailwindConfig;
-    }
-  </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
+  <script defer src="js/api-client.js"></script>
+  <link rel="stylesheet" href="/css/admin-tailwind.min.css?v=20261118_admin_fast_v1"/>
+  <script defer src="js/WishMagicCore.js"></script>
+  <script defer src="js/admin-theme.js?v=20261118_admin_fast_v1"></script>
+  <script defer src="js/wish-lifecycle.js"></script>
+  <script defer src="js/auth-service.js?v=20261118_minimal_v1"></script>
+<link rel="stylesheet" href="css/admin-theme.css?v=20261118_admin_fast_v1"/>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
@@ -192,7 +186,7 @@
         <h1 class="wm-page-title">
           <span>Subscriptions,</span> <span >Plans</span> <span >&amp; Coupons</span>
         </h1>
-        <p id="pricing-hero-subtitle" class="wm-page-subtitle">Link ₹59 · HD ₹59 · Combo ₹99 · Add-On +₹70</p>
+        <p id="pricing-hero-subtitle" class="wm-page-subtitle">Custom Link ₹19 · HD Photos ₹19 · 1-Year Link ₹149 · Template Price Set Per Template</p>
         <div class="flex flex-wrap items-center gap-3">
           <button id="btn-hero-save-pricing" type="button" onclick="savePricingConfig()" class="wm-btn-primary">
             <span class="material-symbols-outlined text-[19px]">save</span>
@@ -223,7 +217,7 @@
     <div id="pricing-unsaved-banner" class="hidden p-3.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-amber-400">edit_notifications</span>
-        <span id="pricing-unsaved-summary" class="font-bold">You have unsaved pricing changes. Click Save to persist to D1 and update live checkout.</span>
+        <span id="pricing-unsaved-summary" class="font-bold">You have unsaved pricing changes. Click Save to persist and update live checkout.</span>
       </div>
       <div class="flex items-center gap-2">
         <button type="button" onclick="discardPricingChanges()" class="px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface font-bold text-xs cursor-pointer">
@@ -238,11 +232,11 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
         <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
-          <span>Primary Tier</span>
+          <span>Active Link Plans</span>
           <span class="material-symbols-outlined text-[16px] text-amber-600">stars</span>
         </div>
-        <div class="text-xl font-bold text-slate-900 tabular-nums" id="stat-primary-tier-price">₹59 / ₹99</div>
-        <div class="text-[11px] font-medium text-emerald-700">Most popular plan</div>
+        <div class="text-xl font-bold text-slate-900 tabular-nums" id="stat-primary-tier-price">₹19 / ₹149</div>
+        <div class="text-[11px] font-medium text-emerald-700">Custom Link / 1-Year</div>
       </div>
 
       <div class="wm-card p-3 flex flex-col justify-between gap-0.5">
@@ -406,146 +400,103 @@
       </div>
     </div>
 
-    <!-- MODULAR & COMBO PRICING CONFIGURATOR (4 CARDS + 7-REFERRAL & TEMPLATE TIERS) -->
+    <!-- CORE ADDITIVE PRICING CONFIGURATOR (4 CLEAN CARDS) -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-      <!-- Card 1: Custom Link Only (₹59) -->
-      <div class="wm-card bg-surface-container rounded-lg p-5 border border-slate-200 shadow-xl flex flex-col justify-between">
+      <!-- Card 1: Custom Link (₹19) -->
+      <div class="wm-card bg-surface-container rounded-lg p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-extrabold">1. Custom Link Only</span>
-            <span class="text-[11px] font-bold text-emerald-400">Add-On Pack</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-extrabold">1. Custom Link</span>
+            <span class="text-[11px] font-bold text-emerald-600">Standard</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-primary">₹</span>
-              <input id="vip-price-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="59"/>
+              <input id="vip-price-input" type="number" min="0" max="100000" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="19"/>
             </div>
           </div>
-          <p class="text-xs text-on-surface-variant mb-2">Custom <code class="text-slate-600">/w/name</code> URL price.</p>
+          <p class="text-xs text-on-surface-variant mb-2">Custom <code class="text-slate-700">/w/your-name</code> link fee.</p>
           <ul class="flex flex-col gap-1.5 text-xs text-on-surface-variant pt-2.5 border-t border-slate-200">
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom URL slug</li>
-            <li class="flex items-center gap-2"><span class="text-outline">•</span> Base template excluded</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-600 font-bold">✓</span> Personal URL slug</li>
+            <li class="flex items-center gap-2"><span class="text-slate-500">•</span> Added to template price (if paid)</li>
           </ul>
         </div>
-        <button id="btn-save-custom-link" class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
-          Update Custom Link (₹59)
+        <button id="btn-save-custom-link" class="mt-5 w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold transition hover:brightness-110 cursor-pointer" onclick="savePricingConfig()">
+          Update Custom Link (₹19)
         </button>
       </div>
 
-      <!-- Card 2: High Quality Images + Style Only (₹59) -->
-      <div class="wm-card bg-surface-container rounded-lg p-5 border border-slate-200 shadow-xl flex flex-col justify-between">
+      <!-- Card 2: HD Photos (₹19 — Photo Templates Only) -->
+      <div class="wm-card bg-surface-container rounded-lg p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-extrabold">2. HD Images + Style</span>
-            <span id="hd-style-badge" class="text-[11px] font-bold text-slate-600">₹59 Add-On</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-extrabold">2. HD Photos</span>
+            <span id="hd-style-badge" class="text-[11px] font-bold text-purple-600">Photo Templates Only</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-secondary">₹</span>
-              <input id="hd-style-price-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-slate-200 text-xl font-black focus:outline-none" value="59"/>
+              <input id="hd-style-price-input" type="number" min="0" max="100000" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-slate-300 text-xl font-black focus:outline-none" value="19"/>
             </div>
           </div>
-          <p class="text-xs text-on-surface-variant mb-2">HD uploads &amp; custom styling.</p>
+          <p class="text-xs text-on-surface-variant mb-2">Shown <strong>only</strong> on templates that support photo uploads.</p>
           <ul class="flex flex-col gap-1.5 text-xs text-on-surface-variant pt-2.5 border-t border-slate-200">
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> HD photo uploads</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom fonts, colors &amp; FX</li>
-            <li class="flex items-center gap-2"><span class="text-outline">•</span> Random wish link</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-600 font-bold">✓</span> High-definition photo uploads</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-600 font-bold">✓</span> Auto-hidden &amp; ₹0 on non-photo templates</li>
           </ul>
         </div>
-        <button id="btn-save-hd-style" class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
-          Update HD + Style (₹59)
+        <button id="btn-save-hd-style" class="mt-5 w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold transition hover:brightness-110 cursor-pointer" onclick="savePricingConfig()">
+          Update HD Photos (₹19)
         </button>
       </div>
 
-      <!-- Card 3: Free Template Combo Offer -->
+      <!-- Card 3: 1-Year Custom Link (₹149 — 365 Days) -->
       <div class="wm-card bg-surface-container rounded-lg p-5 border-2 border-primary shadow-sm relative flex flex-col justify-between">
         <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
-          Best Seller • Free Template Combo
+          1 Full Year • 365 Days
         </div>
         <div>
           <div class="flex items-center justify-between mb-3 mt-1">
-            <span class="px-2.5 py-1 rounded-full bg-slate-900 text-white text-xs font-bold">3. Free Template Combo</span>
-            <span id="free-combo-savings-badge" class="text-xs text-emerald-400 font-bold">Save ₹19</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-900 text-white text-xs font-bold">3. 1-Year Custom Link</span>
+            <span id="yearly-link-badge" class="text-xs text-emerald-600 font-bold">365 Days</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
-            <span class="text-xs font-bold text-outline">Combo Price:</span>
+            <span class="text-xs font-bold text-outline">Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-primary">₹</span>
-              <input id="free-combo-price-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="99"/>
+              <input id="yearly-link-price-input" type="number" min="0" max="100000" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="149"/>
             </div>
           </div>
-          <p id="free-combo-desc" class="text-xs text-on-surface-variant mb-2">Free template + Link + HD + Style.</p>
+          <p id="yearly-link-desc" class="text-xs text-on-surface-variant mb-2">Custom <code>/w/name</code> link active for 1 full year.</p>
           <ul class="flex flex-col gap-1.5 text-xs text-on-surface-variant pt-2.5 border-t border-slate-200">
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Link (<code class="text-slate-600">/w/name</code>)</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> HD photo uploads</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom style &amp; FX</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-600 font-bold">✓</span> Includes custom link (no +₹19)</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-600 font-bold">✓</span> Auto-sets 365-day wish expiry</li>
           </ul>
         </div>
-        <button id="btn-save-free-combo" class="mt-5 w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-lg shadow-sm hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
-          Update Free Combo (₹99)
+        <button id="btn-save-yearly-link" class="mt-5 w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-sm hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
+          Update 1-Year Link (₹149)
         </button>
       </div>
 
-      <!-- Card 4: Premium Template Royal Combo -->
-      <div class="wm-card bg-surface-container rounded-lg p-5 border-2 border-amber-500/50 shadow-xl relative flex flex-col justify-between">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
-          Premium Template + Combo
-        </div>
+      <!-- Card 4: Per-Template Pricing & Live Formula Preview -->
+      <div class="wm-card bg-surface-container rounded-lg p-5 border border-amber-400/60 shadow-sm flex flex-col justify-between">
         <div>
-          <div class="flex items-center justify-between mb-3 mt-1">
-            <span class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold">4. Premium Combo Add-On</span>
-            <span id="premium-addon-badge" class="text-xs text-amber-300 font-bold">Tpl + ₹70</span>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-extrabold">4. Template Price</span>
+            <span class="text-[11px] font-bold text-amber-700">Set Per Template</span>
           </div>
-          <div class="flex items-baseline gap-2 mb-2">
-            <span class="text-xs font-bold text-outline">Tpl Price +</span>
-            <div class="flex items-center gap-1">
-              <span class="text-lg font-bold text-amber-400">₹</span>
-              <input id="premium-combo-addon-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-amber-500/50 text-xl font-black focus:outline-none" value="70"/>
-            </div>
-          </div>
-          <p id="premium-addon-desc" class="text-xs text-on-surface-variant mb-2">₹59/₹149 template + ₹70 add-on.</p>
+          <p class="text-xs text-on-surface-variant mb-2.5">Set each template's own ₹ price (₹0 Free or any amount) in <strong>All Templates</strong>. Checkout auto-adds:</p>
           <ul class="flex flex-col gap-1.5 text-xs text-on-surface-variant pt-2.5 border-t border-slate-200">
-            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹<span id="prem-tier-1-base">59</span> Combo = <strong id="prem-tier-1-total">₹129</strong></li>
-            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹<span id="prem-tier-2-base">149</span> Combo = <strong id="prem-tier-2-total">₹219</strong></li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Template + Link + HD + Style</li>
+            <li class="flex items-center justify-between"><span>₹49 Tpl + Link + HD</span><strong id="example-std-total" class="text-slate-900">₹87</strong></li>
+            <li class="flex items-center justify-between"><span>₹49 Tpl + 1-Yr + HD</span><strong id="example-yr-total" class="text-slate-900">₹217</strong></li>
+            <li class="flex items-center justify-between"><span>Free Tpl + Link</span><strong id="example-free-link-total" class="text-slate-900">₹19</strong></li>
           </ul>
         </div>
-        <button id="btn-save-premium-addon" class="mt-5 w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-lg hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
-          Update Premium Add-On (+₹70)
-        </button>
-      </div>
-    </div>
-
-    <!-- TEMPLATE TIER PRESETS -->
-    <div class="wm-card bg-surface-container rounded-lg p-5 sm:p-6 border border-slate-200 shadow-xl">
-      <div class="p-4 rounded-xl bg-surface-container-low border border-slate-200 flex flex-col justify-between gap-3">
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Template Base Price Tiers</span>
-            <a href="/admin/anktech/anktech/admin/templates" class="text-[11px] font-bold text-slate-600 hover:underline">Manage Templates →</a>
-          </div>
-          <p class="text-xs text-on-surface-variant mb-2">Template base price presets.</p>
-          <div class="grid grid-cols-3 gap-2">
-            <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-center">
-              <div class="text-[10px] font-bold text-emerald-400 uppercase">Free Tier</div>
-              <div class="text-base font-black text-on-surface">₹0</div>
-            </div>
-            <div class="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-center">
-              <div class="text-[10px] font-bold text-slate-600 uppercase">Standard VIP</div>
-              <div class="text-base font-black text-on-surface">₹59</div>
-            </div>
-            <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
-              <div class="text-[10px] font-bold text-amber-300 uppercase">Royal VIP</div>
-              <div class="text-base font-black text-on-surface">₹149</div>
-            </div>
-          </div>
-        </div>
-        <div class="flex items-center justify-between pt-2 border-t border-slate-200 text-xs">
-          <span class="text-on-surface-variant font-semibold">Creator Bulk Pack Price (₹):</span>
-          <input id="creator-price-input" type="number" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container text-on-surface border border-slate-200 font-black text-sm text-right" value="199"/>
-        </div>
+        <a href="/admin/anktech/anktech/admin/templates" class="mt-5 w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold text-center transition block">
+          Set Template Prices →
+        </a>
       </div>
     </div>
 
@@ -786,85 +737,55 @@
 
   const FACTORY_DEFAULT_VIP_PLANS = [
     {
-      id: "vip_pass",
-      name: "VIP Magic Pass",
-      badge: "👑 VIP PASS",
-      price: 49,
-      originalPrice: 99,
-      billingLabel: "one-time",
-      description: "Unlock VIP templates, custom link (/w/your-name), HD photos, custom styles, voice & music, zero watermark, and lifetime link.",
-      ctaText: "Unlock VIP Magic Pass ✨",
-      isPopular: true,
-      isActive: true,
-      perks: { freeCustomLink: true, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: true, customMusicVoice: true, removeWatermark: true, lifetimeLink: true, maxPhotos: 16, validityDays: 0 },
-      features: ["Unlock VIP & Premium 3D Templates", "Free Custom Link (/w/your-name) Included", "Up to 16 Uncompressed HD Photos & Custom Styles", "Custom Music & 2-Min Voice Dedication", "100% Zero Watermark & Permanent Lifetime Link"]
-    },
-    {
       id: "personalized_link",
-      name: "Custom Link Pack",
-      badge: "ADD-ON PACK 1",
-      price: 59,
-      originalPrice: 79,
+      name: "Custom Link",
+      badge: "CUSTOM LINK",
+      price: 19,
+      originalPrice: 19,
       billingLabel: "/ wish",
-      description: "Replace random codes with your own custom celebration URL (/w/happy-birthday-priya).",
-      ctaText: "Choose Custom Link",
+      description: "Create a personal custom celebration URL (/w/happy-birthday-priya).",
+      ctaText: "Get Custom Link • ₹19",
       isPopular: false,
       isActive: true,
       perks: { freeCustomLink: true, freeHdPhotos: false, freeCustomStyle: false, unlockVipTemplates: false, customMusicVoice: false, removeWatermark: false, lifetimeLink: false, maxPhotos: 3, validityDays: 30 },
-      features: ["Custom Personalized URL (/w/your-name)", "Instant Real-Time Availability Check", "Works on Any Free or Premium Template", "Free via 7-Friends Referral Reward"]
+      features: ["Custom Personalized URL (/w/your-name)", "Instant Real-Time Availability Check", "Works on Any Free or Paid Template"]
     },
     {
-      id: "hd_image_style_pack",
-      name: "HD Images + Custom Style",
-      badge: "ADD-ON PACK 2",
-      price: 59,
-      originalPrice: 79,
+      id: "hd_photos",
+      name: "HD Photos",
+      badge: "PHOTO TEMPLATES ONLY",
+      price: 19,
+      originalPrice: 19,
       billingLabel: "/ wish",
-      description: "Upload crystal-clear High Quality (HD) photos and customize fonts, colors, frames & particle styles.",
-      ctaText: "Choose HD Images & Style",
+      description: "Upload crystal-clear High Quality (HD) photos. Auto-hidden on templates without photo upload slots.",
+      ctaText: "Add HD Photos • ₹19",
       isPopular: false,
       isActive: true,
-      perks: { freeCustomLink: false, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: false, customMusicVoice: true, removeWatermark: true, lifetimeLink: false, maxPhotos: 16, validityDays: 30 },
-      features: ["Uncompressed High-Quality (HD) Photos (Up to 16)", "Custom Fonts, Color Themes & Frames", "Polaroid, Filmstrip & Mosaic Layouts", "Custom Particle & Celebration Effects"]
+      perks: { freeCustomLink: false, freeHdPhotos: true, freeCustomStyle: false, unlockVipTemplates: false, customMusicVoice: false, removeWatermark: false, lifetimeLink: false, maxPhotos: 16, validityDays: 30 },
+      features: ["High-Definition (HD) Photo Uploads", "Shown only on photo-enabled templates", "Automatically ₹0 / hidden on non-photo templates"]
     },
     {
-      id: "free_template_combo",
-      name: "Custom Link + HD & Style Combo",
-      badge: "🔥 ALL-IN-ONE COMBO",
-      price: 99,
-      originalPrice: 118,
-      billingLabel: "/ wish",
-      description: "For any Free Template: Get both Custom Link + High Quality Images + Custom Style together in one combo!",
-      ctaText: "Unlock All-in-One Combo ✨",
+      id: "custom_link_1yr",
+      name: "1-Year Custom Link",
+      badge: "BEST VALUE • 1 YEAR",
+      price: 149,
+      originalPrice: 149,
+      billingLabel: "/ 1 year",
+      description: "Keep your custom branded /w/your-name celebration link active for 1 full year (365 days).",
+      ctaText: "Get 1-Year Custom Link • ₹149",
       isPopular: true,
       isActive: true,
-      perks: { freeCustomLink: true, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: false, customMusicVoice: true, removeWatermark: true, lifetimeLink: true, maxPhotos: 16, validityDays: 365 },
-      features: ["Custom Link (/w/your-name) Included", "HD Quality Images (Up to 16) Included", "Full Custom Style, Fonts & Themes", "Zero Watermark & QR Share Card"]
-    },
-    {
-      id: "premium_template_combo",
-      name: "Premium Template + Full Combo",
-      badge: "👑 ROYAL COMBO ADD-ON",
-      price: 70,
-      originalPrice: 118,
-      billingLabel: "+ template price",
-      description: "Picking a Premium Template? Add this combo to get the Template + Custom Link + HD Images + Custom Style!",
-      ctaText: "Explore Premium Combo →",
-      isPopular: false,
-      isActive: true,
-      perks: { freeCustomLink: true, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: true, customMusicVoice: true, removeWatermark: true, lifetimeLink: true, maxPhotos: 16, validityDays: 0 },
-      features: ["Unlocks Selected Premium 3D Template", "Includes Custom Link + HD Photos + Style", "Custom Music, Voice Note & Zero Watermark", "Permanent Lifetime Celebration Link"]
+      perks: { freeCustomLink: true, freeHdPhotos: false, freeCustomStyle: false, unlockVipTemplates: false, customMusicVoice: false, removeWatermark: false, lifetimeLink: true, maxPhotos: 3, validityDays: 365 },
+      features: ["Custom Branded URL (/w/your-name) Included", "Active for 1 Full Year (365 Days)", "No extra ₹19 custom link fee"]
     }
   ];
 
   let authoritativeSavedPricing = {
-    vipPassPrice: 49,
-    customLinkPrice: 59,
-    hdImageStylePrice: 59,
-    freeTemplateComboPrice: 99,
-    premiumComboAddonPrice: 70,
-    creatorPackPrice: 99,
-    templatePriceTiers: [0, 59, 149],
+    customLinkPrice: 19,
+    hdPhotosPrice: 19,
+    hdImageStylePrice: 19,
+    yearlyCustomLinkPrice: 149,
+    templatePriceTiers: [0, 29, 49, 99],
     requiredReferrals: 7,
     countFreeTemplates: true,
     rewardCredits: 1,
@@ -1062,14 +983,10 @@
     // Sync quick inputs if this was one of the core plan IDs
     if (planId === "personalized_link" && document.getElementById("vip-price-input")) {
       document.getElementById("vip-price-input").value = price;
-    } else if (planId === "hd_image_style_pack" && document.getElementById("hd-style-price-input")) {
+    } else if ((planId === "hd_photos" || planId === "hd_image_style_pack") && document.getElementById("hd-style-price-input")) {
       document.getElementById("hd-style-price-input").value = price;
-    } else if (planId === "free_template_combo" && document.getElementById("free-combo-price-input")) {
-      document.getElementById("free-combo-price-input").value = price;
-    } else if (planId === "premium_template_combo" && document.getElementById("premium-combo-addon-input")) {
-      document.getElementById("premium-combo-addon-input").value = price;
-    } else if (planId === "vip_pass") {
-      authoritativeSavedPricing.vipPassPrice = price;
+    } else if (planId === "custom_link_1yr" && document.getElementById("yearly-link-price-input")) {
+      document.getElementById("yearly-link-price-input").value = price;
     }
 
     authoritativeSavedPricing.vipPlans = currentPlans;
@@ -1085,18 +1002,17 @@
     authoritativeSavedPricing.vipPlans = currentPlans.filter(p => p.id !== planId);
     renderAdminVipPlansGrid();
     await savePricingConfig();
-    showToast(`🗑️ Deleted VIP plan "${target.name}" and synced to Main Website!`);
+    showToast(`🗑️ Deleted plan "${target.name}" and synced to Main Website!`);
   }
 
   async function restoreDefaultVipPlans() {
     authoritativeSavedPricing.vipPlans = JSON.parse(JSON.stringify(FACTORY_DEFAULT_VIP_PLANS));
-    if (document.getElementById("vip-price-input")) document.getElementById("vip-price-input").value = 59;
-    if (document.getElementById("hd-style-price-input")) document.getElementById("hd-style-price-input").value = 59;
-    if (document.getElementById("free-combo-price-input")) document.getElementById("free-combo-price-input").value = 99;
-    if (document.getElementById("premium-combo-addon-input")) document.getElementById("premium-combo-addon-input").value = 70;
+    if (document.getElementById("vip-price-input")) document.getElementById("vip-price-input").value = 19;
+    if (document.getElementById("hd-style-price-input")) document.getElementById("hd-style-price-input").value = 19;
+    if (document.getElementById("yearly-link-price-input")) document.getElementById("yearly-link-price-input").value = 149;
     renderAdminVipPlansGrid();
     await savePricingConfig();
-    showToast("✅ Restored default VIP plans and synced to Main Website!");
+    showToast("✅ Restored default plans (₹19 / ₹19 / ₹149) and synced to Main Website!");
   }
 
   function setPricingErrorBanner(msg) {
@@ -1127,24 +1043,19 @@
   function readAndValidatePricingForm() {
     const cl = parseNonNegNumberInput('vip-price-input', 'Custom Link Price', 0, 100000);
     if (!cl.valid) return cl;
-    const hd = parseNonNegNumberInput('hd-style-price-input', 'HD Images + Style Price', 0, 100000);
+    const hd = parseNonNegNumberInput('hd-style-price-input', 'HD Photos Price', 0, 100000);
     if (!hd.valid) return hd;
-    const fc = parseNonNegNumberInput('free-combo-price-input', 'Free Template Combo Price', 0, 100000);
-    if (!fc.valid) return fc;
-    const pa = parseNonNegNumberInput('premium-combo-addon-input', 'Premium Combo Add-On Price', 0, 100000);
-    if (!pa.valid) return pa;
-    const cp = parseNonNegNumberInput('creator-price-input', 'Creator Bulk Pack Price', 0, 100000);
-    if (!cp.valid) return cp;
+    const yr = parseNonNegNumberInput('yearly-link-price-input', '1-Year Custom Link Price', 0, 100000);
+    if (!yr.valid) return yr;
 
     return {
       valid: true,
       values: {
         customLinkPrice: cl.value,
+        hdPhotosPrice: hd.value,
         hdImageStylePrice: hd.value,
-        freeTemplateComboPrice: fc.value,
-        premiumComboAddonPrice: pa.value,
-        creatorPackPrice: cp.value,
-        templatePriceTiers: authoritativeSavedPricing.templatePriceTiers || [0, 59, 149],
+        yearlyCustomLinkPrice: yr.value,
+        templatePriceTiers: authoritativeSavedPricing.templatePriceTiers || [0, 29, 49, 99],
         requiredReferrals: authoritativeSavedPricing.requiredReferrals || 7,
         countFreeTemplates: authoritativeSavedPricing.countFreeTemplates !== false,
         rewardCredits: authoritativeSavedPricing.rewardCredits || 1
@@ -1156,22 +1067,12 @@
     const saved = authoritativeSavedPricing;
     const clRaw = Number(document.getElementById('vip-price-input')?.value);
     const hdRaw = Number(document.getElementById('hd-style-price-input')?.value);
-    const fcRaw = Number(document.getElementById('free-combo-price-input')?.value);
-    const paRaw = Number(document.getElementById('premium-combo-addon-input')?.value);
-    const cpRaw = Number(document.getElementById('creator-price-input')?.value);
+    const yrRaw = Number(document.getElementById('yearly-link-price-input')?.value);
 
     const cl = Number.isFinite(clRaw) && clRaw >= 0 ? clRaw : saved.customLinkPrice;
-    const hd = Number.isFinite(hdRaw) && hdRaw >= 0 ? hdRaw : saved.hdImageStylePrice;
-    const fc = Number.isFinite(fcRaw) && fcRaw >= 0 ? fcRaw : saved.freeTemplateComboPrice;
-    const pa = Number.isFinite(paRaw) && paRaw >= 0 ? paRaw : saved.premiumComboAddonPrice;
+    const hd = Number.isFinite(hdRaw) && hdRaw >= 0 ? hdRaw : saved.hdPhotosPrice;
+    const yr = Number.isFinite(yrRaw) && yrRaw >= 0 ? yrRaw : saved.yearlyCustomLinkPrice;
 
-    const tiers = Array.isArray(saved.templatePriceTiers) && saved.templatePriceTiers.length >= 3
-      ? saved.templatePriceTiers
-      : [0, 59, 149];
-    const tier1Base = Number(tiers[1] ?? 59);
-    const tier2Base = Number(tiers[2] ?? 149);
-
-    // 1. Update Card 1 button & badge
     const btnCl = document.getElementById('btn-save-custom-link');
     if (btnCl) {
       btnCl.textContent = (cl !== saved.customLinkPrice)
@@ -1179,69 +1080,45 @@
         : `Update Custom Link (₹${saved.customLinkPrice})`;
     }
 
-    // 2. Update Card 2 button & badge
     const hdBadge = document.getElementById('hd-style-badge');
-    if (hdBadge) hdBadge.textContent = `₹${hd} Add-On`;
+    if (hdBadge) hdBadge.textContent = `₹${hd} • Photo Only`;
     const btnHd = document.getElementById('btn-save-hd-style');
     if (btnHd) {
-      btnHd.textContent = (hd !== saved.hdImageStylePrice)
-        ? `Save HD + Style (₹${saved.hdImageStylePrice} → ₹${hd})`
-        : `Update HD + Style (₹${saved.hdImageStylePrice})`;
+      btnHd.textContent = (hd !== saved.hdPhotosPrice)
+        ? `Save HD Photos (₹${saved.hdPhotosPrice} → ₹${hd})`
+        : `Update HD Photos (₹${saved.hdPhotosPrice})`;
     }
 
-    // 3. Update Card 3 savings badge & button
-    const savings = (cl + hd) - fc;
-    const savBadge = document.getElementById('free-combo-savings-badge');
-    if (savBadge) {
-      savBadge.textContent = savings > 0 ? `Save ₹${savings}` : `Combo ₹${fc}`;
-    }
-    const btnFc = document.getElementById('btn-save-free-combo');
-    if (btnFc) {
-      btnFc.textContent = (fc !== saved.freeTemplateComboPrice)
-        ? `Save Free Combo (₹${saved.freeTemplateComboPrice} → ₹${fc})`
-        : `Update Free Combo (₹${saved.freeTemplateComboPrice})`;
+    const yrBadge = document.getElementById('yearly-link-badge');
+    if (yrBadge) yrBadge.textContent = `₹${yr} • 365 Days`;
+    const btnYr = document.getElementById('btn-save-yearly-link');
+    if (btnYr) {
+      btnYr.textContent = (yr !== saved.yearlyCustomLinkPrice)
+        ? `Save 1-Year Link (₹${saved.yearlyCustomLinkPrice} → ₹${yr})`
+        : `Update 1-Year Link (₹${saved.yearlyCustomLinkPrice})`;
     }
 
-    // 4. Update Card 4 badge, description, calculated totals, and button
-    const paBadge = document.getElementById('premium-addon-badge');
-    if (paBadge) paBadge.textContent = `Tpl + ₹${pa}`;
-    const paDesc = document.getElementById('premium-addon-desc');
-    if (paDesc) {
-      paDesc.textContent = `₹${tier1Base}/₹${tier2Base} template + ₹${pa} add-on.`;
-    }
-    const t1BaseEl = document.getElementById('prem-tier-1-base');
-    const t1TotalEl = document.getElementById('prem-tier-1-total');
-    const t2BaseEl = document.getElementById('prem-tier-2-base');
-    const t2TotalEl = document.getElementById('prem-tier-2-total');
-    if (t1BaseEl) t1BaseEl.textContent = String(tier1Base);
-    if (t1TotalEl) t1TotalEl.textContent = `₹${tier1Base + pa}`;
-    if (t2BaseEl) t2BaseEl.textContent = String(tier2Base);
-    if (t2TotalEl) t2TotalEl.textContent = `₹${tier2Base + pa}`;
+    const exStd = document.getElementById('example-std-total');
+    const exYr = document.getElementById('example-yr-total');
+    const exFree = document.getElementById('example-free-link-total');
+    if (exStd) exStd.textContent = `₹${49 + cl + hd}`;
+    if (exYr) exYr.textContent = `₹${49 + yr + hd}`;
+    if (exFree) exFree.textContent = `₹${cl}`;
 
-    const btnPa = document.getElementById('btn-save-premium-addon');
-    if (btnPa) {
-      btnPa.textContent = (pa !== saved.premiumComboAddonPrice)
-        ? `Save Premium Add-On (+₹${saved.premiumComboAddonPrice} → +₹${pa})`
-        : `Update Premium Add-On (+₹${saved.premiumComboAddonPrice})`;
-    }
-
-    // 5. Update Hero Subtitle & Primary Tier Stat from SAVED configuration (with unsaved indicator if dirty)
     const isDirty = (
       cl !== saved.customLinkPrice ||
-      hd !== saved.hdImageStylePrice ||
-      fc !== saved.freeTemplateComboPrice ||
-      pa !== saved.premiumComboAddonPrice ||
-      (Number.isFinite(cpRaw) && cpRaw !== saved.creatorPackPrice)
+      hd !== saved.hdPhotosPrice ||
+      yr !== saved.yearlyCustomLinkPrice
     );
 
     const heroSub = document.getElementById('pricing-hero-subtitle');
     if (heroSub) {
-      heroSub.textContent = `Link ₹${saved.customLinkPrice} · HD ₹${saved.hdImageStylePrice} · Combo ₹${saved.freeTemplateComboPrice} · Add-On +₹${saved.premiumComboAddonPrice}`;
+      heroSub.textContent = `Custom Link ₹${saved.customLinkPrice} · HD Photos ₹${saved.hdPhotosPrice} · 1-Year Link ₹${saved.yearlyCustomLinkPrice} · Template Price Set Per Template`;
     }
 
     const tierLabel = document.getElementById('stat-primary-tier-price');
     if (tierLabel) {
-      tierLabel.textContent = `₹${saved.customLinkPrice} / ₹${saved.freeTemplateComboPrice}`;
+      tierLabel.textContent = `₹${saved.customLinkPrice} / ₹${saved.yearlyCustomLinkPrice}`;
     }
 
     const unsavedBanner = document.getElementById('pricing-unsaved-banner');
@@ -1274,16 +1151,17 @@
     const resolvedPlans = Array.isArray(s.vipPlans)
       ? s.vipPlans
       : (Array.isArray(authoritativeSavedPricing.vipPlans) ? authoritativeSavedPricing.vipPlans : JSON.parse(JSON.stringify(FACTORY_DEFAULT_VIP_PLANS)));
-    const vipPlanEntry = resolvedPlans.find(pl => pl && pl.id === "vip_pass");
+
+    const clVal = toNonNeg(a.customLinkPrice ?? p.price, 19);
+    const hdVal = toNonNeg(a.hdPhotosPrice ?? a.hdImageStylePrice, 19);
+    const yrVal = toNonNeg(a.yearlyCustomLinkPrice, 149);
 
     authoritativeSavedPricing = {
-      vipPassPrice: toNonNeg(vipPlanEntry ? vipPlanEntry.price : a.vipPassPrice, 49),
-      customLinkPrice: toNonNeg(a.customLinkPrice ?? p.price, 59),
-      hdImageStylePrice: toNonNeg(a.hdImageStylePrice, 59),
-      freeTemplateComboPrice: toNonNeg(a.freeTemplateComboPrice, 99),
-      premiumComboAddonPrice: toNonNeg(a.premiumComboAddonPrice, 70),
-      creatorPackPrice: toNonNeg(a.creatorPackPrice, 99),
-      templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length >= 3 ? a.templatePriceTiers.map(Number) : [0, 59, 149],
+      customLinkPrice: clVal,
+      hdPhotosPrice: hdVal,
+      hdImageStylePrice: hdVal,
+      yearlyCustomLinkPrice: yrVal,
+      templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length >= 2 ? a.templatePriceTiers.map(Number) : [0, 29, 49, 99],
       requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals ?? 7, 10) || 7),
       countFreeTemplates: refCfg.countFreeTemplates !== false,
       rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits ?? 1, 10) || 1),
@@ -1291,11 +1169,9 @@
     };
     renderAdminVipPlansGrid();
 
-    if (document.getElementById('vip-price-input')) document.getElementById('vip-price-input').value = authoritativeSavedPricing.customLinkPrice;
-    if (document.getElementById('hd-style-price-input')) document.getElementById('hd-style-price-input').value = authoritativeSavedPricing.hdImageStylePrice;
-    if (document.getElementById('free-combo-price-input')) document.getElementById('free-combo-price-input').value = authoritativeSavedPricing.freeTemplateComboPrice;
-    if (document.getElementById('premium-combo-addon-input')) document.getElementById('premium-combo-addon-input').value = authoritativeSavedPricing.premiumComboAddonPrice;
-    if (document.getElementById('creator-price-input')) document.getElementById('creator-price-input').value = authoritativeSavedPricing.creatorPackPrice;
+    if (document.getElementById('vip-price-input')) document.getElementById('vip-price-input').value = clVal;
+    if (document.getElementById('hd-style-price-input')) document.getElementById('hd-style-price-input').value = hdVal;
+    if (document.getElementById('yearly-link-price-input')) document.getElementById('yearly-link-price-input').value = yrVal;
 
     syncPricingDynamicLabelsAndTotals();
   }
@@ -1321,10 +1197,9 @@
 
     const {
       customLinkPrice,
+      hdPhotosPrice,
       hdImageStylePrice,
-      freeTemplateComboPrice,
-      premiumComboAddonPrice,
-      creatorPackPrice,
+      yearlyCustomLinkPrice,
       templatePriceTiers,
       requiredReferrals,
       countFreeTemplates,
@@ -1333,6 +1208,13 @@
 
     window.__wmAdminMutationInFlight = true;
     try {
+      const syncedPlans = (authoritativeSavedPricing.vipPlans || []).map(p => {
+        if (p.id === "personalized_link") return { ...p, price: customLinkPrice, ctaText: `Get Custom Link • ₹${customLinkPrice}` };
+        if (p.id === "hd_photos" || p.id === "hd_image_style_pack") return { ...p, price: hdPhotosPrice, ctaText: `Add HD Photos • ₹${hdPhotosPrice}` };
+        if (p.id === "custom_link_1yr") return { ...p, price: yearlyCustomLinkPrice, ctaText: `Get 1-Year Custom Link • ₹${yearlyCustomLinkPrice}` };
+        return p;
+      });
+
       const wishLinksRes = await fetch('/api/admin/settings/wish-links', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1344,24 +1226,13 @@
               price: customLinkPrice
             },
             addons: {
-              vipPassPrice: (() => {
-                const vp = (authoritativeSavedPricing.vipPlans || []).find(p => p && p.id === "vip_pass");
-                return vp ? Number(vp.price) : (authoritativeSavedPricing.vipPassPrice ?? 49);
-              })(),
               customLinkPrice,
+              hdPhotosPrice,
               hdImageStylePrice,
-              freeTemplateComboPrice,
-              premiumComboAddonPrice,
-              creatorPackPrice,
+              yearlyCustomLinkPrice,
               templatePriceTiers
             },
-            vipPlans: (authoritativeSavedPricing.vipPlans || []).map(p => {
-              if (p.id === "personalized_link") return { ...p, price: customLinkPrice };
-              if (p.id === "hd_image_style_pack") return { ...p, price: hdImageStylePrice };
-              if (p.id === "free_template_combo") return { ...p, price: freeTemplateComboPrice };
-              if (p.id === "premium_template_combo") return { ...p, price: premiumComboAddonPrice };
-              return p;
-            })
+            vipPlans: syncedPlans
           }
         })
       });
@@ -1378,12 +1249,12 @@
         personalized: { price: customLinkPrice },
         addons: {
           customLinkPrice,
+          hdPhotosPrice,
           hdImageStylePrice,
-          freeTemplateComboPrice,
-          premiumComboAddonPrice,
-          creatorPackPrice,
+          yearlyCustomLinkPrice,
           templatePriceTiers
         },
+        vipPlans: syncedPlans,
         referral: {
           requiredReferrals,
           countFreeTemplates,
@@ -1394,25 +1265,19 @@
       applyConfirmedPricingToForm(confirmedSettings);
 
       try {
-        localStorage.setItem('wishmagic_pricing_rules_v4', JSON.stringify({
+        localStorage.setItem('wishmagic_pricing_rules_v5', JSON.stringify({
           customLinkPrice: authoritativeSavedPricing.customLinkPrice,
-          hdImageStylePrice: authoritativeSavedPricing.hdImageStylePrice,
-          freeTemplateComboPrice: authoritativeSavedPricing.freeTemplateComboPrice,
-          premiumComboAddonPrice: authoritativeSavedPricing.premiumComboAddonPrice,
-          creatorPackPrice: authoritativeSavedPricing.creatorPackPrice,
+          hdPhotosPrice: authoritativeSavedPricing.hdPhotosPrice,
+          hdImageStylePrice: authoritativeSavedPricing.hdPhotosPrice,
+          yearlyCustomLinkPrice: authoritativeSavedPricing.yearlyCustomLinkPrice,
           templatePriceTiers: authoritativeSavedPricing.templatePriceTiers,
-          requiredReferrals: authoritativeSavedPricing.requiredReferrals
+          requiredReferrals: authoritativeSavedPricing.requiredReferrals,
+          vipPlans: authoritativeSavedPricing.vipPlans
         }));
         localStorage.setItem('wishmagic_pricing', JSON.stringify({
-          vip: authoritativeSavedPricing.customLinkPrice,
           customLinkPrice: authoritativeSavedPricing.customLinkPrice,
-          hdImageStylePrice: authoritativeSavedPricing.hdImageStylePrice,
-          freeTemplateComboPrice: authoritativeSavedPricing.freeTemplateComboPrice,
-          premiumComboAddonPrice: authoritativeSavedPricing.premiumComboAddonPrice,
-          creator: authoritativeSavedPricing.creatorPackPrice,
-          requiredReferrals: authoritativeSavedPricing.requiredReferrals,
-          countFreeTemplates: authoritativeSavedPricing.countFreeTemplates,
-          rewardCredits: authoritativeSavedPricing.rewardCredits
+          hdPhotosPrice: authoritativeSavedPricing.hdPhotosPrice,
+          yearlyCustomLinkPrice: authoritativeSavedPricing.yearlyCustomLinkPrice
         }));
         localStorage.setItem('wishmagic_site_settings_updated_at', String(Date.now()));
         if (window.WishPricingEngine && typeof window.WishPricingEngine.refreshFromServer === 'function') {
@@ -1424,7 +1289,7 @@
         }
       } catch (_) {}
 
-      showToast(`✅ Saved to D1! Link: ₹${authoritativeSavedPricing.customLinkPrice} | HD+Style: ₹${authoritativeSavedPricing.hdImageStylePrice} | Free Combo: ₹${authoritativeSavedPricing.freeTemplateComboPrice} | Premium Add-On: +₹${authoritativeSavedPricing.premiumComboAddonPrice}`);
+      showToast(`✅ Saved! Custom Link: ₹${authoritativeSavedPricing.customLinkPrice} | HD Photos: ₹${authoritativeSavedPricing.hdPhotosPrice} | 1-Year Link: ₹${authoritativeSavedPricing.yearlyCustomLinkPrice}`);
     } catch (e) {
       setPricingErrorBanner('Network error while saving pricing configuration to server.');
       showToast('❌ Network error saving pricing configuration', 'error');
@@ -1535,9 +1400,7 @@
     const watchedInputs = [
       'vip-price-input',
       'hd-style-price-input',
-      'free-combo-price-input',
-      'premium-combo-addon-input',
-      'creator-price-input'
+      'yearly-link-price-input'
     ];
     watchedInputs.forEach(id => {
       const el = document.getElementById(id);

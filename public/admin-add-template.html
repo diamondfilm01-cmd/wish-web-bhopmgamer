@@ -16,23 +16,16 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
-  <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
-  <script src="js/template-section-system.js"></script>
-  <script src="js/admin-template-uploader.js?v=20261025_vessa_mobile_v10"></script>
-  <script>
-    if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") {
-      tailwind.config = sharedTailwindConfig;
-    }
-  </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
+  <link rel="stylesheet" href="/css/admin-tailwind.min.css?v=20261118_admin_fast_v1"/>
+  <script defer src="js/WishMagicCore.js"></script>
+  <script defer src="js/admin-theme.js?v=20261118_admin_fast_v1"></script>
+  <script defer src="js/api-client.js"></script>
+  <script defer src="js/auth-service.js?v=20261118_minimal_v1"></script>
+  <script defer src="js/template-section-system.js"></script>
+  <script defer src="/js/bundles/admin-uploader.min.js?v=20261118_admin_fast_v1"></script>
+<link rel="stylesheet" href="css/admin-theme.css?v=20261118_admin_fast_v1"/>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
@@ -428,10 +421,9 @@
               <label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 Pricing Tier &amp; Preset
               </label>
-              <select id="new-tpl-tier" onchange="if(this.value==='free'){document.getElementById('new-tpl-price').value='0';}else if(this.value==='vip_149'){document.getElementById('new-tpl-price').value='149';}else{document.getElementById('new-tpl-price').value='59';}" class="w-full px-4 py-2.5 rounded-xl font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                <option value="vip">Standard Premium (₹59 • Combo ₹129)</option>
-                <option value="vip_149">Royal Premium (₹149 • Combo ₹219)</option>
-                <option value="free">Free Tier (₹0 • Full Combo ₹99)</option>
+              <select id="new-tpl-tier" onchange="if(this.value==='free'){document.getElementById('new-tpl-price').value='0';}else if(Number(document.getElementById('new-tpl-price').value||0)<=0){document.getElementById('new-tpl-price').value='49';}" class="w-full px-4 py-2.5 rounded-xl font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="free">Free Template (₹0)</option>
+                <option value="vip">Paid Template (Set Custom ₹ Price)</option>
               </select>
             </div>
 
@@ -439,19 +431,20 @@
             <div class="flex flex-col gap-1.5">
               <div class="flex items-center justify-between">
                 <label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                  Template Base Price (₹ INR)
+                  Template Price (₹ INR) — Set Any Amount
                 </label>
                 <div class="flex items-center gap-1 text-[10px] font-extrabold">
-                  <button type="button" onclick="document.getElementById('new-tpl-price').value='0';document.getElementById('new-tpl-tier').value='free';" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 cursor-pointer">₹0</button>
-                  <button type="button" onclick="document.getElementById('new-tpl-price').value='59';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer">₹59</button>
-                  <button type="button" onclick="document.getElementById('new-tpl-price').value='149';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer">₹149</button>
+                  <button type="button" onclick="document.getElementById('new-tpl-price').value='0';document.getElementById('new-tpl-tier').value='free';" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 cursor-pointer">₹0 Free</button>
+                  <button type="button" onclick="document.getElementById('new-tpl-price').value='29';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 cursor-pointer">₹29</button>
+                  <button type="button" onclick="document.getElementById('new-tpl-price').value='49';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer">₹49</button>
+                  <button type="button" onclick="document.getElementById('new-tpl-price').value='99';document.getElementById('new-tpl-tier').value='vip';" class="px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 cursor-pointer">₹99</button>
                 </div>
               </div>
               <div class="relative">
                 <span class="absolute left-3.5 top-2.5 text-on-surface-variant font-bold text-sm">₹</span>
-                <input id="new-tpl-price" type="number" value="59" class="w-full pl-8 pr-4 py-2.5 rounded-xl font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary"/>
+                <input id="new-tpl-price" type="number" min="0" value="0" oninput="document.getElementById('new-tpl-tier').value = Number(this.value||0) > 0 ? 'vip' : 'free';" class="w-full pl-8 pr-4 py-2.5 rounded-xl font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary"/>
               </div>
-              <span class="text-[10px] text-on-surface-variant">Add-ons: ₹59 Link | ₹59 HD+Style | Free Tpl Combo ₹99 | Premium Tpl Combo = Base + ₹70</span>
+              <span class="text-[10px] text-on-surface-variant">Add-ons auto-added at checkout: Custom Link ₹19 | HD Photos ₹19 (photo templates only) | 1-Year Custom Link ₹149</span>
             </div>
 
             <!-- Cover Thumbnail -->

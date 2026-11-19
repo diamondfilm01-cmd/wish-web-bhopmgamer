@@ -168,8 +168,10 @@ import {
 } from './notification-engine.js';
 import {
   ERROR_CODES as COMMERCE_ERROR_CODES,
+  PRODUCT_TYPES as COMMERCE_PRODUCT_TYPES,
   RazorpayAdapter,
-  resolveAuthoritativeProduct
+  resolveAuthoritativeProduct,
+  parseWishBundleProductId
 } from './commerce-engine.js';
 import {
   getDateRangeBounds as biGetDateRangeBounds,
@@ -363,7 +365,7 @@ function isSpaMainWebsiteHtml(htmlText, requestedPath = '') {
 function renderStandaloneTemplateFallbackHtml(tplMeta = {}) {
   const title = escapeHtml(tplMeta.name || 'Interactive Celebration Wish');
   const category = escapeHtml(tplMeta.category || 'Celebration');
-  const thumb = escapeHtml(tplMeta.thumbnail || '/assets/file_ab2082.png');
+  const thumb = escapeHtml(tplMeta.thumbnail || '/assets/file_ab2082.webp');
   return `<!DOCTYPE html>
 <html lang="en" data-wm-protocol="1.0" data-wm-template-runtime="1.0">
 <head>
@@ -405,7 +407,7 @@ function renderStandaloneTemplateFallbackHtml(tplMeta = {}) {
     </section>
     <section data-wm-section="gallery" class="my-4 p-4 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl max-w-xs mx-auto">
       <div class="aspect-square rounded-2xl overflow-hidden bg-purple-950/60 mb-2">
-        <img class="w-full h-full object-cover" data-wm="photo_1" data-wm-field="photo_1" src="${thumb}" alt="Memory" onerror="this.src='/assets/file_ab2082.png'"/>
+        <img class="w-full h-full object-cover" data-wm="photo_1" data-wm-field="photo_1" src="${thumb}" alt="Memory" onerror="this.src='/assets/file_ab2082.webp'"/>
       </div>
     </section>
     <div class="mt-6 text-xs font-semibold text-purple-300">
@@ -664,9 +666,9 @@ const PRETTY_ROUTES = {
   '/security': '/account.html',
   '/security/': '/account.html',
   '/security.html': '/account.html',
-  '/checkout': '/checkout.html',
-  '/checkout/': '/checkout.html',
-  '/checkout.html': '/checkout.html',
+  '/checkout': '/pricing.html',
+  '/checkout/': '/pricing.html',
+  '/checkout.html': '/pricing.html',
   '/expired': '/expired.html',
   '/expired/': '/expired.html',
   '/expired.html': '/expired.html',
@@ -3857,7 +3859,24 @@ async function verifyAdminRole(user, env) {
 }
 
 function mapProductToEntitlementScope(productIdOrPlan, templateId = null, requestedSlug = null) {
-  const norm = String(productIdOrPlan || "").trim().toLowerCase();
+  const rawStr = String(productIdOrPlan || "").trim();
+  const norm = rawStr.toLowerCase();
+  const parsedBundle = parseWishBundleProductId(rawStr);
+  if (parsedBundle) {
+    const resolvedTpl = templateId || parsedBundle.templateId || null;
+    return {
+      plan: parsedBundle.grantsYearlyLink ? "CUSTOM_LINK_1YR" : (parsedBundle.grantsTemplate ? "WISH_BUNDLE" : "ADDON_BUNDLE"),
+      itemType: "wish_bundle",
+      itemId: resolvedTpl || requestedSlug || "wish_bundle",
+      productId: rawStr,
+      templateId: resolvedTpl,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: parsedBundle.grantsCustomLink,
+      unlocksYearlyLink: parsedBundle.grantsYearlyLink,
+      unlocksHdStyle: parsedBundle.grantsHdPhotos,
+      validityDays: parsedBundle.validityDays
+    };
+  }
   if (norm === "vip_pass" || norm === "vip" || norm === "premium") {
     return {
       plan: "VIP",
@@ -3867,7 +3886,23 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
       templateId: null,
       unlocksAllTemplates: true,
       unlocksCustomLink: true,
-      unlocksHdStyle: true
+      unlocksYearlyLink: true,
+      unlocksHdStyle: true,
+      validityDays: 365
+    };
+  }
+  if (norm === "custom_link_1yr" || norm === "yearly_custom_link" || norm === "1_year_custom_link") {
+    return {
+      plan: "CUSTOM_LINK_1YR",
+      itemType: "custom_link_1yr",
+      itemId: requestedSlug || "single_wish_1yr",
+      productId: "custom_link_1yr",
+      templateId: templateId || null,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: true,
+      unlocksYearlyLink: true,
+      unlocksHdStyle: false,
+      validityDays: 365
     };
   }
   if (norm === "personalized_link" || norm === "custom_link_only" || norm === "custom_link") {
@@ -3879,19 +3914,23 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
       templateId: templateId || null,
       unlocksAllTemplates: false,
       unlocksCustomLink: true,
-      unlocksHdStyle: false
+      unlocksYearlyLink: false,
+      unlocksHdStyle: false,
+      validityDays: 30
     };
   }
-  if (norm === "hd_image_style_pack" || norm === "hd_style") {
+  if (norm === "hd_photos" || norm === "hd_image_style_pack" || norm === "hd_style") {
     return {
-      plan: "HD_STYLE",
-      itemType: "hd_style",
+      plan: "HD_PHOTOS",
+      itemType: "hd_photos",
       itemId: templateId || "single_wish",
-      productId: "hd_image_style_pack",
+      productId: norm === "hd_photos" ? "hd_photos" : "hd_image_style_pack",
       templateId: templateId || null,
       unlocksAllTemplates: false,
       unlocksCustomLink: false,
-      unlocksHdStyle: true
+      unlocksYearlyLink: false,
+      unlocksHdStyle: true,
+      validityDays: 30
     };
   }
   if (norm === "free_template_combo" || norm === "combo_99" || norm === "free_combo") {
@@ -3903,11 +3942,12 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
       templateId: templateId || null,
       unlocksAllTemplates: false,
       unlocksCustomLink: true,
+      unlocksYearlyLink: false,
       unlocksHdStyle: true
     };
   }
   if (norm === "premium_template_combo" || norm.startsWith("premium_combo:") || norm === "premium_combo") {
-    const resolvedTpl = templateId || (norm.startsWith("premium_combo:") ? norm.slice("premium_combo:".length) : null);
+    const resolvedTpl = templateId || (norm.startsWith("premium_combo:") ? rawStr.slice("premium_combo:".length) : null);
     return {
       plan: "PREMIUM_COMBO",
       itemType: "premium_combo",
@@ -3916,11 +3956,40 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
       templateId: resolvedTpl,
       unlocksAllTemplates: false,
       unlocksCustomLink: true,
+      unlocksYearlyLink: false,
+      unlocksHdStyle: true
+    };
+  }
+  if (norm === "premium_template_custom_link" || norm.startsWith("premium_link:") || norm === "premium_link") {
+    const resolvedTpl = templateId || (norm.startsWith("premium_link:") ? rawStr.slice("premium_link:".length) : null);
+    return {
+      plan: "PREMIUM_CUSTOM_LINK",
+      itemType: "premium_link",
+      itemId: resolvedTpl || "single_template",
+      productId: resolvedTpl ? `premium_link:${resolvedTpl}` : "premium_template_custom_link",
+      templateId: resolvedTpl,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: true,
+      unlocksYearlyLink: false,
+      unlocksHdStyle: false
+    };
+  }
+  if (norm === "premium_template_hd_style" || norm.startsWith("premium_hd:") || norm === "premium_hd") {
+    const resolvedTpl = templateId || (norm.startsWith("premium_hd:") ? rawStr.slice("premium_hd:".length) : null);
+    return {
+      plan: "PREMIUM_HD_STYLE",
+      itemType: "premium_hd",
+      itemId: resolvedTpl || "single_template",
+      productId: resolvedTpl ? `premium_hd:${resolvedTpl}` : "premium_template_hd_style",
+      templateId: resolvedTpl,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: false,
+      unlocksYearlyLink: false,
       unlocksHdStyle: true
     };
   }
   if (norm.startsWith("template:")) {
-    const resolvedTpl = templateId || norm.slice("template:".length);
+    const resolvedTpl = templateId || rawStr.slice("template:".length);
     return {
       plan: "TEMPLATE_UNLOCK",
       itemType: "template",
@@ -3929,6 +3998,7 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
       templateId: resolvedTpl,
       unlocksAllTemplates: false,
       unlocksCustomLink: false,
+      unlocksYearlyLink: false,
       unlocksHdStyle: false
     };
   }
@@ -3945,7 +4015,9 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
       templateId: templateId || null,
       unlocksAllTemplates: Boolean(pk.unlockVipTemplates),
       unlocksCustomLink: Boolean(pk.freeCustomLink),
-      unlocksHdStyle: Boolean(pk.freeHdPhotos || pk.freeCustomStyle)
+      unlocksYearlyLink: Boolean(pk.lifetimeLink || Number(pk.validityDays) >= 365),
+      unlocksHdStyle: Boolean(pk.freeHdPhotos || pk.freeCustomStyle),
+      validityDays: Number(pk.validityDays || 30)
     };
   }
   return {
@@ -3956,6 +4028,7 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
     templateId: templateId || null,
     unlocksAllTemplates: false,
     unlocksCustomLink: false,
+    unlocksYearlyLink: false,
     unlocksHdStyle: false
   };
 }
@@ -3966,7 +4039,9 @@ async function getEffectiveEntitlement(user, env, options = {}) {
       isPremium: false,
       hasVipPass: false,
       hasCustomLinkEntitlement: false,
+      hasYearlyLinkEntitlement: false,
       hasHdStyleEntitlement: false,
+      hasHdPhotosEntitlement: false,
       unlockedTemplates: [],
       activeEntitlements: [],
       plan: "Free",
@@ -3980,16 +4055,19 @@ async function getEffectiveEntitlement(user, env, options = {}) {
       isPremium: true,
       hasVipPass: true,
       hasCustomLinkEntitlement: true,
+      hasYearlyLinkEntitlement: true,
       hasHdStyleEntitlement: true,
+      hasHdPhotosEntitlement: true,
       unlockedTemplates: ["*"],
       activeEntitlements: [{ id: `ent_user_${user.id}`, plan: "VIP", itemType: "vip_pass", status: "active" }],
       plan: "VIP",
-      features: ["premium_templates", "unlimited_photos", "voice_note", "custom_slug", "hd_style", "advanced_themes", "watermark_removed", "analytics"]
+      features: ["premium_templates", "unlimited_photos", "voice_note", "custom_slug", "custom_slug_1yr", "hd_photos", "hd_style", "advanced_themes", "watermark_removed", "analytics"]
     };
   }
 
   let hasVipPass = false;
   let hasCustomLinkEntitlement = false;
+  let hasYearlyLinkEntitlement = false;
   let hasHdStyleEntitlement = false;
   const unlockedTemplatesSet = new Set();
   const activeEntitlements = [];
@@ -4016,8 +4094,17 @@ async function getEffectiveEntitlement(user, env, options = {}) {
         const isActive = st === "active" || ent.is_active === 1 || ent.is_active === true;
         if (!isActive) continue;
 
-        const pPlan = String(ent.product_id || ent.item_type || ent.plan || ent.plan_id || "").toLowerCase();
-        const tplId = ent.template_id || (pPlan.startsWith("template:") ? pPlan.slice(9) : (pPlan.startsWith("premium_combo:") ? pPlan.slice(14) : ent.item_id)) || null;
+        const rawPlanStr = String(ent.product_id || ent.item_type || ent.plan || ent.plan_id || "");
+        const pPlan = rawPlanStr.toLowerCase();
+        const parsedBundle = parseWishBundleProductId(rawPlanStr);
+        const tplId = ent.template_id || (
+          parsedBundle && parsedBundle.templateId ? parsedBundle.templateId :
+          pPlan.startsWith("template:") ? rawPlanStr.slice(9) :
+          pPlan.startsWith("premium_combo:") ? rawPlanStr.slice(14) :
+          pPlan.startsWith("premium_link:") ? rawPlanStr.slice(13) :
+          pPlan.startsWith("premium_hd:") ? rawPlanStr.slice(11) :
+          ent.item_id
+        ) || null;
 
         activeEntitlements.push({
           id: ent.id,
@@ -4025,7 +4112,7 @@ async function getEffectiveEntitlement(user, env, options = {}) {
           plan: ent.plan || ent.plan_id || "VIP",
           itemType: ent.item_type || pPlan,
           itemId: ent.item_id || tplId || null,
-          productId: ent.product_id || pPlan,
+          productId: ent.product_id || rawPlanStr,
           templateId: tplId,
           orderId: ent.order_id || null,
           requestedSlug: ent.requested_slug || null,
@@ -4036,18 +4123,41 @@ async function getEffectiveEntitlement(user, env, options = {}) {
         if (pPlan === "vip_pass" || pPlan === "vip" || pPlan === "premium" || String(ent.plan || ent.plan_id || "").toUpperCase() === "VIP") {
           hasVipPass = true;
           hasCustomLinkEntitlement = true;
+          hasYearlyLinkEntitlement = true;
           hasHdStyleEntitlement = true;
-          ["premium_templates", "unlimited_photos", "voice_note", "custom_slug", "hd_style", "advanced_themes", "watermark_removed", "analytics"].forEach(f => featuresSet.add(f));
+          ["premium_templates", "unlimited_photos", "voice_note", "custom_slug", "custom_slug_1yr", "hd_photos", "hd_style", "advanced_themes", "watermark_removed", "analytics"].forEach(f => featuresSet.add(f));
+        } else if (parsedBundle) {
+          if (parsedBundle.grantsCustomLink) {
+            hasCustomLinkEntitlement = true;
+            featuresSet.add("custom_slug");
+          }
+          if (parsedBundle.grantsYearlyLink) {
+            hasYearlyLinkEntitlement = true;
+            featuresSet.add("custom_slug_1yr");
+          }
+          if (parsedBundle.grantsHdPhotos) {
+            hasHdStyleEntitlement = true;
+            ["hd_photos", "hd_style", "unlimited_photos"].forEach(f => featuresSet.add(f));
+          }
+          if (parsedBundle.grantsTemplate && tplId) {
+            unlockedTemplatesSet.add(tplId);
+            featuresSet.add(`template:${tplId}`);
+          }
+        } else if (pPlan === "custom_link_1yr" || pPlan === "yearly_custom_link" || String(ent.plan || "").toUpperCase() === "CUSTOM_LINK_1YR") {
+          hasCustomLinkEntitlement = true;
+          hasYearlyLinkEntitlement = true;
+          featuresSet.add("custom_slug");
+          featuresSet.add("custom_slug_1yr");
         } else if (pPlan === "personalized_link" || pPlan === "custom_link" || pPlan === "free_custom_link") {
           hasCustomLinkEntitlement = true;
           featuresSet.add("custom_slug");
-        } else if (pPlan === "hd_image_style_pack" || pPlan === "hd_style") {
+        } else if (pPlan === "hd_photos" || pPlan === "hd_image_style_pack" || pPlan === "hd_style") {
           hasHdStyleEntitlement = true;
-          ["hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
+          ["hd_photos", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
         } else if (pPlan === "free_template_combo" || pPlan === "free_combo" || pPlan === "combo_99") {
           hasCustomLinkEntitlement = true;
           hasHdStyleEntitlement = true;
-          ["custom_slug", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
+          ["custom_slug", "hd_photos", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
         } else if (pPlan === "premium_template_combo" || pPlan === "premium_combo" || pPlan.startsWith("premium_combo:")) {
           hasCustomLinkEntitlement = true;
           hasHdStyleEntitlement = true;
@@ -4055,7 +4165,21 @@ async function getEffectiveEntitlement(user, env, options = {}) {
             unlockedTemplatesSet.add(tplId);
             featuresSet.add(`template:${tplId}`);
           }
-          ["custom_slug", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
+          ["custom_slug", "hd_photos", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
+        } else if (pPlan === "premium_template_custom_link" || pPlan === "premium_link" || pPlan.startsWith("premium_link:")) {
+          hasCustomLinkEntitlement = true;
+          if (tplId) {
+            unlockedTemplatesSet.add(tplId);
+            featuresSet.add(`template:${tplId}`);
+          }
+          featuresSet.add("custom_slug");
+        } else if (pPlan === "premium_template_hd_style" || pPlan === "premium_hd" || pPlan.startsWith("premium_hd:")) {
+          hasHdStyleEntitlement = true;
+          if (tplId) {
+            unlockedTemplatesSet.add(tplId);
+            featuresSet.add(`template:${tplId}`);
+          }
+          ["hd_photos", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
         } else if (pPlan === "template" || pPlan === "template_unlock" || pPlan.startsWith("template:")) {
           if (tplId) {
             unlockedTemplatesSet.add(tplId);
@@ -4075,8 +4199,13 @@ async function getEffectiveEntitlement(user, env, options = {}) {
               hasCustomLinkEntitlement = true;
               featuresSet.add("custom_slug");
             }
+            if (pk.lifetimeLink || Number(pk.validityDays) >= 365) {
+              hasYearlyLinkEntitlement = true;
+              featuresSet.add("custom_slug_1yr");
+            }
             if (pk.freeHdPhotos || pk.freeCustomStyle) {
               hasHdStyleEntitlement = true;
+              featuresSet.add("hd_photos");
               featuresSet.add("hd_style");
               featuresSet.add("advanced_themes");
               featuresSet.add("unlimited_photos");
@@ -4097,7 +4226,9 @@ async function getEffectiveEntitlement(user, env, options = {}) {
     isPremium,
     hasVipPass,
     hasCustomLinkEntitlement,
+    hasYearlyLinkEntitlement,
     hasHdStyleEntitlement,
+    hasHdPhotosEntitlement: hasHdStyleEntitlement,
     unlockedTemplates: Array.from(unlockedTemplatesSet),
     activeEntitlements,
     plan: hasVipPass ? "VIP" : (activeEntitlements.length > 0 ? activeEntitlements[0].plan : "Free"),
@@ -4368,7 +4499,7 @@ async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true, force =
           ? variantsList.filter(v => v && v.enabled !== false && v.status !== 'disabled').map(v => v.relationshipLabel || v.label || v.relationship || v.slug)
           : enabledVarSlugs;
         const imgbbUrls = Array.isArray(manifest.imgbbImages) ? manifest.imgbbImages.map(i => i.displayUrl).filter(Boolean) : [];
-        const thumb = ver.thumbnail || manifest.thumbnail || imgbbUrls[0] || '/assets/file_ab2082.png';
+        const thumb = ver.thumbnail || manifest.thumbnail || imgbbUrls[0] || '/assets/file_ab2082.webp';
 
         await ensureTemplateIngestionSchema(db);
         await db.prepare(`
@@ -4486,7 +4617,7 @@ async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true, force =
               ? variantsList.filter(v => v && v.enabled !== false && v.status !== 'disabled').map(v => v.relationshipLabel || v.label || v.relationshipSlug || v.slug)
               : enabledRelSlugs;
             const imgbbUrls = Array.isArray(manifest.imgbbImages) ? manifest.imgbbImages.map(i => i.displayUrl).filter(Boolean) : [];
-            const thumb = manifest.thumbnail || imgbbUrls[0] || '/assets/file_ab2082.png';
+            const thumb = manifest.thumbnail || imgbbUrls[0] || '/assets/file_ab2082.webp';
             const keys = buildTemplateStorageKeys(famId, vId);
 
             const compactManifest = {
@@ -4975,7 +5106,7 @@ const DEFAULT_SITE_SETTINGS = {
   pageBgBlur: 1,
   hero3dFloatingEnabled: true,
   heroTouchBurstEnabled: true,
-  heroImageUrl: '/assets/file_ab2082.png',
+  heroImageUrl: '/assets/file_ab2082.webp',
   heroStyle: 'cosmic-purple',
   heroCta1: 'Explore Magic',
   heroCta2: 'Create Your Wish',
@@ -5123,7 +5254,7 @@ function validateSiteSettings(settings) {
   const promoBadgeText = sanitizeString(String(s.promoBadgeText !== undefined ? s.promoBadgeText : inMemorySiteSettings.promoBadgeText).trim(), 100);
   const promoBannerActive = s.promoBannerActive !== undefined ? Boolean(s.promoBannerActive) : inMemorySiteSettings.promoBannerActive;
   const promoBannerText = sanitizeString(String(s.promoBannerText !== undefined ? s.promoBannerText : inMemorySiteSettings.promoBannerText).trim(), 200);
-  const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (inMemorySiteSettings.heroImageUrl || '/assets/file_ab2082.png');
+  const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (inMemorySiteSettings.heroImageUrl || '/assets/file_ab2082.webp');
   const ALLOWED_BG_MODES = ['image', 'diwali-3d', 'custom-photo', 'gradient'];
   let rawBgCandidate = s.heroBgMode !== undefined ? s.heroBgMode : (s.hero3dSceneMode !== undefined ? s.hero3dSceneMode : (s.heroDisplayMode !== undefined ? s.heroDisplayMode : s.heroMediaType));
   if (typeof rawBgCandidate === 'string') {
@@ -5337,12 +5468,12 @@ function formatPublicSiteSettings(settings) {
     pageBgBlur: Math.min(50, Math.max(1, Math.round(Number(settings.pageBgBlur) || 1))),
     hero3dFloatingEnabled: settings.hero3dFloatingEnabled !== false,
     heroTouchBurstEnabled: settings.heroTouchBurstEnabled !== false,
-    heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
+    heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.webp',
     heroStyle: settings.heroStyle,
     heroStyleGradient: pureGrad,
     heroEffectiveBackground: heroBgMode === 'gradient'
       ? pureGrad
-      : `url('${settings.heroImageUrl || '/assets/file_ab2082.png'}') center / cover no-repeat`,
+      : `url('${settings.heroImageUrl || '/assets/file_ab2082.webp'}') center / cover no-repeat`,
     heroCta1: settings.heroCta1,
     heroCta2: settings.heroCta2,
     brandName: settings.brandName,
@@ -5365,44 +5496,14 @@ function formatPublicSiteSettings(settings) {
 
 const DEFAULT_VIP_PLANS = [
   {
-    id: 'vip_pass',
-    name: 'VIP Magic Pass',
-    badge: '👑 VIP PASS',
-    price: 49,
-    originalPrice: 99,
-    billingLabel: 'one-time',
-    description: 'Unlock VIP templates, custom link (/w/your-name), HD photos, custom styles, voice & music, zero watermark, and lifetime link.',
-    ctaText: 'Unlock VIP Magic Pass ✨',
-    isPopular: true,
-    isActive: true,
-    perks: {
-      freeCustomLink: true,
-      freeHdPhotos: true,
-      freeCustomStyle: true,
-      unlockVipTemplates: true,
-      customMusicVoice: true,
-      removeWatermark: true,
-      lifetimeLink: true,
-      maxPhotos: 16,
-      validityDays: 0
-    },
-    features: [
-      'Unlock VIP & Premium 3D Templates',
-      'Free Custom Link (/w/your-name) Included',
-      'Up to 16 Uncompressed HD Photos & Custom Styles',
-      'Custom Music & 2-Min Voice Dedication',
-      '100% Zero Watermark & Permanent Lifetime Link'
-    ]
-  },
-  {
     id: 'personalized_link',
-    name: 'Custom Link Pack',
-    badge: 'ADD-ON PACK 1',
-    price: 59,
-    originalPrice: 79,
+    name: 'Custom Link',
+    badge: 'CUSTOM URL',
+    price: 19,
+    originalPrice: 19,
     billingLabel: '/ wish',
-    description: 'Replace random codes with your own custom celebration URL (/w/happy-birthday-priya).',
-    ctaText: 'Choose Custom Link',
+    description: 'Replace random codes with your own custom celebration URL (/w/your-name).',
+    ctaText: 'Choose Custom Link • ₹19',
     isPopular: false,
     isActive: true,
     perks: {
@@ -5419,95 +5520,63 @@ const DEFAULT_VIP_PLANS = [
     features: [
       'Custom Personalized URL (/w/your-name)',
       'Instant Real-Time Availability Check',
-      'Works on Any Free or Premium Template',
-      'Free via 7-Friends Referral Reward'
+      'Works on Any Free or Paid Template'
     ]
   },
   {
-    id: 'hd_image_style_pack',
-    name: 'HD Images + Custom Style',
-    badge: 'ADD-ON PACK 2',
-    price: 59,
-    originalPrice: 79,
+    id: 'hd_photos',
+    name: 'HD Photos',
+    badge: 'PHOTO TEMPLATES ONLY',
+    price: 19,
+    originalPrice: 19,
     billingLabel: '/ wish',
-    description: 'Upload crystal-clear High Quality (HD) photos and customize fonts, colors, frames & particle styles.',
-    ctaText: 'Choose HD Images & Style',
+    description: 'Upload crystal-clear High-Definition (HD) photos. Available only on templates with photo upload slots.',
+    ctaText: 'Add HD Photos • ₹19',
     isPopular: false,
     isActive: true,
     perks: {
       freeCustomLink: false,
       freeHdPhotos: true,
-      freeCustomStyle: true,
+      freeCustomStyle: false,
       unlockVipTemplates: false,
-      customMusicVoice: true,
-      removeWatermark: true,
+      customMusicVoice: false,
+      removeWatermark: false,
       lifetimeLink: false,
       maxPhotos: 16,
       validityDays: 30
     },
     features: [
-      'Uncompressed High-Quality (HD) Photos (Up to 16)',
-      'Custom Fonts, Color Themes & Frames',
-      'Polaroid, Filmstrip & Mosaic Layouts',
-      'Custom Particle & Celebration Effects'
+      'Uncompressed High-Definition (HD) Photos',
+      'Only shown on photo-enabled templates',
+      'Auto-hidden on templates without photo slots'
     ]
   },
   {
-    id: 'free_template_combo',
-    name: 'Custom Link + HD & Style Combo',
-    badge: '🔥 ALL-IN-ONE COMBO',
-    price: 99,
-    originalPrice: 118,
-    billingLabel: '/ wish',
-    description: 'For any Free Template: Get both Custom Link + High Quality Images + Custom Style together in one combo!',
-    ctaText: 'Unlock All-in-One Combo ✨',
+    id: 'custom_link_1yr',
+    name: '1-Year Custom Link',
+    badge: '★ 1 FULL YEAR',
+    price: 149,
+    originalPrice: 149,
+    billingLabel: '/ 1 year',
+    description: 'Get a custom branded link (/w/your-name) kept live and active for 1 full year (365 days).',
+    ctaText: 'Get 1-Year Custom Link • ₹149',
     isPopular: true,
     isActive: true,
     perks: {
       freeCustomLink: true,
-      freeHdPhotos: true,
-      freeCustomStyle: true,
+      freeHdPhotos: false,
+      freeCustomStyle: false,
       unlockVipTemplates: false,
-      customMusicVoice: true,
-      removeWatermark: true,
+      customMusicVoice: false,
+      removeWatermark: false,
       lifetimeLink: true,
-      maxPhotos: 16,
+      maxPhotos: 6,
       validityDays: 365
     },
     features: [
-      'Custom Link (/w/your-name) Included',
-      'HD Quality Images (Up to 16) Included',
-      'Full Custom Style, Fonts & Themes',
-      'Zero Watermark & QR Share Card'
-    ]
-  },
-  {
-    id: 'premium_template_combo',
-    name: 'Premium Template + Full Combo',
-    badge: '👑 ROYAL COMBO ADD-ON',
-    price: 70,
-    originalPrice: 118,
-    billingLabel: '+ template price',
-    description: 'Picking a Premium Template? Add this combo to get the Template + Custom Link + HD Images + Custom Style!',
-    ctaText: 'Explore Premium Combo →',
-    isPopular: false,
-    isActive: true,
-    perks: {
-      freeCustomLink: true,
-      freeHdPhotos: true,
-      freeCustomStyle: true,
-      unlockVipTemplates: true,
-      customMusicVoice: true,
-      removeWatermark: true,
-      lifetimeLink: true,
-      maxPhotos: 16,
-      validityDays: 0
-    },
-    features: [
-      'Unlocks Selected Premium 3D Template',
-      'Includes Custom Link + HD Photos + Style',
-      'Custom Music, Voice Note & Zero Watermark',
-      'Permanent Lifetime Celebration Link'
+      'Custom Personalized URL (/w/your-name)',
+      'Active for 1 Full Year (365 Days)',
+      'Includes Custom Link — no extra ₹19 charge'
     ]
   }
 ];
@@ -5517,22 +5586,22 @@ function normalizeSingleVipPlan(rawPlan, index = 0) {
   const rawId = String(rawPlan.id || rawPlan.planId || `vip_plan_${index + 1}`).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
   if (!rawId) return null;
   const defaultMatch = DEFAULT_VIP_PLANS.find(d => d.id === rawId) || {};
-  const priceNum = Number(rawPlan.price !== undefined ? rawPlan.price : (defaultMatch.price ?? 49));
-  const price = Number.isFinite(priceNum) && priceNum >= 0 && priceNum <= 100000 ? priceNum : (defaultMatch.price ?? 49);
+  const priceNum = Number(rawPlan.price !== undefined ? rawPlan.price : (defaultMatch.price ?? 19));
+  const price = Number.isFinite(priceNum) && priceNum >= 0 && priceNum <= 100000 ? priceNum : (defaultMatch.price ?? 19);
   const origNum = Number(rawPlan.originalPrice !== undefined ? rawPlan.originalPrice : (defaultMatch.originalPrice ?? price));
   const originalPrice = Number.isFinite(origNum) && origNum >= 0 && origNum <= 100000 ? origNum : price;
 
   const rawPerks = (rawPlan.perks && typeof rawPlan.perks === 'object') ? rawPlan.perks : (defaultMatch.perks || {});
   const perks = {
-    freeCustomLink: rawPerks.freeCustomLink !== undefined ? Boolean(rawPerks.freeCustomLink) : Boolean(defaultMatch.perks?.freeCustomLink ?? true),
-    freeHdPhotos: rawPerks.freeHdPhotos !== undefined ? Boolean(rawPerks.freeHdPhotos) : Boolean(defaultMatch.perks?.freeHdPhotos ?? true),
-    freeCustomStyle: rawPerks.freeCustomStyle !== undefined ? Boolean(rawPerks.freeCustomStyle) : Boolean(defaultMatch.perks?.freeCustomStyle ?? true),
+    freeCustomLink: rawPerks.freeCustomLink !== undefined ? Boolean(rawPerks.freeCustomLink) : Boolean(defaultMatch.perks?.freeCustomLink ?? false),
+    freeHdPhotos: rawPerks.freeHdPhotos !== undefined ? Boolean(rawPerks.freeHdPhotos) : Boolean(defaultMatch.perks?.freeHdPhotos ?? false),
+    freeCustomStyle: rawPerks.freeCustomStyle !== undefined ? Boolean(rawPerks.freeCustomStyle) : Boolean(defaultMatch.perks?.freeCustomStyle ?? false),
     unlockVipTemplates: rawPerks.unlockVipTemplates !== undefined ? Boolean(rawPerks.unlockVipTemplates) : Boolean(defaultMatch.perks?.unlockVipTemplates ?? false),
-    customMusicVoice: rawPerks.customMusicVoice !== undefined ? Boolean(rawPerks.customMusicVoice) : Boolean(defaultMatch.perks?.customMusicVoice ?? true),
-    removeWatermark: rawPerks.removeWatermark !== undefined ? Boolean(rawPerks.removeWatermark) : Boolean(defaultMatch.perks?.removeWatermark ?? true),
-    lifetimeLink: rawPerks.lifetimeLink !== undefined ? Boolean(rawPerks.lifetimeLink) : Boolean(defaultMatch.perks?.lifetimeLink ?? true),
+    customMusicVoice: rawPerks.customMusicVoice !== undefined ? Boolean(rawPerks.customMusicVoice) : Boolean(defaultMatch.perks?.customMusicVoice ?? false),
+    removeWatermark: rawPerks.removeWatermark !== undefined ? Boolean(rawPerks.removeWatermark) : Boolean(defaultMatch.perks?.removeWatermark ?? false),
+    lifetimeLink: rawPerks.lifetimeLink !== undefined ? Boolean(rawPerks.lifetimeLink) : Boolean(defaultMatch.perks?.lifetimeLink ?? false),
     maxPhotos: Math.max(1, Math.min(50, parseInt(rawPerks.maxPhotos ?? defaultMatch.perks?.maxPhotos ?? 16, 10) || 16)),
-    validityDays: Math.max(0, Math.min(3650, parseInt(rawPerks.validityDays ?? defaultMatch.perks?.validityDays ?? 0, 10) || 0))
+    validityDays: Math.max(0, Math.min(3650, parseInt(rawPerks.validityDays ?? defaultMatch.perks?.validityDays ?? 30, 10) || 30))
   };
 
   let features = [];
@@ -5543,24 +5612,21 @@ function normalizeSingleVipPlan(rawPlan, index = 0) {
   } else if (Array.isArray(defaultMatch.features) && defaultMatch.features.length > 0) {
     features = [...defaultMatch.features];
   } else {
-    if (perks.unlockVipTemplates) features.push('Unlocks All VIP & Premium Templates');
-    if (perks.freeCustomLink) features.push('Free Custom Link (/w/your-name) Included');
-    if (perks.freeHdPhotos) features.push(`Up to ${perks.maxPhotos} Uncompressed HD Photos`);
-    if (perks.freeCustomStyle) features.push('Custom Fonts, Themes & 4K Celebration FX');
-    if (perks.customMusicVoice) features.push('Custom Music & Voice Note Dedication');
-    if (perks.removeWatermark) features.push('100% White-Label Zero Watermark');
-    if (perks.lifetimeLink) features.push('Permanent Lifetime Celebration Link');
+    if (perks.unlockVipTemplates) features.push('Unlocks Paid Templates');
+    if (perks.freeCustomLink) features.push('Custom Link (/w/your-name) Included');
+    if (perks.freeHdPhotos) features.push(`Up to ${perks.maxPhotos} High-Definition (HD) Photos`);
+    if (perks.lifetimeLink || perks.validityDays >= 365) features.push('Active for 1 Full Year (365 Days)');
   }
 
   return {
     id: rawId,
-    name: sanitizeString(rawPlan.name || defaultMatch.name || 'VIP Celebration Plan', 70),
-    badge: sanitizeString(rawPlan.badge || defaultMatch.badge || '👑 VIP PLAN', 40),
+    name: sanitizeString(rawPlan.name || defaultMatch.name || 'Celebration Plan', 70),
+    badge: sanitizeString(rawPlan.badge || defaultMatch.badge || 'PLAN', 40),
     price,
     originalPrice,
-    billingLabel: sanitizeString(rawPlan.billingLabel || defaultMatch.billingLabel || 'one-time', 30),
-    description: sanitizeString(rawPlan.description || defaultMatch.description || 'Special celebration upgrade plan.', 220),
-    ctaText: sanitizeString(rawPlan.ctaText || defaultMatch.ctaText || `Unlock ${rawPlan.name || 'Plan'} • ₹${price}`, 60),
+    billingLabel: sanitizeString(rawPlan.billingLabel || defaultMatch.billingLabel || '/ wish', 30),
+    description: sanitizeString(rawPlan.description || defaultMatch.description || 'Celebration add-on plan.', 220),
+    ctaText: sanitizeString(rawPlan.ctaText || defaultMatch.ctaText || `Choose ${rawPlan.name || 'Plan'} • ₹${price}`, 60),
     isPopular: rawPlan.isPopular !== undefined ? Boolean(rawPlan.isPopular) : Boolean(defaultMatch.isPopular),
     isActive: rawPlan.isActive !== undefined ? Boolean(rawPlan.isActive) : true,
     perks,
@@ -5581,13 +5647,10 @@ function normalizeVipPlansArray(rawPlans, addons = {}) {
     });
   } else {
     list = DEFAULT_VIP_PLANS.map((p, idx) => normalizeSingleVipPlan(p, idx));
-    // Sync default list prices from addons if addons were customized
     list.forEach(plan => {
-      if (plan.id === 'vip_pass' && Number.isFinite(Number(addons.vipPassPrice))) plan.price = Number(addons.vipPassPrice);
       if (plan.id === 'personalized_link' && Number.isFinite(Number(addons.customLinkPrice))) plan.price = Number(addons.customLinkPrice);
-      if (plan.id === 'hd_image_style_pack' && Number.isFinite(Number(addons.hdImageStylePrice))) plan.price = Number(addons.hdImageStylePrice);
-      if (plan.id === 'free_template_combo' && Number.isFinite(Number(addons.freeTemplateComboPrice))) plan.price = Number(addons.freeTemplateComboPrice);
-      if (plan.id === 'premium_template_combo' && Number.isFinite(Number(addons.premiumComboAddonPrice))) plan.price = Number(addons.premiumComboAddonPrice);
+      if ((plan.id === 'hd_photos' || plan.id === 'hd_image_style_pack') && Number.isFinite(Number(addons.hdPhotosPrice ?? addons.hdImageStylePrice))) plan.price = Number(addons.hdPhotosPrice ?? addons.hdImageStylePrice);
+      if (plan.id === 'custom_link_1yr' && Number.isFinite(Number(addons.yearlyCustomLinkPrice))) plan.price = Number(addons.yearlyCustomLinkPrice);
     });
   }
   return list;
@@ -5596,19 +5659,21 @@ function normalizeVipPlansArray(rawPlans, addons = {}) {
 const DEFAULT_WISH_LINK_SETTINGS = {
   personalized: {
     enabled: true,
-    price: 59,
+    price: 19,
     currency: 'INR',
-    displayName: 'Custom Link Only',
+    displayName: 'Custom Link',
     description: 'Create a memorable custom link (/w/your-name) for your wish.'
   },
   addons: {
-    customLinkPrice: 59,
-    hdImageStylePrice: 59,
-    freeTemplateComboPrice: 99,
-    premiumComboAddonPrice: 70,
-    creatorPackPrice: 99,
+    customLinkPrice: 19,
+    hdPhotosPrice: 19,
+    hdImageStylePrice: 19,
+    yearlyCustomLinkPrice: 149,
+    freeTemplateComboPrice: 38,
+    premiumComboAddonPrice: 38,
+    creatorPackPrice: 149,
     vipPassPrice: 49,
-    templatePriceTiers: [0, 59, 149]
+    templatePriceTiers: []
   },
   vipPlans: JSON.parse(JSON.stringify(DEFAULT_VIP_PLANS)),
   referral: {
@@ -5629,7 +5694,7 @@ const DEFAULT_WISH_LINK_SETTINGS = {
     stripeEnabled: false,
     upiEnabled: true
   },
-  updatedAt: '2026-10-15T00:00:00.000Z'
+  updatedAt: '2026-11-19T00:00:00.000Z'
 };
 
 let inMemoryWishLinkSettings = JSON.parse(JSON.stringify(DEFAULT_WISH_LINK_SETTINGS));
@@ -5646,6 +5711,12 @@ function normalizeStoredWishLinkSettings(raw) {
   const resolvedCustomLinkPrice = Number.isFinite(Number(a.customLinkPrice)) && Number(a.customLinkPrice) >= 0
     ? Number(a.customLinkPrice)
     : (Number.isFinite(Number(p.price)) && Number(p.price) >= 0 ? Number(p.price) : base.addons.customLinkPrice);
+  const resolvedHdPrice = Number.isFinite(Number(a.hdPhotosPrice ?? a.hdImageStylePrice)) && Number(a.hdPhotosPrice ?? a.hdImageStylePrice) >= 0
+    ? Number(a.hdPhotosPrice ?? a.hdImageStylePrice)
+    : base.addons.hdPhotosPrice;
+  const resolvedYearlyPrice = Number.isFinite(Number(a.yearlyCustomLinkPrice)) && Number(a.yearlyCustomLinkPrice) >= 0
+    ? Number(a.yearlyCustomLinkPrice)
+    : base.addons.yearlyCustomLinkPrice;
 
   return {
     personalized: {
@@ -5657,12 +5728,14 @@ function normalizeStoredWishLinkSettings(raw) {
     },
     addons: {
       customLinkPrice: resolvedCustomLinkPrice,
-      hdImageStylePrice: Number.isFinite(Number(a.hdImageStylePrice)) && Number(a.hdImageStylePrice) >= 0 ? Number(a.hdImageStylePrice) : base.addons.hdImageStylePrice,
-      freeTemplateComboPrice: Number.isFinite(Number(a.freeTemplateComboPrice)) && Number(a.freeTemplateComboPrice) >= 0 ? Number(a.freeTemplateComboPrice) : base.addons.freeTemplateComboPrice,
-      premiumComboAddonPrice: Number.isFinite(Number(a.premiumComboAddonPrice)) && Number(a.premiumComboAddonPrice) >= 0 ? Number(a.premiumComboAddonPrice) : base.addons.premiumComboAddonPrice,
+      hdPhotosPrice: resolvedHdPrice,
+      hdImageStylePrice: resolvedHdPrice,
+      yearlyCustomLinkPrice: resolvedYearlyPrice,
+      freeTemplateComboPrice: Number.isFinite(Number(a.freeTemplateComboPrice)) && Number(a.freeTemplateComboPrice) >= 0 ? Number(a.freeTemplateComboPrice) : (resolvedCustomLinkPrice + resolvedHdPrice),
+      premiumComboAddonPrice: Number.isFinite(Number(a.premiumComboAddonPrice)) && Number(a.premiumComboAddonPrice) >= 0 ? Number(a.premiumComboAddonPrice) : (resolvedCustomLinkPrice + resolvedHdPrice),
       creatorPackPrice: Number.isFinite(Number(a.creatorPackPrice)) && Number(a.creatorPackPrice) >= 0 ? Number(a.creatorPackPrice) : base.addons.creatorPackPrice,
       vipPassPrice: Number.isFinite(Number(a.vipPassPrice)) && Number(a.vipPassPrice) >= 0 ? Number(a.vipPassPrice) : base.addons.vipPassPrice,
-      templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length > 0
+      templatePriceTiers: Array.isArray(a.templatePriceTiers)
         ? a.templatePriceTiers.map(Number).filter(n => Number.isFinite(n) && n >= 0)
         : base.addons.templatePriceTiers
     },
@@ -5681,10 +5754,9 @@ function normalizeStoredWishLinkSettings(raw) {
     },
     vipPlans: normalizeVipPlansArray(raw.vipPlans, {
       customLinkPrice: resolvedCustomLinkPrice,
-      hdImageStylePrice: Number.isFinite(Number(a.hdImageStylePrice)) && Number(a.hdImageStylePrice) >= 0 ? Number(a.hdImageStylePrice) : base.addons.hdImageStylePrice,
-      freeTemplateComboPrice: Number.isFinite(Number(a.freeTemplateComboPrice)) && Number(a.freeTemplateComboPrice) >= 0 ? Number(a.freeTemplateComboPrice) : base.addons.freeTemplateComboPrice,
-      premiumComboAddonPrice: Number.isFinite(Number(a.premiumComboAddonPrice)) && Number(a.premiumComboAddonPrice) >= 0 ? Number(a.premiumComboAddonPrice) : base.addons.premiumComboAddonPrice,
-      vipPassPrice: Number.isFinite(Number(a.vipPassPrice)) && Number(a.vipPassPrice) >= 0 ? Number(a.vipPassPrice) : base.addons.vipPassPrice
+      hdPhotosPrice: resolvedHdPrice,
+      hdImageStylePrice: resolvedHdPrice,
+      yearlyCustomLinkPrice: resolvedYearlyPrice
     }),
     gateways: {
       razorpayEnabled: g.razorpayEnabled !== undefined ? Boolean(g.razorpayEnabled) : base.gateways.razorpayEnabled,
@@ -5710,12 +5782,10 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
   const pEnabled = p.enabled !== undefined ? Boolean(p.enabled) : base.personalized.enabled;
   const rEnabled = r.enabled !== undefined ? Boolean(r.enabled) : base.random.enabled;
 
-  // Rule: Cannot disable both
   if (!pEnabled && !rEnabled) {
     return { valid: false, error: 'Cannot disable both Personalized Links and Free Random Links. At least one publishing option must remain active.' };
   }
 
-  // Price validation: numeric, non-negative, sensible max
   let rawCustomLinkPrice;
   if (a.customLinkPrice !== undefined) {
     rawCustomLinkPrice = a.customLinkPrice;
@@ -5728,12 +5798,12 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
     ? NaN
     : Number(rawCustomLinkPrice);
   if (!Number.isFinite(customLinkPrice) || customLinkPrice < 0 || customLinkPrice > 100000) {
-    return { valid: false, error: 'Personalized link price must be a valid non-negative number up to 100,000.' };
+    return { valid: false, error: 'Custom link price must be a valid non-negative number up to 100,000.' };
   }
   if (p.price !== undefined) {
     const pPriceCheck = (p.price === '' || p.price === null || typeof p.price === 'boolean') ? NaN : Number(p.price);
     if (!Number.isFinite(pPriceCheck) || pPriceCheck < 0 || pPriceCheck > 100000) {
-      return { valid: false, error: 'Personalized link price must be a valid non-negative number up to 100,000.' };
+      return { valid: false, error: 'Custom link price must be a valid non-negative number up to 100,000.' };
     }
   }
 
@@ -5749,8 +5819,11 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
     return { valid: true, value: num };
   }
 
-  const hdCheck = validateAddonPrice(a.hdImageStylePrice, base.addons.hdImageStylePrice, 'HD Images + Style price');
+  const hdRawInput = a.hdPhotosPrice !== undefined ? a.hdPhotosPrice : a.hdImageStylePrice;
+  const hdCheck = validateAddonPrice(hdRawInput, base.addons.hdPhotosPrice, 'HD Photos price');
   if (!hdCheck.valid) return hdCheck;
+  const yearlyCheck = validateAddonPrice(a.yearlyCustomLinkPrice, base.addons.yearlyCustomLinkPrice, '1-Year Custom Link price');
+  if (!yearlyCheck.valid) return yearlyCheck;
   const freeComboCheck = validateAddonPrice(a.freeTemplateComboPrice, base.addons.freeTemplateComboPrice, 'Free Template Combo price');
   if (!freeComboCheck.valid) return freeComboCheck;
   const premiumAddonCheck = validateAddonPrice(a.premiumComboAddonPrice, base.addons.premiumComboAddonPrice, 'Premium Combo Add-On price');
@@ -5760,7 +5833,9 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
   const vipPassCheck = validateAddonPrice(a.vipPassPrice, base.addons.vipPassPrice, 'VIP Pass price');
   if (!vipPassCheck.valid) return vipPassCheck;
 
+  const hdPhotosPrice = hdCheck.value;
   const hdImageStylePrice = hdCheck.value;
+  const yearlyCustomLinkPrice = yearlyCheck.value;
   const freeTemplateComboPrice = freeComboCheck.value;
   const premiumComboAddonPrice = premiumAddonCheck.value;
   const creatorPackPrice = creatorPackCheck.value;
@@ -5775,19 +5850,16 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
     requiredReferrals = parsedRef;
   }
 
-  // Currency validation
   const currency = String(p.currency !== undefined ? p.currency : base.personalized.currency).trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) {
     return { valid: false, error: 'Currency must be a valid 3-letter ISO code (e.g. INR, USD).' };
   }
 
-  // Random length validation: 5-20 characters
   const length = r.length !== undefined ? Number(r.length) : base.random.length;
   if (!Number.isInteger(length) || length < 5 || length > 20) {
     return { valid: false, error: 'Random ID length must be an integer between 5 and 20.' };
   }
 
-  // Prefix validation: URL safe, not reserved
   const rawPrefix = String(r.prefix !== undefined ? r.prefix : base.random.prefix).trim().toLowerCase();
   if (!/^[a-z0-9]+-?$/.test(rawPrefix) || rawPrefix.length > 20) {
     return { valid: false, error: 'Random prefix must contain only lowercase letters, numbers, and an optional trailing hyphen (e.g. "wish-" or "w-").' };
@@ -5797,7 +5869,6 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
     return { valid: false, error: `Prefix "${rawPrefix}" collides with a reserved platform route.` };
   }
 
-  // Allowed characters validation
   const allowed = String(r.allowedCharacters !== undefined ? r.allowedCharacters : base.random.allowedCharacters).trim();
   if (!/^[a-zA-Z0-9]+$/.test(allowed) || allowed.length < 5) {
     return { valid: false, error: 'Allowed characters must contain only alphanumeric characters (at least 5 characters).' };
@@ -5824,7 +5895,9 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
       addons: (() => {
         const syncedAddons = {
           customLinkPrice,
+          hdPhotosPrice,
           hdImageStylePrice,
+          yearlyCustomLinkPrice,
           freeTemplateComboPrice,
           premiumComboAddonPrice,
           creatorPackPrice,
@@ -5834,11 +5907,12 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
         if (Array.isArray(settings.vipPlans)) {
           const vp = normalizeVipPlansArray(settings.vipPlans, syncedAddons);
           const findP = (id) => vp.find(x => x.id === id);
-          if (findP('vip_pass') && a.vipPassPrice === undefined) syncedAddons.vipPassPrice = findP('vip_pass').price;
           if (findP('personalized_link') && a.customLinkPrice === undefined && p.price === undefined) syncedAddons.customLinkPrice = findP('personalized_link').price;
-          if (findP('hd_image_style_pack') && a.hdImageStylePrice === undefined) syncedAddons.hdImageStylePrice = findP('hd_image_style_pack').price;
-          if (findP('free_template_combo') && a.freeTemplateComboPrice === undefined) syncedAddons.freeTemplateComboPrice = findP('free_template_combo').price;
-          if (findP('premium_template_combo') && a.premiumComboAddonPrice === undefined) syncedAddons.premiumComboAddonPrice = findP('premium_template_combo').price;
+          if (findP('hd_photos') && a.hdPhotosPrice === undefined && a.hdImageStylePrice === undefined) {
+            syncedAddons.hdPhotosPrice = findP('hd_photos').price;
+            syncedAddons.hdImageStylePrice = findP('hd_photos').price;
+          }
+          if (findP('custom_link_1yr') && a.yearlyCustomLinkPrice === undefined) syncedAddons.yearlyCustomLinkPrice = findP('custom_link_1yr').price;
         }
         return syncedAddons;
       })(),
@@ -5846,18 +5920,14 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
         const rawList = Array.isArray(settings.vipPlans) ? settings.vipPlans : base.vipPlans;
         const normList = normalizeVipPlansArray(rawList, {
           customLinkPrice,
+          hdPhotosPrice,
           hdImageStylePrice,
-          freeTemplateComboPrice,
-          premiumComboAddonPrice,
-          vipPassPrice
+          yearlyCustomLinkPrice
         });
-        // Always sync explicit addons prices into matching vipPlans entries so both stay consistent
         normList.forEach(pl => {
-          if (pl.id === 'vip_pass' && a.vipPassPrice !== undefined) pl.price = vipPassPrice;
           if (pl.id === 'personalized_link' && (a.customLinkPrice !== undefined || p.price !== undefined)) pl.price = customLinkPrice;
-          if (pl.id === 'hd_image_style_pack' && a.hdImageStylePrice !== undefined) pl.price = hdImageStylePrice;
-          if (pl.id === 'free_template_combo' && a.freeTemplateComboPrice !== undefined) pl.price = freeTemplateComboPrice;
-          if (pl.id === 'premium_template_combo' && a.premiumComboAddonPrice !== undefined) pl.price = premiumComboAddonPrice;
+          if ((pl.id === 'hd_photos' || pl.id === 'hd_image_style_pack') && (a.hdPhotosPrice !== undefined || a.hdImageStylePrice !== undefined)) pl.price = hdPhotosPrice;
+          if (pl.id === 'custom_link_1yr' && a.yearlyCustomLinkPrice !== undefined) pl.price = yearlyCustomLinkPrice;
         });
         return normList;
       })(),
@@ -8419,7 +8489,7 @@ export default {
           }
 
           const isVip = entitlement.isPremium;
-          const wishPrice = isVip ? 49 : 0;
+          const wishPrice = template && Number(template.price) > 0 ? Number(template.price) : 0;
           const buyerName = sanitizeString(customData.sender_name || customData.senderName || user.displayName, 80);
           const buyerContact = sanitizeString(customData.buyerContact || user.email, 120);
           const recipientName = sanitizeString(customData.recipient_name || customData.recipientName || 'Special Person', 80);
@@ -8427,11 +8497,16 @@ export default {
           const wishId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
           const userId = user.id; // Server-authoritative creator user ID
 
-          // Compute IST expiry date (expires after 2 days past event_date in IST)
+          // Compute expiry date: 1 full year (365 days) if 1-Year Custom Link entitlement is active, else 2 days past event_date in IST
+          const wantsYearlyLink = (body.linkDuration === '1_year' || customData.linkDuration === '1_year') && Boolean(entitlement.hasYearlyLinkEntitlement || entitlement.hasVipPass);
           const cleanDate = eventDate.includes('T') ? eventDate.split('T')[0] : eventDate.trim();
           const parts = cleanDate.split('-').map(Number);
           let expiryDate = cleanDate;
-          if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          if (wantsYearlyLink) {
+            expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            customData.linkDuration = '1_year';
+            customData.validityDays = 365;
+          } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
             const nextDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 3, 0, 0, 0, 0) - IST_OFFSET_MS;
             expiryDate = new Date(nextDayMs).toISOString().split('T')[0];
           }
@@ -9471,6 +9546,34 @@ export default {
         response = jsonSuccess({ wish: safePublicWish, template: templateSnapshot }, 200, {}, requestId);
       }
 
+      // --- Combined Storefront Bootstrap API (1 edge-cached request instead of 3) ---
+      else if (pathname === '/api/storefront/bootstrap' && method === 'GET') {
+        const [tplRes, rawSettings, rawWishLinks] = await Promise.all([
+          this.fetch(new Request(new URL('/api/templates', url.origin), { method: 'GET' }), env, ctx),
+          getSiteSettings(env),
+          getWishLinkSettings(env)
+        ]);
+        const tplJson = tplRes && tplRes.ok ? await tplRes.json().catch(() => ({})) : {};
+        const templates = (tplJson.data && tplJson.data.templates) || tplJson.templates || [];
+        const publicSettings = formatPublicSiteSettings(rawSettings);
+        const sampleSlug = `${rawWishLinks.random.prefix}${generateSecureRandomId(rawWishLinks.random.length, rawWishLinks.random.allowedCharacters)}`;
+        const wishLinks = {
+          ...rawWishLinks,
+          random: { ...rawWishLinks.random, sampleSlug }
+        };
+        const isCacheableBootstrap = !url.searchParams.has('_t') && !request.headers.get('Authorization');
+        response = jsonSuccess({
+          templates,
+          total: templates.length,
+          settings: publicSettings,
+          wishLinks
+        }, 200, isCacheableBootstrap ? {
+          'Cache-Control': 'public, max-age=30, stale-while-revalidate=300'
+        } : {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }, requestId);
+      }
+
       // --- Templates API ---
       else if (pathname === '/api/templates' && method === 'GET') {
         const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
@@ -9758,7 +9861,8 @@ export default {
           );
         }
 
-        response = jsonSuccess({ templates, total: templates.length, activeFestivalCampaigns }, 200, {}, requestId);
+        const isCacheablePublicCatalog = !url.searchParams.has('_t') && url.searchParams.get('includeDrafts') !== 'true' && url.searchParams.get('all') !== 'true' && !request.headers.get('Authorization');
+        response = jsonSuccess({ templates, total: templates.length, activeFestivalCampaigns }, 200, isCacheablePublicCatalog ? { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=300' } : {}, requestId);
       }
 
       else if ((pathname === '/api/templates' || pathname === '/api/templates/create') && method === 'POST') {
@@ -18231,7 +18335,10 @@ export default {
       else if (pathname === '/api/settings/site' && method === 'GET') {
         const settings = await getSiteSettings(env);
         const publicSettings = formatPublicSiteSettings(settings);
-        response = jsonSuccess({ settings: publicSettings }, 200, {
+        const isCacheablePublicSettings = !url.searchParams.has('_t') && !request.headers.get('Authorization');
+        response = jsonSuccess({ settings: publicSettings }, 200, isCacheablePublicSettings ? {
+          'Cache-Control': 'public, max-age=30, stale-while-revalidate=300'
+        } : {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
           'Expires': '0'
@@ -18646,7 +18753,10 @@ export default {
 
       else if ((pathname === '/api/public/branding-footer' || pathname === '/api/admin/branding-footer') && method === 'GET') {
         const brandingFooter = await getBrandingFooterSettings(env);
-        response = jsonSuccess({ brandingFooter }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
+        const isCacheableBranding = pathname === '/api/public/branding-footer' && !url.searchParams.has('_t');
+        response = jsonSuccess({ brandingFooter }, 200, {
+          'Cache-Control': isCacheableBranding ? 'public, max-age=60, stale-while-revalidate=600' : 'no-cache, no-store, must-revalidate'
+        }, requestId);
       }
 
       else if (pathname === '/api/admin/branding-footer' && (method === 'PUT' || method === 'POST')) {
@@ -19047,13 +19157,23 @@ export default {
               productName: product.productName,
               amountPaise: product.amountPaise,
               priceDisplay: product.priceDisplay,
-              currency: product.currency
+              currency: product.currency,
+              validityDays: product.validityDays || 30,
+              linkDuration: product.linkDuration || 'standard',
+              breakdown: product.breakdown || null
             }
           }, 200), request, env);
         }
 
-        // Check user entitlement in D1
-        if (env.DB && typeof env.DB.prepare === 'function') {
+        // Check user entitlement in D1 for non-repeatable items only
+        const isRepeatablePerWishPurchase = (
+          product.productType === COMMERCE_PRODUCT_TYPES.WISH_BUNDLE ||
+          product.productType === COMMERCE_PRODUCT_TYPES.PERSONALIZED_LINK ||
+          product.productType === COMMERCE_PRODUCT_TYPES.CUSTOM_LINK_1YR ||
+          product.productType === COMMERCE_PRODUCT_TYPES.HD_PHOTOS ||
+          product.productType === COMMERCE_PRODUCT_TYPES.HD_IMAGE_STYLE_PACK
+        );
+        if (!isRepeatablePerWishPurchase && env.DB && typeof env.DB.prepare === 'function') {
           try {
             const existingEnt = await env.DB.prepare(
               `SELECT id FROM entitlements WHERE user_id = ? AND status = 'active' AND (product_id = ? OR plan = 'VIP' OR plan = 'vip') LIMIT 1`
@@ -19123,8 +19243,14 @@ export default {
           amountRupees: Math.round(product.amountPaise / 100),
           currency: product.currency,
           keyId: adapter.keyId,
+          productId: product.productId,
           productName: product.productName,
-          productType: product.productType
+          productType: product.productType,
+          templateId: resolvedTemplateId,
+          requestedSlug,
+          validityDays: product.validityDays || 30,
+          linkDuration: product.linkDuration || 'standard',
+          breakdown: product.breakdown || null
         }, 201, {}, requestId);
       }
 
@@ -20782,7 +20908,7 @@ export default {
         const settings = await getSiteSettings(env);
         const pub = formatPublicSiteSettings(settings);
         response = jsonSuccess({
-          heroImageUrl: pub.heroImageUrl || '/assets/file_ab2082.png',
+          heroImageUrl: pub.heroImageUrl || '/assets/file_ab2082.webp',
           heroBgMode: pub.heroBgMode || 'image',
           heroStyle: pub.heroStyle || 'cosmic-purple',
           heroStyleGradient: pub.heroStyleGradient,
@@ -20796,7 +20922,7 @@ export default {
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required to update hero photo', 403), request, env);
         if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
         const body = await request.json().catch(() => ({}));
-        let targetUrl = (body.heroImageUrl || body.photoUrl || body.imageUrl || body.imagePayload || (body.resetDefault ? '/assets/file_ab2082.png' : '') || '').trim();
+        let targetUrl = (body.heroImageUrl || body.photoUrl || body.imageUrl || body.imagePayload || (body.resetDefault ? '/assets/file_ab2082.webp' : '') || '').trim();
         if (!targetUrl) {
           return applySecurityHeaders(jsonError('MISSING_URL', 'Hero photo URL or uploaded image payload is required', 400), request, env);
         }
@@ -20868,7 +20994,7 @@ export default {
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
 
         const settings = await getSiteSettings(env);
-        const currentHeroImage = settings.heroImageUrl || '/assets/file_ab2082.png';
+        const currentHeroImage = settings.heroImageUrl || '/assets/file_ab2082.webp';
 
         const defaultAssets = [
           {
@@ -20876,7 +21002,7 @@ export default {
             title: 'Storefront Hero Celebration Artwork',
             type: 'image',
             format: 'PNG',
-            url: '/assets/file_ab2082.png',
+            url: '/assets/file_ab2082.webp',
             fileSizeFormatted: '1.54 MB',
             category: 'Hero & Showcase',
             storageProvider: 'static',
@@ -20888,7 +21014,7 @@ export default {
             title: '3D Unboxing Gift Memory Frame',
             type: 'image',
             format: 'PNG',
-            url: '/assets/file_f63881.png',
+            url: '/assets/file_f63881.webp',
             fileSizeFormatted: '1.98 MB',
             category: 'Template Artwork',
             storageProvider: 'static',
@@ -26196,7 +26322,7 @@ export default {
                 eventDate: w.event_date || custom.event_date || '2026-10-15',
                 templateId: w.template_id || 'tpl_glitter_birthday',
                 templateName: w.template_name || 'Custom Celebration',
-                templateThumbnail: custom.cover_photo || '/assets/file_ab2082.png',
+                templateThumbnail: custom.cover_photo || '/assets/file_ab2082.webp',
                 customMessage: custom.custom_message || custom.message || 'Heartfelt celebration dedication.',
                 userFiles: {
                   photos: photos.map((p, idx) => ({
@@ -26254,6 +26380,64 @@ export default {
 
         const summary = await getCentralizedDashboardSummary(env.DB, env);
         response = jsonSuccess(summary, 200, {}, requestId);
+      }
+
+      // --- Combined Admin Overview Bootstrap (1 authenticated request instead of 5) ---
+      else if (pathname === '/api/admin/overview/bootstrap' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const range = url.searchParams.get('range') || '30d';
+        const forwardHeaders = new Headers();
+        const cookieHdr = request.headers.get('Cookie');
+        const authHdr = request.headers.get('Authorization');
+        const sessHdr = request.headers.get('X-WishMagic-Admin-Session');
+        if (cookieHdr) forwardHeaders.set('Cookie', cookieHdr);
+        if (authHdr) forwardHeaders.set('Authorization', authHdr);
+        if (sessHdr) forwardHeaders.set('X-WishMagic-Admin-Session', sessHdr);
+
+        const subReq = (pathStr) => this.fetch(
+          new Request(new URL(pathStr, url.origin), { method: 'GET', headers: forwardHeaders }),
+          env,
+          ctx
+        ).then((r) => (r && r.ok ? r.json().catch(() => null) : null)).catch(() => null);
+
+        const [summary, biRes, wishesRes, ordersRes, templatesRes, usersRes] = await Promise.all([
+          getCentralizedDashboardSummary(env.DB, env).catch(() => ({})),
+          subReq(`/api/admin/analytics/overview?range=${encodeURIComponent(range)}`),
+          subReq('/api/admin/wishes?limit=50'),
+          subReq('/api/admin/commerce/orders?limit=50'),
+          subReq('/api/templates?includeDrafts=true'),
+          subReq('/api/admin/users?limit=100')
+        ]);
+
+        const wishes = Array.isArray(wishesRes?.wishes)
+          ? wishesRes.wishes
+          : (Array.isArray(wishesRes?.data?.wishes) ? wishesRes.data.wishes : []);
+        const orders = Array.isArray(ordersRes?.orders)
+          ? ordersRes.orders
+          : (Array.isArray(ordersRes?.data?.orders) ? ordersRes.data.orders : []);
+        const ordersMetrics = ordersRes?.metrics || ordersRes?.data?.metrics || null;
+        const templates = Array.isArray(templatesRes?.templates)
+          ? templatesRes.templates
+          : (Array.isArray(templatesRes?.data?.templates) ? templatesRes.data.templates : []);
+        const users = Array.isArray(usersRes?.users)
+          ? usersRes.users
+          : (Array.isArray(usersRes?.data?.users) ? usersRes.data.users : []);
+
+        response = jsonSuccess({
+          summary: summary || {},
+          analytics: biRes?.data || biRes || {},
+          wishes,
+          orders,
+          ordersMetrics,
+          templates,
+          users,
+          range,
+          syncedAt: new Date().toISOString()
+        }, 200, { 'Cache-Control': 'no-store, private' }, requestId);
       }
 
       // --- Part 9: Template Families Operational Listing ---
@@ -27021,12 +27205,13 @@ export default {
         const inWindowFestivals = upcomingFestivals.filter(f => f.isWindowOpen);
         const storefrontSpotlight = publicActiveCampaigns[0] || inWindowFestivals[0] || upcomingFestivals[0] || null;
 
+        const isCacheableFestivals = !url.searchParams.has('_t') && !request.headers.get('Authorization');
         response = jsonSuccess({
           activeCampaigns: publicActiveCampaigns,
           inWindowFestivals,
           upcomingFestivals: upcomingFestivals.slice(0, 12),
           storefrontSpotlight
-        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
+        }, 200, { 'Cache-Control': isCacheableFestivals ? 'public, max-age=30, stale-while-revalidate=300' : 'no-cache, no-store, must-revalidate' }, requestId);
       }
 
       else if (pathname.startsWith('/api/admin/festivals')) {
@@ -28304,7 +28489,7 @@ export default {
         if (!coverPhoto && templateSnapshot) {
           coverPhoto = templateSnapshot.thumbnail || (templateSnapshot.previewImages && templateSnapshot.previewImages[0]);
         }
-        if (!coverPhoto) coverPhoto = '/assets/file_ab2082.png';
+        if (!coverPhoto) coverPhoto = '/assets/file_ab2082.webp';
         if (!coverPhoto.startsWith('http')) {
           coverPhoto = `${origin}${coverPhoto.startsWith('/') ? '' : '/'}${coverPhoto}`;
         }

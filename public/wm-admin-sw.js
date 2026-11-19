@@ -12,16 +12,19 @@
  * 3. Supports instant version upgrades via `SKIP_WAITING` and full cache purge on `WM_ADMIN_LOGOUT`.
  */
 
-const SW_VERSION = 'wm-admin-pwa-v2.0.0-20261118';
+const SW_VERSION = 'wm-admin-pwa-v2.2.0-20261118';
 const STATIC_CACHE_NAME = `wishmagic-admin-static-${SW_VERSION}`;
 
 // Safe static assets allowlist (strictly public CSS, JS shell, icons, and webmanifest)
 const SAFE_STATIC_PRECACHE_URLS = [
   '/wm-clay-admin.webmanifest',
+  '/css/admin-tailwind.min.css',
   '/css/admin-theme.css',
-  '/js/tailwind-config.js',
   '/js/admin-theme.js',
+  '/js/api-client.js',
+  '/js/auth-service.js',
   '/js/WishMagicCore.js',
+  '/js/bundles/admin-extras.min.js',
   '/assets/icons/admin-icon-192.png',
   '/assets/icons/admin-icon-512.png',
   '/assets/icons/admin-icon-maskable-192.png',
@@ -31,9 +34,10 @@ const SAFE_STATIC_PRECACHE_URLS = [
 
 const SAFE_STATIC_PATH_ALLOWLIST = new Set([
   '/wm-clay-admin.webmanifest',
+  '/css/admin-tailwind.min.css',
+  '/css/tailwind.min.css',
   '/css/admin-theme.css',
   '/css/cloud-background.css',
-  '/js/tailwind-config.js',
   '/js/admin-theme.js',
   '/js/WishMagicCore.js',
   '/js/api-client.js',
@@ -42,8 +46,9 @@ const SAFE_STATIC_PATH_ALLOWLIST = new Set([
   '/js/repositories.js',
   '/js/analytics-service.js',
   '/js/share-system.js',
-  '/js/security-hardening.js',
   '/js/admin-template-uploader.js',
+  '/js/bundles/admin-uploader.min.js',
+  '/js/bundles/admin-extras.min.js',
   '/assets/icons/admin-icon-192.png',
   '/assets/icons/admin-icon-512.png',
   '/assets/icons/admin-icon-maskable-192.png',
@@ -260,14 +265,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First with Safe Static Cache Fallback for allowlisted static assets
+  // Stale-While-Revalidate for allowlisted static assets (0ms cached load + background update)
   const canonicalAssetKey = url.pathname;
   event.respondWith(
     (async () => {
       const cache = await caches.open(STATIC_CACHE_NAME);
-      try {
-        const isScriptOrStyle = canonicalAssetKey.endsWith('.js') || canonicalAssetKey.endsWith('.css');
-        const networkResponse = await fetch(request, isScriptOrStyle ? { cache: 'no-cache' } : undefined);
+      const cachedResponse = await cache.match(canonicalAssetKey) || await cache.match(request);
+      const revalidatePromise = fetch(request).then((networkResponse) => {
         if (
           networkResponse &&
           networkResponse.ok &&
@@ -280,13 +284,12 @@ self.addEventListener('fetch', (event) => {
           }
         }
         return networkResponse;
-      } catch (networkErr) {
-        const cachedResponse = await cache.match(canonicalAssetKey) || await cache.match(request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        throw networkErr;
+      });
+      if (cachedResponse) {
+        event.waitUntil(revalidatePromise.catch(() => {}));
+        return cachedResponse;
       }
+      return revalidatePromise;
     })()
   );
 });

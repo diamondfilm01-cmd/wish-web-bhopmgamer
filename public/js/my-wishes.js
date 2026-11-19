@@ -1,604 +1,31 @@
-// WishMagic Creator Dashboard Engine
-// Part 26: My Wishes Dashboard + Wish Lifecycle Management + Duplicate/Create Again + Favorites Integration
-// Timezone: Asia/Kolkata (IST = UTC+05:30) via WishLifecycle
-
-(function(window) {
-  'use strict';
-
-  // Dashboard Reactive State
-  let allWishes = [];
-  let currentFilter = 'all'; // 'all' | 'drafts' | 'upcoming' | 'active' | 'expired' | 'favorites'
-  let currentSearch = '';
-  let currentSort = 'recent'; // 'recent' | 'newest' | 'oldest' | 'date' | 'views'
-  let favoriteIds = new Set();
-  let selectedWishForAction = null;
-  let isLoading = false;
-
-  // Initialize Dashboard on DOM load & sync with WishAuth
-  document.addEventListener('DOMContentLoaded', async () => {
-    setupEventListeners();
-    await handleAuthSync();
-
-    if (window.WishAuth) {
-      window.WishAuth.onAuthStateChange(async () => {
-        await handleAuthSync();
-      });
-    }
-  });
-
-  // Handle Authentication Barrier & Server State Sync
-  async function handleAuthSync() {
-    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-    const barrier = document.getElementById('wishes-auth-barrier');
-    const authView = document.getElementById('wishes-authenticated-view');
-
-    if (!user) {
-      if (barrier) barrier.classList.remove('hidden');
-      if (authView) authView.classList.add('hidden');
-      allWishes = [];
-      favoriteIds.clear();
-      return;
-    }
-
-    if (barrier) barrier.classList.add('hidden');
-    if (authView) authView.classList.remove('hidden');
-
-    await fetchServerFavorites(user.id);
-    await migrateLocalGuestDraftsToServer(user.id);
-    await fetchWishesAndDrafts(user.id);
-    renderDashboard();
-  }
-
-  // Helper: Build standard request headers with Authorization token
-  function getAuthHeaders() {
-    const headers = { 'Accept': 'application/json' };
-    try {
-      if (window.WishAuth) {
-        const session = window.WishAuth.getSession();
-        if (session && session.token) {
-          headers['Authorization'] = `Bearer ${session.token}`;
-        }
-      }
-    } catch (e) {}
-    return headers;
-  }
-
-  // Load User Favorites directly from Server API
-  async function fetchServerFavorites(userId) {
-    if (!userId) {
-      favoriteIds = new Set();
-      return;
-    }
-    try {
-      const res = await fetch('/api/favorites', {
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
-      const data = await res.json();
-      if (data && data.success && Array.isArray(data.favorites)) {
-        favoriteIds = new Set(data.favorites);
-      }
-    } catch (e) {
-      console.warn('[my-wishes] Error loading server favorites:', e);
-    }
-  }
-
-  // Migrate any pre-login guest drafts from localStorage to real server D1 drafts
-  async function migrateLocalGuestDraftsToServer(userId) {
-    if (!userId) return;
-    try {
-      const rawDrafts = localStorage.getItem('wishmagic_drafts');
-      if (!rawDrafts) return;
-      const drafts = JSON.parse(rawDrafts);
-      if (!Array.isArray(drafts) || drafts.length === 0) return;
-
-      for (const draft of drafts) {
-        if (!draft.userId || draft.userId === 'guest' || draft.userId === userId) {
-          try {
-            await fetch('/api/wishes', {
-              method: 'POST',
-              headers: {
-                ...getAuthHeaders(),
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                templateId: draft.templateId || 'tpl_glitter_birthday',
-                status: 'draft',
-                isDraft: true,
-                customData: {
-                  ...(draft.customData || {}),
-                  recipient_name: draft.recipientName || draft.customData?.recipient_name || 'Special Person',
-                  sender_name: draft.senderName || draft.customData?.sender_name || 'Creator',
-                  event_date: draft.eventDate || draft.customData?.event_date || new Date().toISOString().split('T')[0],
-                  isDraft: true
-                }
-              })
-            });
-          } catch (err) {
-            console.warn('[my-wishes] Guest draft migration failed for draft:', draft.id, err);
-          }
-        }
-      }
-      // Remove migrated guest drafts from localStorage so it never acts as permanent authority
-      localStorage.removeItem('wishmagic_drafts');
-    } catch (e) {
-      console.warn('[my-wishes] Error checking guest drafts migration:', e);
-    }
-  }
-
-  // Fetch wishes and drafts from Server API (Server-Verified Identity)
-  async function fetchWishesAndDrafts(userId) {
-    if (!userId) {
-      allWishes = [];
-      return;
-    }
-
-    isLoading = true;
-    try {
-      const res = await fetch('/api/wishes', {
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
-
-      if (res.status === 401) {
-        if (window.WishAuth) window.WishAuth.requireAuth();
-        allWishes = [];
-        return;
-      }
-
-      const data = await res.json();
-      if (data && data.success && Array.isArray(data.wishes)) {
-        allWishes = data.wishes.map(w => {
-          const isDraft = Boolean(w.status === 'draft' || w.isDraft || (w.customData && w.customData.isDraft));
-          const lifecycleStatus = isDraft
-            ? 'draft'
-            : (window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active'));
-
-          return {
-            ...w,
-            status: isDraft ? 'draft' : (w.status || 'published'),
-            isDraft,
-            lifecycleStatus,
-            favorite: favoriteIds.has(w.id)
-          };
-        });
-      } else {
-        allWishes = [];
-      }
-    } catch (err) {
-      console.error('[my-wishes] Error fetching wishes from server:', err);
-      allWishes = [];
-    } finally {
-      isLoading = false;
-    }
-  }
-
-  // Setup DOM Event Listeners (Search, Clear, Sort)
-  function setupEventListeners() {
-    const searchInput = document.getElementById('search-wishes-input');
-    const clearBtn = document.getElementById('search-clear-btn');
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        currentSearch = e.target.value.trim().toLowerCase();
-        if (clearBtn) {
-          if (currentSearch.length > 0) clearBtn.classList.remove('hidden');
-          else clearBtn.classList.add('hidden');
-        }
-        renderDashboard();
-      });
-    }
-
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        if (searchInput) searchInput.value = '';
-        currentSearch = '';
-        clearBtn.classList.add('hidden');
-        renderDashboard();
-      });
-    }
-
-    const sortSelect = document.getElementById('sort-wishes-select');
-    if (sortSelect) {
-      sortSelect.addEventListener('change', (e) => {
-        currentSort = e.target.value;
-        renderDashboard();
-      });
-    }
-  }
-
-  // Filter tab switch
-  window.setDashboardFilter = function(filterName) {
-    currentFilter = filterName;
-
-    // Update active tab buttons visual styles
-    document.querySelectorAll('.filter-tab-btn').forEach(btn => {
-      const tab = btn.getAttribute('data-tab');
-      if (tab === filterName) {
-        btn.className = 'filter-tab-btn px-4 py-2 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/25 flex items-center gap-2 transition-all cursor-pointer flex-shrink-0';
-      } else {
-        btn.className = 'filter-tab-btn px-4 py-2 rounded-full font-semibold text-xs sm:text-sm glass-pill text-purple-900 dark:text-purple-200 hover:text-pink-600 dark:hover:text-pink-300 flex items-center gap-2 transition-all cursor-pointer flex-shrink-0';
-      }
-    });
-
-    renderDashboard();
-  };
-
-  // Toggle favorite for a wish or draft with Server D1 Persistence
-  window.toggleFavorite = async function(wishId, e) {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-
-    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-    if (!user) {
-      if (window.WishAuth) {
-        window.WishAuth.requireAuth({ message: 'Please sign in to favorite your celebrations.' });
-      }
-      return;
-    }
-
-    // Optimistic UI toggle
-    const currentlyFav = favoriteIds.has(wishId);
-    if (currentlyFav) {
-      favoriteIds.delete(wishId);
-    } else {
-      favoriteIds.add(wishId);
-    }
-
-    // Update wish in state immediately
-    const target = allWishes.find(w => w.id === wishId);
-    if (target) {
-      target.favorite = !currentlyFav;
-    }
-
-    renderDashboard();
-    showDashboardToast(currentlyFav ? 'Removed from Favorites 💔' : 'Added to Favorites ❤️');
-
-    // Persist to server API
-    try {
-      const res = await fetch('/api/favorites', {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ itemId: wishId, itemType: 'wish' })
-      });
-      const data = await res.json();
-      if (data && data.success && typeof data.favorited === 'boolean') {
-        if (data.favorited) favoriteIds.add(wishId);
-        else favoriteIds.delete(wishId);
-        if (target) target.favorite = data.favorited;
-        renderDashboard();
-      }
-    } catch (err) {
-      console.warn('[my-wishes] Failed to sync favorite with server:', err);
-    }
-  };
-
-  // Helper: Extract Relationship Display Information (label, icon, color)
-  function getRelationshipDisplay(w) {
-    const cd = w.customData || {};
-    const relId = w.relationship || w.relationshipId || w.relationship_id || cd.relationship || cd.relationshipId || cd.relationship_id || cd.relationship_label || '';
-    if (!relId) return null;
-
-    const relMap = {
-      'crush': { label: 'Crush', icon: 'favorite', bgClass: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30' },
-      'partner': { label: 'Partner', icon: 'favorite', bgClass: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30' },
-      'spouse': { label: 'Spouse', icon: 'favorite', bgClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30' },
-      'best_friend': { label: 'Best Friend', icon: 'sentiment_very_satisfied', bgClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
-      'friend': { label: 'Friend', icon: 'sentiment_satisfied', bgClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
-      'parent': { label: 'Parents', icon: 'diversity_1', bgClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30' },
-      'parents': { label: 'Parents', icon: 'diversity_1', bgClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30' },
-      'mom': { label: 'Mom', icon: 'family_restroom', bgClass: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30' },
-      'dad': { label: 'Dad', icon: 'family_restroom', bgClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30' },
-      'sibling': { label: 'Sibling', icon: 'diversity_3', bgClass: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30' },
-      'brother': { label: 'Brother', icon: 'diversity_3', bgClass: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30' },
-      'sister': { label: 'Sister', icon: 'diversity_3', bgClass: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30' },
-      'mentor': { label: 'Mentor', icon: 'school', bgClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' },
-      'colleague': { label: 'Colleague', icon: 'work', bgClass: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30' },
-      'self': { label: 'Self Keepsake', icon: 'auto_awesome', bgClass: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border-yellow-500/30' }
-    };
-
-    const key = String(relId).toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    if (relMap[key]) return relMap[key];
-
-    const cleanLabel = String(relId).replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    return {
-      label: cleanLabel,
-      icon: 'favorite',
-      bgClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
-    };
-  }
-
-  // Main Render Routine
-  function renderDashboard() {
-    // 1. Recompute lifecycle statuses with Asia/Kolkata boundary engine
-    allWishes.forEach(w => {
-      const isDraft = Boolean(w.status === 'draft' || w.isDraft || (w.customData && w.customData.isDraft));
-      if (isDraft) {
-        w.status = 'draft';
-        w.lifecycleStatus = 'draft';
-        w.isDraft = true;
-      } else if (window.WishLifecycle) {
-        w.lifecycleStatus = window.WishLifecycle.getWishStatus(w);
-      }
-      w.favorite = favoriteIds.has(w.id);
-    });
-
-    // 2. Real server-derived counts
-    const totalCount = allWishes.length;
-    const draftsCount = allWishes.filter(w => w.lifecycleStatus === 'draft').length;
-    const upcomingCount = allWishes.filter(w => w.lifecycleStatus === 'upcoming').length;
-    const activeCount = allWishes.filter(w => w.lifecycleStatus === 'active').length;
-    const expiredCount = allWishes.filter(w => w.lifecycleStatus === 'expired').length;
-    const favoritesCount = allWishes.filter(w => w.favorite).length;
-    const totalViews = allWishes.reduce((sum, w) => sum + (w.views || 0), 0);
-
-    // Update badge counts on filter tabs
-    updateBadge('badge-count-all', totalCount);
-    updateBadge('badge-count-drafts', draftsCount);
-    updateBadge('badge-count-upcoming', upcomingCount);
-    updateBadge('badge-count-active', activeCount);
-    updateBadge('badge-count-expired', expiredCount);
-    updateBadge('badge-count-favorites', favoritesCount);
-
-    // Update metrics ribbon
-    updateStatText('stat-total-wishes', totalCount);
-    updateStatText('stat-draft-wishes', draftsCount);
-    updateStatText('stat-upcoming-wishes', upcomingCount);
-    updateStatText('stat-active-wishes', activeCount);
-    updateStatText('stat-expired-wishes', expiredCount);
-    updateStatText('stat-total-views', totalViews);
-
-    // 3. Filter wishes by active tab and search query
-    let filtered = allWishes.filter(w => {
-      if (currentFilter === 'drafts' && w.lifecycleStatus !== 'draft') return false;
-      if (currentFilter === 'upcoming' && w.lifecycleStatus !== 'upcoming') return false;
-      if (currentFilter === 'active' && w.lifecycleStatus !== 'active') return false;
-      if (currentFilter === 'expired' && w.lifecycleStatus !== 'expired') return false;
-      if (currentFilter === 'favorites' && !w.favorite) return false;
-
-      if (currentSearch) {
-        const query = currentSearch;
-        const cd = w.customData || {};
-        const searchable = [
-          w.recipientName || '',
-          w.buyerName || '',
-          w.senderName || '',
-          w.templateName || '',
-          w.category || '',
-          w.relationship || '',
-          cd.recipient_name || '',
-          cd.sender_name || '',
-          cd.custom_message || '',
-          cd.event_title || '',
-          cd.relationship || ''
-        ].join(' ').toLowerCase();
-
-        if (!searchable.includes(query)) return false;
-      }
-
-      return true;
-    });
-
-    // 4. Sort wishes
-    filtered.sort((a, b) => {
-      if (currentSort === 'newest') {
-        const dateA = new Date(a.createdAt || a.updatedAt || 0).getTime();
-        const dateB = new Date(b.createdAt || b.updatedAt || 0).getTime();
-        return dateB - dateA;
-      } else if (currentSort === 'oldest') {
-        const dateA = new Date(a.createdAt || a.updatedAt || 0).getTime();
-        const dateB = new Date(b.createdAt || b.updatedAt || 0).getTime();
-        return dateA - dateB;
-      } else if (currentSort === 'date') {
-        const dateA = (a.eventDate || a.customData?.event_date || '9999-99-99');
-        const dateB = (b.eventDate || b.customData?.event_date || '9999-99-99');
-        return dateA.localeCompare(dateB);
-      } else if (currentSort === 'views') {
-        return (b.views || 0) - (a.views || 0);
-      } else {
-        // default: 'recent'
-        const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
-        const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime();
-        return dateB - dateA;
-      }
-    });
-
-    // 5. Render Grid and handle Empty States
-    const container = document.getElementById('wishes-grid-container');
-    const emptyState = document.getElementById('wishes-empty-state');
-    const resultCountText = document.getElementById('search-results-summary');
-
-    if (resultCountText) {
-      if (currentSearch || currentFilter !== 'all') {
-        resultCountText.textContent = `Showing ${filtered.length} of ${totalCount} celebration wishes`;
-        resultCountText.classList.remove('hidden');
-      } else {
-        resultCountText.classList.add('hidden');
-      }
-    }
-
-    if (!container) return;
-
-    if (filtered.length === 0) {
-      container.innerHTML = '';
-      if (emptyState) {
-        emptyState.classList.remove('hidden');
-        customizeEmptyState(currentFilter, currentSearch);
-      }
-    } else {
-      if (emptyState) emptyState.classList.add('hidden');
-      container.innerHTML = filtered.map(w => buildWishCardHTML(w)).join('');
-    }
-  }
-
-  function updateBadge(id, count) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = count;
-  }
-
-  function updateStatText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-  }
-
-  // Customize empty state message according to active filter
-  function customizeEmptyState(filter, search) {
-    const iconEl = document.getElementById('empty-state-icon');
-    const titleEl = document.getElementById('empty-state-title');
-    const descEl = document.getElementById('empty-state-desc');
-    const ctaEl = document.getElementById('empty-state-cta');
-
-    if (search) {
-      if (iconEl) iconEl.textContent = 'search_off';
-      if (titleEl) titleEl.textContent = 'No Matches Found';
-      if (descEl) descEl.textContent = `No wishes found matching "${search}". Try checking for typos or searching a different recipient name.`;
-      if (ctaEl) {
-        ctaEl.textContent = 'Clear Search';
-        ctaEl.onclick = () => {
-          const input = document.getElementById('search-wishes-input');
-          if (input) input.value = '';
-          currentSearch = '';
-          renderDashboard();
-        };
-      }
-      return;
-    }
-
-    if (filter === 'drafts') {
-      if (iconEl) iconEl.textContent = 'edit_note';
-      if (titleEl) titleEl.textContent = 'No Saved Drafts';
-      if (descEl) descEl.textContent = 'Start personalizing any template. Your work is safely autosaved right here.';
-      if (ctaEl) {
-        ctaEl.textContent = '+ Start a New Draft';
-        ctaEl.onclick = () => window.location.href = '/create.html';
-      }
-    } else if (filter === 'upcoming') {
-      if (iconEl) iconEl.textContent = 'hourglass_top';
-      if (titleEl) titleEl.textContent = 'No Upcoming Wishes';
-      if (descEl) descEl.textContent = 'Schedule a celebration wish for upcoming birthdays or anniversaries to surprise your loved ones with a live countdown!';
-      if (ctaEl) {
-        ctaEl.textContent = '+ Schedule Future Wish';
-        ctaEl.onclick = () => window.location.href = '/create.html';
-      }
-    } else if (filter === 'active') {
-      if (iconEl) iconEl.textContent = 'celebration';
-      if (titleEl) titleEl.textContent = 'No Active Wishes Today';
-      if (descEl) descEl.textContent = 'Wishes automatically become ACTIVE on their celebration day in Asia/Kolkata timezone (IST).';
-      if (ctaEl) {
-        ctaEl.textContent = '+ Create a Wish for Today';
-        ctaEl.onclick = () => window.location.href = '/create.html';
-      }
-    } else if (filter === 'expired') {
-      if (iconEl) iconEl.textContent = 'bedtime';
-      if (titleEl) titleEl.textContent = 'No Expired Wishes';
-      if (descEl) descEl.textContent = 'Wishes expire at midnight IST after their special day ends to keep personal moments private and safe.';
-      if (ctaEl) {
-        ctaEl.textContent = '+ Create New Wish';
-        ctaEl.onclick = () => window.location.href = '/create.html';
-      }
-    } else if (filter === 'favorites') {
-      if (iconEl) iconEl.textContent = 'favorite_border';
-      if (titleEl) titleEl.textContent = 'No Favorites Yet';
-      if (descEl) descEl.textContent = 'Tap the heart icon on any wish card to bookmark your most memorable celebrations.';
-      if (ctaEl) {
-        ctaEl.textContent = 'Explore All Wishes';
-        ctaEl.onclick = () => window.setDashboardFilter('all');
-      }
-    } else {
-      if (iconEl) iconEl.textContent = 'auto_awesome';
-      if (titleEl) titleEl.textContent = 'No Wishes Created Yet';
-      if (descEl) descEl.textContent = 'Create your very first personalized celebration experience in under 2 minutes!';
-      if (ctaEl) {
-        ctaEl.textContent = '+ Create Your First Wish ✨';
-        ctaEl.onclick = () => window.location.href = '/create.html';
-      }
-    }
-  }
-
-  // Build Individual Card HTML (Adhering to Part 26 Card Lifecycle Rules)
-  function buildWishCardHTML(w) {
-    const isDraft = w.lifecycleStatus === 'draft';
-    const isUpcoming = w.lifecycleStatus === 'upcoming';
-    const isActive = w.lifecycleStatus === 'active';
-    const isExpired = w.lifecycleStatus === 'expired';
-    const isFav = w.favorite;
-
-    const recipient = w.recipientName || w.customData?.recipient_name || 'Special Person';
-    const sender = w.buyerName || w.senderName || w.customData?.sender_name || 'Anonymous';
-    const templateName = w.templateName || 'Magical Celebration';
-    const eventDate = w.eventDate || w.customData?.event_date || '';
-    const formattedDate = window.WishLifecycle ? window.WishLifecycle.formatISTDate(eventDate) : (eventDate || 'Special Day');
-    const isVip = (window.WishEntitlement && typeof window.WishEntitlement.getWishPlan === 'function')
-      ? (window.WishEntitlement.getWishPlan(w) === 'premium')
-      : (w.tier === 'vip' || w.tier === 'premium' || (w.price && w.price > 0));
-
-    const coverPhoto = w.coverPhoto || w.customData?.cover_photo || w.customData?.photos?.[0]?.src || w.customData?.photos?.[0]?.url || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80';
-    const relativeTime = getRelativeTime(w.updatedAt || w.createdAt);
-    const views = w.views || 0;
-    const relInfo = getRelationshipDisplay(w);
-
-    // Lifecycle Status Badge
-    let statusBadgeHTML = '';
-    if (isDraft) {
-      statusBadgeHTML = `
+(function(window2){"use strict";let allWishes=[],currentFilter="all",currentSearch="",currentSort="recent",favoriteIds=new Set,selectedWishForAction=null,isLoading=!1;document.addEventListener("DOMContentLoaded",async()=>{setupEventListeners(),await handleAuthSync(),window2.WishAuth&&window2.WishAuth.onAuthStateChange(async()=>{await handleAuthSync()})});async function handleAuthSync(){const user=window2.WishAuth?window2.WishAuth.getCurrentUser():null,barrier=document.getElementById("wishes-auth-barrier"),authView=document.getElementById("wishes-authenticated-view");if(!user){barrier&&barrier.classList.remove("hidden"),authView&&authView.classList.add("hidden"),allWishes=[],favoriteIds.clear();return}barrier&&barrier.classList.add("hidden"),authView&&authView.classList.remove("hidden"),await fetchServerFavorites(user.id),await migrateLocalGuestDraftsToServer(user.id),await fetchWishesAndDrafts(user.id),renderDashboard()}function getAuthHeaders(){const headers={Accept:"application/json"};try{if(window2.WishAuth){const session=window2.WishAuth.getSession();session&&session.token&&(headers.Authorization=`Bearer ${session.token}`)}}catch{}return headers}async function fetchServerFavorites(userId){if(!userId){favoriteIds=new Set;return}try{const data=await(await fetch("/api/favorites",{headers:getAuthHeaders(),credentials:"include"})).json();data&&data.success&&Array.isArray(data.favorites)&&(favoriteIds=new Set(data.favorites))}catch(e){console.warn("[my-wishes] Error loading server favorites:",e)}}async function migrateLocalGuestDraftsToServer(userId){if(userId)try{const rawDrafts=localStorage.getItem("wishmagic_drafts");if(!rawDrafts)return;const drafts=JSON.parse(rawDrafts);if(!Array.isArray(drafts)||drafts.length===0)return;for(const draft of drafts)if(!draft.userId||draft.userId==="guest"||draft.userId===userId)try{await fetch("/api/wishes",{method:"POST",headers:{...getAuthHeaders(),"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({templateId:draft.templateId||"tpl_glitter_birthday",status:"draft",isDraft:!0,customData:{...draft.customData||{},recipient_name:draft.recipientName||draft.customData?.recipient_name||"Special Person",sender_name:draft.senderName||draft.customData?.sender_name||"Creator",event_date:draft.eventDate||draft.customData?.event_date||new Date().toISOString().split("T")[0],isDraft:!0}})})}catch(err){console.warn("[my-wishes] Guest draft migration failed for draft:",draft.id,err)}localStorage.removeItem("wishmagic_drafts")}catch(e){console.warn("[my-wishes] Error checking guest drafts migration:",e)}}async function fetchWishesAndDrafts(userId){if(!userId){allWishes=[];return}isLoading=!0;try{const res=await fetch("/api/wishes",{headers:getAuthHeaders(),credentials:"include"});if(res.status===401){window2.WishAuth&&window2.WishAuth.requireAuth(),allWishes=[];return}const data=await res.json();data&&data.success&&Array.isArray(data.wishes)?allWishes=data.wishes.map(w=>{const isDraft=!!(w.status==="draft"||w.isDraft||w.customData&&w.customData.isDraft),lifecycleStatus=isDraft?"draft":window2.WishLifecycle?window2.WishLifecycle.getWishStatus(w):w.lifecycleStatus||"active";return{...w,status:isDraft?"draft":w.status||"published",isDraft,lifecycleStatus,favorite:favoriteIds.has(w.id)}}):allWishes=[]}catch(err){console.error("[my-wishes] Error fetching wishes from server:",err),allWishes=[]}finally{isLoading=!1}}function setupEventListeners(){const searchInput=document.getElementById("search-wishes-input"),clearBtn=document.getElementById("search-clear-btn");searchInput&&searchInput.addEventListener("input",e=>{currentSearch=e.target.value.trim().toLowerCase(),clearBtn&&(currentSearch.length>0?clearBtn.classList.remove("hidden"):clearBtn.classList.add("hidden")),renderDashboard()}),clearBtn&&clearBtn.addEventListener("click",()=>{searchInput&&(searchInput.value=""),currentSearch="",clearBtn.classList.add("hidden"),renderDashboard()});const sortSelect=document.getElementById("sort-wishes-select");sortSelect&&sortSelect.addEventListener("change",e=>{currentSort=e.target.value,renderDashboard()})}window2.setDashboardFilter=function(filterName){currentFilter=filterName,document.querySelectorAll(".filter-tab-btn").forEach(btn=>{btn.getAttribute("data-tab")===filterName?btn.className="filter-tab-btn px-4 py-2 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/25 flex items-center gap-2 transition-all cursor-pointer flex-shrink-0":btn.className="filter-tab-btn px-4 py-2 rounded-full font-semibold text-xs sm:text-sm glass-pill text-purple-900 dark:text-purple-200 hover:text-pink-600 dark:hover:text-pink-300 flex items-center gap-2 transition-all cursor-pointer flex-shrink-0"}),renderDashboard()},window2.toggleFavorite=async function(wishId,e){if(e&&(e.stopPropagation(),e.preventDefault()),!(window2.WishAuth?window2.WishAuth.getCurrentUser():null)){window2.WishAuth&&window2.WishAuth.requireAuth({message:"Please sign in to favorite your celebrations."});return}const currentlyFav=favoriteIds.has(wishId);currentlyFav?favoriteIds.delete(wishId):favoriteIds.add(wishId);const target=allWishes.find(w=>w.id===wishId);target&&(target.favorite=!currentlyFav),renderDashboard(),showDashboardToast(currentlyFav?"Removed from Favorites \u{1F494}":"Added to Favorites \u2764\uFE0F");try{const data=await(await fetch("/api/favorites",{method:"POST",headers:{...getAuthHeaders(),"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({itemId:wishId,itemType:"wish"})})).json();data&&data.success&&typeof data.favorited=="boolean"&&(data.favorited?favoriteIds.add(wishId):favoriteIds.delete(wishId),target&&(target.favorite=data.favorited),renderDashboard())}catch(err){console.warn("[my-wishes] Failed to sync favorite with server:",err)}};function getRelationshipDisplay(w){const cd=w.customData||{},relId=w.relationship||w.relationshipId||w.relationship_id||cd.relationship||cd.relationshipId||cd.relationship_id||cd.relationship_label||"";if(!relId)return null;const relMap={crush:{label:"Crush",icon:"favorite",bgClass:"bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30"},partner:{label:"Partner",icon:"favorite",bgClass:"bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"},spouse:{label:"Spouse",icon:"favorite",bgClass:"bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30"},best_friend:{label:"Best Friend",icon:"sentiment_very_satisfied",bgClass:"bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"},friend:{label:"Friend",icon:"sentiment_satisfied",bgClass:"bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"},parent:{label:"Parents",icon:"diversity_1",bgClass:"bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"},parents:{label:"Parents",icon:"diversity_1",bgClass:"bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"},mom:{label:"Mom",icon:"family_restroom",bgClass:"bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30"},dad:{label:"Dad",icon:"family_restroom",bgClass:"bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"},sibling:{label:"Sibling",icon:"diversity_3",bgClass:"bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30"},brother:{label:"Brother",icon:"diversity_3",bgClass:"bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30"},sister:{label:"Sister",icon:"diversity_3",bgClass:"bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30"},mentor:{label:"Mentor",icon:"school",bgClass:"bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"},colleague:{label:"Colleague",icon:"work",bgClass:"bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"},self:{label:"Self Keepsake",icon:"auto_awesome",bgClass:"bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border-yellow-500/30"}},key=String(relId).toLowerCase().replace(/[^a-z0-9_]/g,"_");return relMap[key]?relMap[key]:{label:String(relId).replace(/[_-]/g," ").replace(/\b\w/g,l=>l.toUpperCase()),icon:"favorite",bgClass:"bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30"}}function renderDashboard(){allWishes.forEach(w=>{!!(w.status==="draft"||w.isDraft||w.customData&&w.customData.isDraft)?(w.status="draft",w.lifecycleStatus="draft",w.isDraft=!0):window2.WishLifecycle&&(w.lifecycleStatus=window2.WishLifecycle.getWishStatus(w)),w.favorite=favoriteIds.has(w.id)});const totalCount=allWishes.length,draftsCount=allWishes.filter(w=>w.lifecycleStatus==="draft").length,upcomingCount=allWishes.filter(w=>w.lifecycleStatus==="upcoming").length,activeCount=allWishes.filter(w=>w.lifecycleStatus==="active").length,expiredCount=allWishes.filter(w=>w.lifecycleStatus==="expired").length,favoritesCount=allWishes.filter(w=>w.favorite).length,totalViews=allWishes.reduce((sum,w)=>sum+(w.views||0),0);updateBadge("badge-count-all",totalCount),updateBadge("badge-count-drafts",draftsCount),updateBadge("badge-count-upcoming",upcomingCount),updateBadge("badge-count-active",activeCount),updateBadge("badge-count-expired",expiredCount),updateBadge("badge-count-favorites",favoritesCount),updateStatText("stat-total-wishes",totalCount),updateStatText("stat-draft-wishes",draftsCount),updateStatText("stat-upcoming-wishes",upcomingCount),updateStatText("stat-active-wishes",activeCount),updateStatText("stat-expired-wishes",expiredCount),updateStatText("stat-total-views",totalViews);let filtered=allWishes.filter(w=>{if(currentFilter==="drafts"&&w.lifecycleStatus!=="draft"||currentFilter==="upcoming"&&w.lifecycleStatus!=="upcoming"||currentFilter==="active"&&w.lifecycleStatus!=="active"||currentFilter==="expired"&&w.lifecycleStatus!=="expired"||currentFilter==="favorites"&&!w.favorite)return!1;if(currentSearch){const query=currentSearch,cd=w.customData||{};if(![w.recipientName||"",w.buyerName||"",w.senderName||"",w.templateName||"",w.category||"",w.relationship||"",cd.recipient_name||"",cd.sender_name||"",cd.custom_message||"",cd.event_title||"",cd.relationship||""].join(" ").toLowerCase().includes(query))return!1}return!0});filtered.sort((a,b)=>{if(currentSort==="newest"){const dateA=new Date(a.createdAt||a.updatedAt||0).getTime();return new Date(b.createdAt||b.updatedAt||0).getTime()-dateA}else if(currentSort==="oldest"){const dateA=new Date(a.createdAt||a.updatedAt||0).getTime(),dateB=new Date(b.createdAt||b.updatedAt||0).getTime();return dateA-dateB}else if(currentSort==="date"){const dateA=a.eventDate||a.customData?.event_date||"9999-99-99",dateB=b.eventDate||b.customData?.event_date||"9999-99-99";return dateA.localeCompare(dateB)}else{if(currentSort==="views")return(b.views||0)-(a.views||0);{const dateA=new Date(a.updatedAt||a.createdAt||0).getTime();return new Date(b.updatedAt||b.createdAt||0).getTime()-dateA}}});const container=document.getElementById("wishes-grid-container"),emptyState=document.getElementById("wishes-empty-state"),resultCountText=document.getElementById("search-results-summary");resultCountText&&(currentSearch||currentFilter!=="all"?(resultCountText.textContent=`Showing ${filtered.length} of ${totalCount} celebration wishes`,resultCountText.classList.remove("hidden")):resultCountText.classList.add("hidden")),container&&(filtered.length===0?(container.innerHTML="",emptyState&&(emptyState.classList.remove("hidden"),customizeEmptyState(currentFilter,currentSearch))):(emptyState&&emptyState.classList.add("hidden"),container.innerHTML=filtered.map(w=>buildWishCardHTML(w)).join("")))}function updateBadge(id,count){const el=document.getElementById(id);el&&(el.textContent=count)}function updateStatText(id,val){const el=document.getElementById(id);el&&(el.textContent=val)}function customizeEmptyState(filter,search){const iconEl=document.getElementById("empty-state-icon"),titleEl=document.getElementById("empty-state-title"),descEl=document.getElementById("empty-state-desc"),ctaEl=document.getElementById("empty-state-cta");if(search){iconEl&&(iconEl.textContent="search_off"),titleEl&&(titleEl.textContent="No Matches Found"),descEl&&(descEl.textContent=`No wishes found matching "${search}". Try checking for typos or searching a different recipient name.`),ctaEl&&(ctaEl.textContent="Clear Search",ctaEl.onclick=()=>{const input=document.getElementById("search-wishes-input");input&&(input.value=""),currentSearch="",renderDashboard()});return}filter==="drafts"?(iconEl&&(iconEl.textContent="edit_note"),titleEl&&(titleEl.textContent="No Saved Drafts"),descEl&&(descEl.textContent="Start personalizing any template. Your work is safely autosaved right here."),ctaEl&&(ctaEl.textContent="+ Start a New Draft",ctaEl.onclick=()=>window2.location.href="/create.html")):filter==="upcoming"?(iconEl&&(iconEl.textContent="hourglass_top"),titleEl&&(titleEl.textContent="No Upcoming Wishes"),descEl&&(descEl.textContent="Schedule a celebration wish for upcoming birthdays or anniversaries to surprise your loved ones with a live countdown!"),ctaEl&&(ctaEl.textContent="+ Schedule Future Wish",ctaEl.onclick=()=>window2.location.href="/create.html")):filter==="active"?(iconEl&&(iconEl.textContent="celebration"),titleEl&&(titleEl.textContent="No Active Wishes Today"),descEl&&(descEl.textContent="Wishes automatically become ACTIVE on their celebration day in Asia/Kolkata timezone (IST)."),ctaEl&&(ctaEl.textContent="+ Create a Wish for Today",ctaEl.onclick=()=>window2.location.href="/create.html")):filter==="expired"?(iconEl&&(iconEl.textContent="bedtime"),titleEl&&(titleEl.textContent="No Expired Wishes"),descEl&&(descEl.textContent="Wishes expire at midnight IST after their special day ends to keep personal moments private and safe."),ctaEl&&(ctaEl.textContent="+ Create New Wish",ctaEl.onclick=()=>window2.location.href="/create.html")):filter==="favorites"?(iconEl&&(iconEl.textContent="favorite_border"),titleEl&&(titleEl.textContent="No Favorites Yet"),descEl&&(descEl.textContent="Tap the heart icon on any wish card to bookmark your most memorable celebrations."),ctaEl&&(ctaEl.textContent="Explore All Wishes",ctaEl.onclick=()=>window2.setDashboardFilter("all"))):(iconEl&&(iconEl.textContent="auto_awesome"),titleEl&&(titleEl.textContent="No Wishes Created Yet"),descEl&&(descEl.textContent="Create your very first personalized celebration experience in under 2 minutes!"),ctaEl&&(ctaEl.textContent="+ Create Your First Wish \u2728",ctaEl.onclick=()=>window2.location.href="/create.html"))}function buildWishCardHTML(w){const isDraft=w.lifecycleStatus==="draft",isUpcoming=w.lifecycleStatus==="upcoming",isActive=w.lifecycleStatus==="active",isExpired=w.lifecycleStatus==="expired",isFav=w.favorite,recipient=w.recipientName||w.customData?.recipient_name||"Special Person",sender=w.buyerName||w.senderName||w.customData?.sender_name||"Anonymous",templateName=w.templateName||"Magical Celebration",eventDate=w.eventDate||w.customData?.event_date||"",formattedDate=window2.WishLifecycle?window2.WishLifecycle.formatISTDate(eventDate):eventDate||"Special Day",isVip=window2.WishEntitlement&&typeof window2.WishEntitlement.getWishPlan=="function"?window2.WishEntitlement.getWishPlan(w)==="premium":w.tier==="vip"||w.tier==="premium"||w.price&&w.price>0,coverPhoto=w.coverPhoto||w.customData?.cover_photo||w.customData?.photos?.[0]?.src||w.customData?.photos?.[0]?.url||"https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",relativeTime=getRelativeTime(w.updatedAt||w.createdAt),views=w.views||0,relInfo=getRelationshipDisplay(w);let statusBadgeHTML="";isDraft?statusBadgeHTML=`
         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-500/40 shadow-sm backdrop-blur-md">
           <span class="material-symbols-outlined text-[13px]">edit_document</span>
           <span>DRAFT</span>
         </span>
-      `;
-    } else if (isActive) {
-      statusBadgeHTML = `
+      `:isActive?statusBadgeHTML=`
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border border-emerald-500/50 shadow-sm backdrop-blur-md">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-          <span>● ACTIVE NOW</span>
+          <span>\u25CF ACTIVE NOW</span>
         </span>
-      `;
-    } else if (isUpcoming) {
-      statusBadgeHTML = `
+      `:isUpcoming?statusBadgeHTML=`
         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 border border-indigo-500/45 shadow-sm backdrop-blur-md">
           <span class="material-symbols-outlined text-[13px]">schedule</span>
           <span>UPCOMING</span>
         </span>
-      `;
-    } else {
-      // Expired
-      statusBadgeHTML = `
+      `:statusBadgeHTML=`
         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-600/30 text-slate-700 dark:text-slate-300 border border-slate-500/40 shadow-sm backdrop-blur-md">
           <span class="material-symbols-outlined text-[13px]">bedtime</span>
           <span>EXPIRED</span>
         </span>
-      `;
-    }
-
-    // Tier badge
-    const tierBadgeHTML = isVip
-      ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 backdrop-blur-md">👑 VIP PASS</span>`
-      : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/20 backdrop-blur-md">FREE TIER</span>`;
-
-    // Relationship Badge
-    const relationshipBadgeHTML = relInfo
-      ? `
+      `;const tierBadgeHTML=isVip?'<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 backdrop-blur-md">\u{1F451} VIP PASS</span>':'<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/20 backdrop-blur-md">FREE TIER</span>',relationshipBadgeHTML=relInfo?`
         <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-extrabold ${relInfo.bgClass}">
           <span class="material-symbols-outlined text-[12px] font-fill">${relInfo.icon}</span>
           <span>${relInfo.label}</span>
         </div>
-      `
-      : '';
-
-    // Action Buttons Matrix (Strictly lifecycle state-dependent per Part 26 Rules)
-    let actionButtonsHTML = '';
-
-    if (isDraft) {
-      // Draft: Continue Editing + Preview + Duplicate + Delete (NO Public Share)
-      actionButtonsHTML = `
+      `:"";let actionButtonsHTML="";if(isDraft)actionButtonsHTML=`
         <div class="grid grid-cols-2 gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
-          <a href="/customize.html?draft=${encodeURIComponent(w.id)}&template=${encodeURIComponent(w.templateId || '')}" class="col-span-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
+          <a href="/customize.html?draft=${encodeURIComponent(w.id)}&template=${encodeURIComponent(w.templateId||"")}" class="col-span-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
             <span class="material-symbols-outlined text-[16px]">edit</span>
             <span>Continue Editing</span>
           </a>
@@ -617,14 +44,10 @@
             </button>
           </div>
         </div>
-      `;
-    } else if (isUpcoming) {
-      // Upcoming: Countdown Link + Share + Edit + Duplicate + Delete/Archive
-      const publicLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(w) : `/wish/${encodeURIComponent(w.slug || w.id)}`;
-      actionButtonsHTML = `
+      `;else if(isUpcoming)actionButtonsHTML=`
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
-            <a href="${publicLink}" target="_blank" class="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
+            <a href="${typeof window2.getPublicWishUrl=="function"?window2.getPublicWishUrl(w):`/wish/${encodeURIComponent(w.slug||w.id)}`}" target="_blank" class="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">hourglass_bottom</span>
               <span>Countdown</span>
             </a>
@@ -648,14 +71,10 @@
             </button>
           </div>
         </div>
-      `;
-    } else if (isActive) {
-      // Active: Open Live + Share + Edit + Duplicate + Delete/Archive
-      const publicLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(w) : `/wish/${encodeURIComponent(w.slug || w.id)}`;
-      actionButtonsHTML = `
+      `;else if(isActive)actionButtonsHTML=`
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
-            <a href="${publicLink}" target="_blank" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
+            <a href="${typeof window2.getPublicWishUrl=="function"?window2.getPublicWishUrl(w):`/wish/${encodeURIComponent(w.slug||w.id)}`}" target="_blank" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">open_in_new</span>
               <span>Open Live</span>
             </a>
@@ -679,16 +98,12 @@
             </button>
           </div>
         </div>
-      `;
-    } else {
-      // Expired: Create Again ✨ + Preview/View Keepsake + Duplicate + Archive/Delete (NO Reactivate)
-      const publicLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(w) : `/wish/${encodeURIComponent(w.slug || w.id)}`;
-      actionButtonsHTML = `
+      `;else{const publicLink=typeof window2.getPublicWishUrl=="function"?window2.getPublicWishUrl(w):`/wish/${encodeURIComponent(w.slug||w.id)}`;actionButtonsHTML=`
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
             <button onclick="createAgainWish('${w.id}')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:brightness-110 text-white font-extrabold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">restart_alt</span>
-              <span>Create Again ✨</span>
+              <span>Create Again \u2728</span>
             </button>
             <a href="${publicLink}" target="_blank" class="py-2.5 px-3 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-xs flex items-center justify-center gap-1 transition cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">visibility</span>
@@ -706,14 +121,11 @@
             </button>
           </div>
         </div>
-      `;
-    }
-
-    return `
-      <div class="glass-card rounded-3xl overflow-hidden border ${isDraft ? 'border-amber-500/40' : (isActive ? 'border-emerald-500/50' : 'border-purple-200/70 dark:border-purple-800/60')} shadow-lg hover:shadow-2xl hover:border-pink-500/50 transition-all duration-300 flex flex-col group relative" data-wish-id="${w.id}">
+      `}return`
+      <div class="glass-card rounded-3xl overflow-hidden border ${isDraft?"border-amber-500/40":isActive?"border-emerald-500/50":"border-purple-200/70 dark:border-purple-800/60"} shadow-lg hover:shadow-2xl hover:border-pink-500/50 transition-all duration-300 flex flex-col group relative" data-wish-id="${w.id}">
         <!-- Top Cover Thumbnail Banner -->
         <div class="relative h-44 w-full overflow-hidden bg-purple-950/20">
-          <img src="${coverPhoto}" alt="${recipient}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80'"/>
+          <img src="${coverPhoto}" alt="${recipient}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80'"/>
           <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
 
           <!-- Top-Left Badges: Status + Tier -->
@@ -723,9 +135,9 @@
           </div>
 
           <!-- Top-Right Favorite Button -->
-          <button onclick="toggleFavorite('${w.id}', event)" class="absolute top-3 right-3 p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:scale-110 active:scale-95 transition z-10 cursor-pointer" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
-            <span class="material-symbols-outlined text-[18px] ${isFav ? 'text-pink-500 font-fill' : 'text-white'}">
-              ${isFav ? 'favorite' : 'favorite_border'}
+          <button onclick="toggleFavorite('${w.id}', event)" class="absolute top-3 right-3 p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:scale-110 active:scale-95 transition z-10 cursor-pointer" title="${isFav?"Remove from favorites":"Add to favorites"}">
+            <span class="material-symbols-outlined text-[18px] ${isFav?"text-pink-500 font-fill":"text-white"}">
+              ${isFav?"favorite":"favorite_border"}
             </span>
           </button>
 
@@ -736,15 +148,15 @@
                 ${relationshipBadgeHTML}
               </div>
               <h3 class="font-display font-extrabold text-lg sm:text-xl text-white truncate max-w-[200px] sm:max-w-[240px] drop-shadow-md">
-                ✨ For ${recipient}
+                \u2728 For ${recipient}
               </h3>
             </div>
-            ${!isDraft ? `
+            ${isDraft?"":`
               <div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-[10px] font-bold text-purple-200">
                 <span class="material-symbols-outlined text-[12px]">visibility</span>
                 <span>${views} views</span>
               </div>
-            ` : ''}
+            `}
           </div>
         </div>
 
@@ -776,108 +188,7 @@
           ${actionButtonsHTML}
         </div>
       </div>
-    `;
-  }
-
-  // Relative Time Formatter
-  function getRelativeTime(dateStr) {
-    if (!dateStr) return 'recently';
-    try {
-      const then = new Date(dateStr).getTime();
-      const now = Date.now();
-      const diffSec = Math.floor((now - then) / 1000);
-      if (diffSec < 60) return 'just now';
-      const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return `${diffMin}m ago`;
-      const diffHours = Math.floor(diffMin / 60);
-      if (diffHours < 24) return `${diffHours}h ago`;
-      const diffDays = Math.floor(diffHours / 24);
-      if (diffDays < 30) return `${diffDays}d ago`;
-      return `${Math.floor(diffDays / 30)}mo ago`;
-    } catch (e) {
-      return 'recently';
-    }
-  }
-
-  // Duplicate a Wish or Draft into a new customizer draft on the server
-  window.duplicateWish = async function(wishId) {
-    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-    if (!user) {
-      if (window.WishAuth) window.WishAuth.requireAuth();
-      return;
-    }
-
-    try {
-      showDashboardToast('Duplicating celebration... ⏳');
-      const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}/duplicate`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
-      const data = await res.json();
-      if (data && data.success) {
-        showDashboardToast('Duplicated as new Draft! 📋');
-        await fetchWishesAndDrafts(user.id);
-        renderDashboard();
-      } else {
-        showDashboardToast(data.message || 'Could not duplicate wish.');
-      }
-    } catch (err) {
-      console.warn('[my-wishes] Duplication error:', err);
-      // Fallback: navigate to customizer clone
-      window.location.href = `/customize.html?clone=${encodeURIComponent(wishId)}`;
-    }
-  };
-
-  // Create Again (Part 26): Instantiates a brand new draft from an expired celebration
-  window.createAgainWish = async function(wishId) {
-    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-    if (!user) {
-      if (window.WishAuth) window.WishAuth.requireAuth();
-      return;
-    }
-
-    try {
-      showDashboardToast('Creating new celebration draft... ✨');
-      const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}/create-again`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
-      const data = await res.json();
-      if (data && data.success && data.wishId) {
-        showDashboardToast('New celebration draft ready! 📝');
-        const targetWish = allWishes.find(w => w.id === wishId);
-        const tplId = (targetWish && targetWish.templateId) || 'tpl_glitter_birthday';
-        window.location.href = `/customize.html?draft=${encodeURIComponent(data.wishId)}&template=${encodeURIComponent(tplId)}`;
-      } else {
-        // Fallback: customizer clone URL
-        window.location.href = `/customize.html?clone=${encodeURIComponent(wishId)}`;
-      }
-    } catch (err) {
-      console.warn('[my-wishes] Create Again API error:', err);
-      window.location.href = `/customize.html?clone=${encodeURIComponent(wishId)}`;
-    }
-  };
-
-  // Delete Confirmation Prompt Modal
-  window.deleteWishPrompt = function(wishId) {
-    const wish = allWishes.find(w => w.id === wishId);
-    if (!wish) return;
-
-    selectedWishForAction = wish;
-    const isDraft = wish.lifecycleStatus === 'draft';
-    const recipient = wish.recipientName || 'this celebration';
-
-    let modal = document.getElementById('dashboard-delete-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'dashboard-delete-modal';
-      modal.className = 'fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300';
-      document.body.appendChild(modal);
-    }
-
-    modal.innerHTML = `
+    `}function getRelativeTime(dateStr){if(!dateStr)return"recently";try{const then=new Date(dateStr).getTime(),now=Date.now(),diffSec=Math.floor((now-then)/1e3);if(diffSec<60)return"just now";const diffMin=Math.floor(diffSec/60);if(diffMin<60)return`${diffMin}m ago`;const diffHours=Math.floor(diffMin/60);if(diffHours<24)return`${diffHours}h ago`;const diffDays=Math.floor(diffHours/24);return diffDays<30?`${diffDays}d ago`:`${Math.floor(diffDays/30)}mo ago`}catch{return"recently"}}window2.duplicateWish=async function(wishId){const user=window2.WishAuth?window2.WishAuth.getCurrentUser():null;if(!user){window2.WishAuth&&window2.WishAuth.requireAuth();return}try{showDashboardToast("Duplicating celebration... \u23F3");const data=await(await fetch(`/api/wishes/${encodeURIComponent(wishId)}/duplicate`,{method:"POST",headers:getAuthHeaders(),credentials:"include"})).json();data&&data.success?(showDashboardToast("Duplicated as new Draft! \u{1F4CB}"),await fetchWishesAndDrafts(user.id),renderDashboard()):showDashboardToast(data.message||"Could not duplicate wish.")}catch(err){console.warn("[my-wishes] Duplication error:",err),window2.location.href=`/customize.html?clone=${encodeURIComponent(wishId)}`}},window2.createAgainWish=async function(wishId){if(!(window2.WishAuth?window2.WishAuth.getCurrentUser():null)){window2.WishAuth&&window2.WishAuth.requireAuth();return}try{showDashboardToast("Creating new celebration draft... \u2728");const data=await(await fetch(`/api/wishes/${encodeURIComponent(wishId)}/create-again`,{method:"POST",headers:getAuthHeaders(),credentials:"include"})).json();if(data&&data.success&&data.wishId){showDashboardToast("New celebration draft ready! \u{1F4DD}");const targetWish=allWishes.find(w=>w.id===wishId),tplId=targetWish&&targetWish.templateId||"tpl_glitter_birthday";window2.location.href=`/customize.html?draft=${encodeURIComponent(data.wishId)}&template=${encodeURIComponent(tplId)}`}else window2.location.href=`/customize.html?clone=${encodeURIComponent(wishId)}`}catch(err){console.warn("[my-wishes] Create Again API error:",err),window2.location.href=`/customize.html?clone=${encodeURIComponent(wishId)}`}},window2.deleteWishPrompt=function(wishId){const wish=allWishes.find(w=>w.id===wishId);if(!wish)return;selectedWishForAction=wish;const isDraft=wish.lifecycleStatus==="draft",recipient=wish.recipientName||"this celebration";let modal=document.getElementById("dashboard-delete-modal");modal||(modal=document.createElement("div"),modal.id="dashboard-delete-modal",modal.className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300",document.body.appendChild(modal)),modal.innerHTML=`
       <div class="w-full max-w-md bg-white dark:bg-purple-950 rounded-3xl border border-rose-200 dark:border-rose-900/50 shadow-2xl p-6 flex flex-col gap-4 text-center">
         <div class="w-14 h-14 rounded-full bg-rose-500/15 text-rose-500 mx-auto flex items-center justify-center text-3xl">
           <span class="material-symbols-outlined text-[32px]">delete_forever</span>
@@ -885,7 +196,7 @@
 
         <div>
           <h3 class="font-display text-xl font-extrabold text-purple-950 dark:text-white">
-            Delete ${isDraft ? 'Draft' : 'Keepsake'}?
+            Delete ${isDraft?"Draft":"Keepsake"}?
           </h3>
           <p class="text-xs text-purple-700 dark:text-purple-300 mt-1">
             Are you sure you want to permanently remove the celebration for <strong class="text-purple-950 dark:text-white">${recipient}</strong>? This cannot be undone.
@@ -901,58 +212,13 @@
           </button>
         </div>
       </div>
-    `;
-
-    modal.classList.remove('hidden');
-  };
-
-  // Confirm delete handler with server cascade
-  window.confirmDeleteWish = async function(wishId) {
-    const modal = document.getElementById('dashboard-delete-modal');
-    if (modal) modal.classList.add('hidden');
-
-    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-
-    try {
-      await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
-    } catch (e) {
-      console.warn('[my-wishes] Server delete call failed:', e);
-    }
-
-    favoriteIds.delete(wishId);
-    allWishes = allWishes.filter(w => w.id !== wishId);
-    showDashboardToast('Celebration removed successfully 🗑️');
-    renderDashboard();
-  };
-
-  // Preview Modal for Fast Creator Inspection
-  window.previewWishModal = function(wishId) {
-    const wish = allWishes.find(w => w.id === wishId);
-    if (!wish) return;
-
-    let modal = document.getElementById('dashboard-preview-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'dashboard-preview-modal';
-      modal.className = 'fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 transition-all duration-300';
-      document.body.appendChild(modal);
-    }
-
-    const previewSrc = wish.isDraft
-      ? `/template-preview.html?template=${encodeURIComponent(wish.templateId || 'tpl_glitter_birthday')}&creatorPreview=1`
-      : `/w/${encodeURIComponent(wish.slug || wish.id)}?creatorPreview=1`;
-
-    modal.innerHTML = `
+    `,modal.classList.remove("hidden")},window2.confirmDeleteWish=async function(wishId){const modal=document.getElementById("dashboard-delete-modal");modal&&modal.classList.add("hidden");const user=window2.WishAuth?window2.WishAuth.getCurrentUser():null;try{await fetch(`/api/wishes/${encodeURIComponent(wishId)}`,{method:"DELETE",headers:getAuthHeaders(),credentials:"include"})}catch(e){console.warn("[my-wishes] Server delete call failed:",e)}favoriteIds.delete(wishId),allWishes=allWishes.filter(w=>w.id!==wishId),showDashboardToast("Celebration removed successfully \u{1F5D1}\uFE0F"),renderDashboard()},window2.previewWishModal=function(wishId){const wish=allWishes.find(w=>w.id===wishId);if(!wish)return;let modal=document.getElementById("dashboard-preview-modal");modal||(modal=document.createElement("div"),modal.id="dashboard-preview-modal",modal.className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 transition-all duration-300",document.body.appendChild(modal));const previewSrc=wish.isDraft?`/template-preview.html?template=${encodeURIComponent(wish.templateId||"tpl_glitter_birthday")}&creatorPreview=1`:`/w/${encodeURIComponent(wish.slug||wish.id)}?creatorPreview=1`;modal.innerHTML=`
       <div class="w-full max-w-4xl h-[90vh] bg-surface-container-lowest dark:bg-purple-950 rounded-3xl border border-purple-200 dark:border-purple-800 shadow-2xl flex flex-col overflow-hidden relative">
         <div class="px-5 py-3.5 bg-white dark:bg-purple-900/60 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <span class="w-3 h-3 rounded-full bg-pink-500 animate-pulse"></span>
             <span class="font-display font-bold text-sm text-purple-950 dark:text-white">Creator Live Preview</span>
-            <span class="text-xs text-purple-600 dark:text-purple-400">(${wish.recipientName || 'Celebration'})</span>
+            <span class="text-xs text-purple-600 dark:text-purple-400">(${wish.recipientName||"Celebration"})</span>
           </div>
           <div class="flex items-center gap-2">
             <a href="${previewSrc}" target="_blank" class="px-3 py-1.5 rounded-xl glass-pill text-xs font-bold text-purple-900 dark:text-purple-200 hover:border-purple-400 flex items-center gap-1 transition">
@@ -968,42 +234,7 @@
           <iframe src="${previewSrc}" class="w-full h-full border-none" title="Wish Preview"></iframe>
         </div>
       </div>
-    `;
-
-    modal.classList.remove('hidden');
-  };
-
-  // Share Modal (Part 15 & 26: Only for Published Upcoming / Active Wishes)
-  window.openShareModal = function(wishId) {
-    const wish = allWishes.find(w => w.id === wishId);
-    if (!wish) return;
-
-    if (wish.isDraft || wish.lifecycleStatus === 'draft') {
-      showDashboardToast('Draft must be published before sharing a public link.');
-      return;
-    }
-
-    selectedWishForAction = wish;
-
-    // Use Centralized WishShareSystem if present
-    if (window.WishShareSystem) {
-      window.WishShareSystem.openShareModal(wish);
-      return;
-    }
-
-    const recipient = wish.recipientName || wish.customData?.recipient_name || 'Special Person';
-    const fullLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(wish) : `${window.location.origin}/wish/${wish.slug || wish.id}`;
-    const whatsappText = encodeURIComponent(`✨ Hey ${recipient}! I crafted an immersive personalized celebration website for you. Open your surprise here: ${fullLink}`);
-
-    let modal = document.getElementById('dashboard-share-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'dashboard-share-modal';
-      modal.className = 'fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300';
-      document.body.appendChild(modal);
-    }
-
-    modal.innerHTML = `
+    `,modal.classList.remove("hidden")},window2.openShareModal=function(wishId){const wish=allWishes.find(w=>w.id===wishId);if(!wish)return;if(wish.isDraft||wish.lifecycleStatus==="draft"){showDashboardToast("Draft must be published before sharing a public link.");return}if(selectedWishForAction=wish,window2.WishShareSystem){window2.WishShareSystem.openShareModal(wish);return}const recipient=wish.recipientName||wish.customData?.recipient_name||"Special Person",fullLink=typeof window2.getPublicWishUrl=="function"?window2.getPublicWishUrl(wish):`${window2.location.origin}/wish/${wish.slug||wish.id}`,whatsappText=encodeURIComponent(`\u2728 Hey ${recipient}! I crafted an immersive personalized celebration website for you. Open your surprise here: ${fullLink}`);let modal=document.getElementById("dashboard-share-modal");modal||(modal=document.createElement("div"),modal.id="dashboard-share-modal",modal.className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300",document.body.appendChild(modal)),modal.innerHTML=`
       <div class="w-full max-w-md bg-white dark:bg-purple-950 rounded-3xl border border-purple-200 dark:border-purple-800 shadow-2xl p-6 sm:p-7 flex flex-col gap-4 relative animate-scaleUp">
         <button onclick="document.getElementById('dashboard-share-modal').classList.add('hidden')" class="absolute top-4 right-4 p-2 text-purple-400 hover:text-purple-600 dark:hover:text-white rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/60 transition cursor-pointer">
           <span class="material-symbols-outlined text-[20px]">close</span>
@@ -1011,7 +242,7 @@
 
         <div class="flex items-center gap-3">
           <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center text-2xl shadow-lg shadow-pink-500/25">
-            🎁
+            \u{1F381}
           </div>
           <div>
             <h3 class="font-display text-xl font-extrabold text-purple-950 dark:text-white">Share Celebration Link</h3>
@@ -1043,74 +274,4 @@
           </a>
         </div>
       </div>
-    `;
-
-    modal.classList.remove('hidden');
-  };
-
-  window.copyShareModalLink = async function() {
-    const input = document.getElementById('share-link-input-modal');
-    const btnText = document.getElementById('btn-copy-share-text');
-    if (!input || !input.value.trim()) {
-      showDashboardToast('⚠️ No celebration link available.');
-      return;
-    }
-
-    const url = input.value.trim();
-    if (btnText) btnText.textContent = 'Copying...';
-
-    let copied = false;
-    if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(url);
-        copied = true;
-      } catch (_) {
-        copied = false;
-      }
-    }
-
-    if (!copied) {
-      try {
-        input.focus();
-        input.select();
-        input.setSelectionRange(0, 99999);
-        copied = document.execCommand('copy');
-      } catch (_) {
-        copied = false;
-      }
-    }
-
-    if (copied) {
-      if (btnText) btnText.textContent = 'Copied! ✨';
-      showDashboardToast('Link copied to clipboard! 📋');
-    } else {
-      if (btnText) btnText.textContent = 'Copy Failed';
-      showDashboardToast('⚠️ Could not copy automatically. Please copy manually.');
-      input.focus();
-      input.select();
-    }
-
-    setTimeout(() => {
-      if (btnText) btnText.textContent = 'Copy';
-    }, 2500);
-  };
-
-  // Toast Notification System
-  function showDashboardToast(msg) {
-    let toast = document.getElementById('dashboard-toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'dashboard-toast';
-      toast.className = 'fixed top-6 right-6 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-2xl bg-purple-950/95 text-white text-xs font-bold shadow-2xl border border-purple-700/60 flex items-center gap-2';
-      document.body.appendChild(toast);
-    }
-    toast.textContent = msg;
-    toast.classList.remove('translate-y-[-150%]', 'opacity-0');
-    toast.classList.add('translate-y-0', 'opacity-100');
-    setTimeout(() => {
-      toast.classList.remove('translate-y-0', 'opacity-100');
-      toast.classList.add('translate-y-[-150%]', 'opacity-0');
-    }, 2800);
-  }
-
-})(window);
+    `,modal.classList.remove("hidden")},window2.copyShareModalLink=async function(){const input=document.getElementById("share-link-input-modal"),btnText=document.getElementById("btn-copy-share-text");if(!input||!input.value.trim()){showDashboardToast("\u26A0\uFE0F No celebration link available.");return}const url=input.value.trim();btnText&&(btnText.textContent="Copying...");let copied=!1;if(navigator.clipboard&&window2.isSecureContext)try{await navigator.clipboard.writeText(url),copied=!0}catch{copied=!1}if(!copied)try{input.focus(),input.select(),input.setSelectionRange(0,99999),copied=document.execCommand("copy")}catch{copied=!1}copied?(btnText&&(btnText.textContent="Copied! \u2728"),showDashboardToast("Link copied to clipboard! \u{1F4CB}")):(btnText&&(btnText.textContent="Copy Failed"),showDashboardToast("\u26A0\uFE0F Could not copy automatically. Please copy manually."),input.focus(),input.select()),setTimeout(()=>{btnText&&(btnText.textContent="Copy")},2500)};function showDashboardToast(msg){let toast=document.getElementById("dashboard-toast");toast||(toast=document.createElement("div"),toast.id="dashboard-toast",toast.className="fixed top-6 right-6 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-2xl bg-purple-950/95 text-white text-xs font-bold shadow-2xl border border-purple-700/60 flex items-center gap-2",document.body.appendChild(toast)),toast.textContent=msg,toast.classList.remove("translate-y-[-150%]","opacity-0"),toast.classList.add("translate-y-0","opacity-100"),setTimeout(()=>{toast.classList.remove("translate-y-0","opacity-100"),toast.classList.add("translate-y-[-150%]","opacity-0")},2800)}})(window);

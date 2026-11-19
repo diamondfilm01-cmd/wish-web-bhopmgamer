@@ -1,1 +1,50 @@
-[]
+[
+  {
+    "id": "ntf_mwn34lrx_3v40cg",
+    "userId": "usr_ankit_101",
+    "user_id": "usr_ankit_101",
+    "type": "WISH_PUBLISHED",
+    "title": "Celebration for Priya is live! 🚀",
+    "message": "Your special celebration page is published and ready to share.",
+    "readAt": null,
+    "read_at": null,
+    "relatedType": "wish",
+    "related_type": "wish",
+    "relatedId": "wm_mwn34lrw_lqgx36",
+    "related_id": "wm_mwn34lrw_lqgx36",
+    "actionUrl": "/w/happy-birthday-priya-e2e-mwn34lrq",
+    "action_url": "/w/happy-birthday-priya-e2e-mwn34lrq",
+    "icon": "public",
+    "severity": "success",
+    "metadata": {
+      "slug": "happy-birthday-priya-e2e-mwn34lrq",
+      "recipientName": "Priya"
+    },
+    "createdAt": "2026-11-19T05:03:40.605Z",
+    "created_at": "2026-11-19T05:03:40.605Z"
+  },
+  {
+    "id": "ntf_mwn34lre_emjpt4",
+    "userId": "usr_ankit_101",
+    "user_id": "usr_ankit_101",
+    "type": "WISH_PUBLISHED",
+    "title": "Celebration for Aarav is live! 🚀",
+    "message": "Your special celebration page is published and ready to share.",
+    "readAt": null,
+    "read_at": null,
+    "relatedType": "wish",
+    "related_type": "wish",
+    "relatedId": "wm_mwn34lrc_6t5hpc",
+    "related_id": "wm_mwn34lrc_6t5hpc",
+    "actionUrl": "/w/wish-csotbv",
+    "action_url": "/w/wish-csotbv",
+    "icon": "public",
+    "severity": "success",
+    "metadata": {
+      "slug": "wish-csotbv",
+      "recipientName": "Aarav"
+    },
+    "createdAt": "2026-11-19T05:03:40.586Z",
+    "created_at": "2026-11-19T05:03:40.586Z"
+  }
+]

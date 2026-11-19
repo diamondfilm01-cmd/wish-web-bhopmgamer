@@ -6,93 +6,30 @@
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0" name="viewport"/>
   <title>A Special Celebration For You ✨</title>
   
-  <!-- Site Theme helper -->
-  <script src="/js/site-theme.js?v=20261117_light_v3"></script>
-  <script src="js/api-client.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="/js/firebase-auth.js?v=20261015_wm47944_v7"></script>
-  <script src="/js/auth-service.js?v=20261015_wm47944_v7"></script>
-  <script src="/js/tailwind-config.js?v=20261117_light_v3"></script>
-  <script src="js/WishMagicCore.js?v=20261027_mobile2col_v1"></script>
+  <!-- Single Combined Core Bundle (14 scripts -> 1, Firebase SDK lazy-loaded on demand) -->
+  <script defer src="/js/bundles/wish-core.min.js?v=20261118_perf_v2"></script>
 
   <!-- Tailwind CSS CDN with forms and container queries -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
-
-  <!-- Google Fonts: Diverse luxury, celebratory & handwritten fonts -->
+  <link rel="stylesheet" href="/css/tailwind.min.css?v=20261118_perf_v1"/>
+<!-- Google Fonts: Diverse luxury, celebratory & handwritten fonts -->
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,600;1,700&family=Cinzel:wght@600;800;900&family=Montserrat:wght@400;600;800&family=Great+Vibes&family=Sacramento&family=Pacifico&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
 
   <!-- Canvas Confetti Physics Library -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
-  <!-- WishMagic Core Engines -->
-  <script src="js/theme-engine.js"></script>
-  <script src="js/media-system.js"></script>
-  <script src="js/wish-lifecycle.js"></script>
-  <!-- Part 11, Part 12, Part 13, Part 14 & Part 15: Monetization, Section Content, Animation, Interaction & Share Engine -->
-  <script src="js/plan-service.js"></script>
-  <script src="js/entitlement-service.js"></script>
-  <script src="js/feature-access-service.js"></script>
-  <script src="js/template-section-system.js"></script>
-  <script src="js/animation-effects-engine.js"></script>
-  <script src="js/public-interaction-engine.js"></script>
-  <script src="js/share-system.js"></script>
-  <script src="js/share-service.js"></script>
-  <script src="js/wishmagic-template-sandbox.js"></script>
-  <script src="js/wishmagic-final-renderer.js"></script>
-  <script src="js/wish-renderer.js"></script>
+  <!-- WishMagic Share, Sandbox & Final Renderer -->
+  <script defer src="js/share-system.js?v=20261118_perf_v2"></script>
+  <script defer src="js/share-service.js?v=20261118_perf_v2"></script>
+  <script defer src="js/wishmagic-template-sandbox.js?v=20261118_perf_v2"></script>
+  <script defer src="js/wishmagic-final-renderer.js?v=20261118_perf_v2"></script>
+  <script defer src="js/wish-renderer.js?v=20261118_perf_v2"></script>
 
   <!-- Tailwind Configuration -->
-  <script id="tailwind-config">
-    tailwind.config = {
-      darkMode: ["selector", "[data-never-dark-mode]"],
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-            display: ['"Outfit"', 'sans-serif'],
-            serifAccent: ['"Playfair Display"', 'serif'],
-            luxury: ['"Cinzel"', 'serif'],
-            scriptHand: ['"Great Vibes"', 'cursive'],
-            scriptCasual: ['"Sacramento"', 'cursive'],
-            festive: ['"Pacifico"', 'cursive']
-          },
-          animation: {
-            'float-slow': 'floating 6s ease-in-out infinite',
-            'float-cake': 'floatCake 4s ease-in-out infinite',
-            'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
-            'shimmer': 'shimmer 2.5s infinite',
-            'spin-slow': 'spin 14s linear infinite',
-            'bounce-soft': 'bounceSoft 2s ease-in-out infinite'
-          },
-          keyframes: {
-            floating: {
-              '0%, 100%': { transform: 'translateY(0px)' },
-              '50%': { transform: 'translateY(-10px)' },
-            },
-            floatCake: {
-              '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
-              '50%': { transform: 'translateY(-10px) rotate(1deg)' },
-            },
-            pulseGlow: {
-              '0%, 100%': { opacity: '0.6', filter: 'drop-shadow(0 0 15px rgba(236, 72, 153, 0.5))' },
-              '50%': { opacity: '1', filter: 'drop-shadow(0 0 28px rgba(168, 85, 247, 0.8))' }
-            },
-            bounceSoft: {
-              '0%, 100%': { transform: 'translateY(0)' },
-              '50%': { transform: 'translateY(-6px)' }
-            }
-          }
-        }
-      }
-    };
-  </script>
-
-  <style>
+<style>
     :root {
       --bg-body: #0d0417;
       --text-main: #f8fafc;

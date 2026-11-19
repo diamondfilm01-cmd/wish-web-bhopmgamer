@@ -7,20 +7,17 @@
   <title>Studio Customizer | WishMagic</title>
   <meta name="description" content="Personalize every detail of your interactive 3D wish website. Customize recipient names, photo memories, music, and celebration animations."/>
   
-  <!-- Device-Adaptive Theme Controller -->
-  <script src="/js/site-theme.js?v=20261117_light_v3"></script>
+
 
   <!-- Tailwind CSS CDN with Custom Tailwind Config -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
-  <script src="/js/tailwind-config.js?v=20261117_light_v3"></script>
-
-  <!-- Google Fonts: Plus Jakarta Sans, Outfit, Playfair Display, Material Symbols -->
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/tailwind.min.css?v=20261118_perf_v1"/>
+<!-- Google Fonts: Plus Jakarta Sans, Outfit, Playfair Display, Material Symbols -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
 
   <!-- Confetti Engine -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
   <style>
     body {
@@ -128,44 +125,17 @@
     .no-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
   </style>
 
-  <!-- Core & API Foundation -->
-  <script src="js/WishMagicCore.js?v=20261027_mobile2col_v1"></script>
-  <script src="js/api-client.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="/js/firebase-auth.js?v=20261015_wm47944_v7"></script>
-  <script src="/js/auth-service.js?v=20261015_wm47944_v7"></script>
-  <script src="js/wish-link-suggestions.js"></script>
-  <script src="js/repositories.js"></script>
-
-  <!-- Theme Engine -->
-  <script src="js/theme-engine.js"></script>
-
-  <!-- Media System Engine -->
-  <script src="js/media-system.js"></script>
-
-  <!-- Monetization, Section Content & Share Engine -->
-  <script src="js/plan-service.js"></script>
-  <script src="js/entitlement-service.js"></script>
-  <script src="js/feature-access-service.js"></script>
-  <script src="js/payment-service.js"></script>
-  <script src="/js/premium-lock-modal.js?v=20261015_wm47944_v7"></script>
-  <script src="js/template-section-system.js"></script>
-  <script src="js/share-system.js"></script>
-  <script src="js/share-service.js"></script>
-
-  <!-- WishMagic Universal Template Protocol & Customizer System -->
-  <script src="js/wishmagic-template-protocol.js"></script>
-  <script src="js/wishmagic-dependencies.js"></script>
-  <script src="js/wishmagic-content-system.js"></script>
-  <script src="js/wishmagic-field-renderer.js"></script>
-  <script src="js/wishmagic-template-sandbox.js"></script>
-  <script src="js/wishmagic-preview-controller.js"></script>
-  <script src="js/wishmagic-state-migrator.js"></script>
-  <script src="js/wishmagic-runtime-bridge.js"></script>
-
-  <!-- Core Customizer Logic -->
-  <script src="js/customize-engine.js"></script>
+  <!-- Bundled Core, Commerce & UTP Helpers (29 scripts -> 11, lazy Firebase SDK) -->
+  <script defer src="/js/bundles/customizer-core.min.js?v=20261118_perf_v2"></script>
+  <script defer src="js/theme-engine.js?v=20261118_perf_v2"></script>
+  <script defer src="js/media-system.js?v=20261118_perf_v2"></script>
+  <script defer src="/js/bundles/customizer-commerce.min.js?v=20261118_perf_v2"></script>
+  <script defer src="js/share-system.js?v=20261118_perf_v2"></script>
+  <script defer src="js/share-service.js?v=20261118_perf_v2"></script>
+  <script defer src="/js/bundles/customizer-utp-pre.min.js?v=20261118_perf_v2"></script>
+  <script defer src="js/wishmagic-field-renderer.js?v=20261118_perf_v2"></script>
+  <script defer src="/js/bundles/customizer-utp-post.min.js?v=20261118_perf_v2"></script>
+  <script defer src="js/customize-engine.js?v=20261118_perf_v2"></script>
   <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261117_light_v3"/>
 </head>
 <body class="w-full flex flex-col min-h-screen antialiased selection:bg-pink-500 selection:text-white">
@@ -762,21 +732,21 @@
 
             <!-- TWO PUBLISHING OPTION CARDS -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="link-options-cards-container">
-              <!-- CARD 1 — PERSONALIZED LINK (PAID) -->
+              <!-- CARD 1 — CUSTOM LINK / 1-YEAR LINK -->
               <div class="relative rounded-2xl p-5 border-2 transition-all flex flex-col justify-between gap-4 cursor-pointer group bg-gradient-to-br from-pink-50/70 via-purple-50/50 to-white/90 border-pink-400 shadow-md hover:shadow-xl" id="card-personalized-option" onclick="selectPersonalizedOption()">
                 <div class="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
-                  POPULAR
+                  CUSTOM LINK
                 </div>
                 <div>
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-2xl">✨</span>
-                    <span class="font-display font-black text-lg text-pink-600" id="card-personalized-price">₹59 / ₹99 Combo</span>
+                    <span class="font-display font-black text-base text-pink-600" id="card-personalized-price">₹19 / ₹149 (1 Yr)</span>
                   </div>
                   <h4 class="font-display font-bold text-sm sm:text-base text-purple-950 mb-1" id="card-personalized-name">
-                    Custom Link &amp; Combo Packs
+                    Custom Link &amp; 1-Year Validity
                   </h4>
                   <p class="text-xs text-purple-700/80 leading-relaxed mb-3" id="card-personalized-desc">
-                    Create a memorable link with their name.
+                    Pick your own /w/your-name link (₹19) or keep it active for 1 full year (₹149).
                   </p>
                   <div class="p-2 rounded-xl bg-white/80 border border-purple-200/60 text-[11px] font-mono text-purple-900 truncate flex items-center gap-1">
                     <span class="text-pink-500 font-bold">/w/</span>
@@ -789,28 +759,35 @@
                 </button>
               </div>
 
-              <!-- CARD 2 — FREE RANDOM LINK (FREE) -->
+              <!-- CARD 2 — FREE RANDOM LINK -->
               <div class="relative rounded-2xl p-5 border-2 transition-all flex flex-col justify-between gap-4 cursor-pointer group bg-white/70 border-purple-200/80 hover:border-purple-400 hover:shadow-md" id="card-random-option" onclick="publishFreeRandomWish()">
                 <div>
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-2xl">🎲</span>
-                    <span class="font-display font-black text-xs uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 border border-emerald-500/30">
+                    <span id="card-random-price-badge" class="font-display font-black text-xs uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 border border-emerald-500/30">
                       FREE
                     </span>
                   </div>
                   <h4 class="font-display font-bold text-sm sm:text-base text-purple-950 mb-1">
                     Free Random Link
                   </h4>
-                  <p class="text-xs text-purple-700/80 leading-relaxed mb-3">
-                    Create an instant shareable link for free.
+                  <p class="text-xs text-purple-700/80 leading-relaxed mb-3" id="card-random-desc">
+                    Instant shareable link with no custom URL fee.
                   </p>
                   <div class="p-2 rounded-xl bg-white/80 border border-purple-200/60 text-[11px] font-mono text-purple-700 truncate flex items-center gap-1">
                     <span class="text-emerald-600 font-bold">/w/</span>
                     <span class="font-bold text-purple-950" id="card-random-sample">wish-7k4m9x</span>
                   </div>
+                  <label id="random-card-hd-wrap" onclick="event.stopPropagation()" class="hidden mt-3 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/90 border border-purple-200/80 text-[11px] cursor-pointer">
+                    <span class="flex items-center gap-2 font-bold text-purple-950">
+                      <input type="checkbox" id="random-card-hd-chk" onchange="toggleRandomCardHdPhotos(this.checked)" class="rounded text-pink-500 focus:ring-pink-500"/>
+                      <span>🖼️ Add HD Photos</span>
+                    </span>
+                    <span id="random-card-hd-price" class="font-extrabold text-pink-600">+₹19</span>
+                  </label>
                 </div>
                 <button type="button" class="w-full py-2.5 px-4 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-950 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
-                  <span>Continue Free</span>
+                  <span id="card-random-cta-text">Continue Free</span>
                   <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
                 </button>
               </div>

@@ -7,18 +7,12 @@
   <title>Live Template Preview | WishMagic</title>
   <meta name="description" content="Full-screen live interactive preview of WishMagic celebration templates."/>
 
-  <!-- WishMagic Core & UTP v1.4.0 Runtime Architecture -->
-  <script src="/js/WishMagicCore.js?v=20261027_mobile2col_v1"></script>
-  <script src="/js/api-client.js?v=20261027_mobile2col_v1"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="/js/firebase-auth.js?v=20261027_mobile2col_v1"></script>
-  <script src="/js/auth-service.js?v=20261027_mobile2col_v1"></script>
-  <script src="/js/feature-access-service.js?v=20261027_mobile2col_v1"></script>
-  <script src="/js/premium-lock-modal.js?v=20261027_mobile2col_v1"></script>
-  <script src="/js/wishmagic-template-protocol.js?v=20261027_mobile2col_v1"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
 
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <!-- Single Combined & Minified Preview Bundle (Firebase SDK loads lazily on demand) -->
+  <script defer src="/js/bundles/preview.min.js?v=20261118_perf_v2"></script>
 
   <style>
     *, *::before, *::after {

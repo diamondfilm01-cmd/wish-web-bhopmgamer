@@ -1,30 +1,22 @@
-// WishMagic Universal Advanced Customizer & Real-Time Live Sandbox Engine
-// Part 3: Advanced Wish Customizer
-
 let activeTemplate = null;
 let currentStep = 1;
 const TOTAL_STEPS = 4;
-
 let currentEditingWishId = null;
 let currentEditingWishSlug = null;
 let currentLockVersion = 1;
 let currentSlugSuggestions = [];
 let isShowingAllSlugSuggestions = false;
 let slugCheckDebounceTimer = null;
-let lastCheckedSlug = '';
+let lastCheckedSlug = "";
 let lastSlugCheckResult = null;
-
-// Stage 5 State Management & Concurrency Tracking
 let currentCustomizerRevision = 0;
 let lastSavedRevision = 0;
 let isSaveInProgress = false;
 let pendingSaveAfterInFlight = false;
 let customizerTemplateLoadGeneration = 0;
-
-// Map of template default values so uncustomized messages/texts always stay as normal template text
 let templateDefaultValues = {};
-window._userModifiedFields = new Set();
-window._activeCustomizationLevel = 'quick'; // 'quick' (Level A) | 'personal' (Level B) | 'advanced' (Level C)
+window._userModifiedFields = /* @__PURE__ */ new Set();
+window._activeCustomizationLevel = "quick";
 window._showAllPhotoSlots = false;
 window._customizerCapabilities = {
   supportsAnyPhoto: true,
@@ -34,279 +26,254 @@ window._customizerCapabilities = {
   supportsDate: true,
   hasDynamicFields: false
 };
-
 function templateRequiresEventDate(tpl = activeTemplate) {
   if (!tpl) return true;
-  const manifest = (tpl.manifest && typeof tpl.manifest === 'object') ? tpl.manifest : null;
-  const rawFields = (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0)
-    ? manifest.fields
-    : (Array.isArray(tpl.detectedFields) && tpl.detectedFields.length > 0
-      ? tpl.detectedFields
-      : (Array.isArray(tpl.fields) ? tpl.fields : []));
+  const manifest = tpl.manifest && typeof tpl.manifest === "object" ? tpl.manifest : null;
+  const rawFields = manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0 ? manifest.fields : Array.isArray(tpl.detectedFields) && tpl.detectedFields.length > 0 ? tpl.detectedFields : Array.isArray(tpl.fields) ? tpl.fields : [];
   const hasExplicitUtpSchema = Boolean(
-    (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0) ||
-    (Array.isArray(tpl.detectedFields) && tpl.detectedFields.length > 0)
+    manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0 || Array.isArray(tpl.detectedFields) && tpl.detectedFields.length > 0
   );
   if (!hasExplicitUtpSchema) return true;
-
-  const capsList = Array.isArray(manifest?.capabilities)
-    ? manifest.capabilities
-    : (Array.isArray(tpl.capabilities) ? tpl.capabilities : []);
-  const capsObj = (!Array.isArray(manifest?.capabilities) && typeof manifest?.capabilities === 'object' && manifest?.capabilities)
-    ? manifest.capabilities
-    : ((!Array.isArray(tpl.capabilities) && typeof tpl.capabilities === 'object' && tpl.capabilities) ? tpl.capabilities : {});
-  const hasCountdownCap = capsList.includes('countdown') || Boolean(capsObj.countdown);
-
-  const dateKeys = new Set(['event_date', 'eventdate', 'dob', 'birth_date', 'celebration_date']);
-  const hasDateField = rawFields.some(f => {
+  const capsList = Array.isArray(manifest?.capabilities) ? manifest.capabilities : Array.isArray(tpl.capabilities) ? tpl.capabilities : [];
+  const capsObj = !Array.isArray(manifest?.capabilities) && typeof manifest?.capabilities === "object" && manifest?.capabilities ? manifest.capabilities : !Array.isArray(tpl.capabilities) && typeof tpl.capabilities === "object" && tpl.capabilities ? tpl.capabilities : {};
+  const hasCountdownCap = capsList.includes("countdown") || Boolean(capsObj.countdown);
+  const dateKeys = /* @__PURE__ */ new Set(["event_date", "eventdate", "dob", "birth_date", "celebration_date"]);
+  const hasDateField = rawFields.some((f) => {
     if (!f || f.disabled === true || f.enabled === false) return false;
-    const k = String(f.id || f.key || '').trim().toLowerCase();
-    const t = String(f.type || '').trim().toLowerCase();
-    return dateKeys.has(k) || t === 'date' || t === 'datetime';
+    const k = String(f.id || f.key || "").trim().toLowerCase();
+    const t = String(f.type || "").trim().toLowerCase();
+    return dateKeys.has(k) || t === "date" || t === "datetime";
   });
   return hasDateField || hasCountdownCap;
 }
-
 function isMandatoryIdentityField(key, tpl = activeTemplate) {
-  const k = String(key || '').trim().toLowerCase();
-  if (k === 'recipient_name' || k === 'recipientname') return true;
-  if (k === 'event_date' || k === 'eventdate' || k === 'dob' || k === 'birth_date' || k === 'celebration_date') {
+  const k = String(key || "").trim().toLowerCase();
+  if (k === "recipient_name" || k === "recipientname") return true;
+  if (k === "event_date" || k === "eventdate" || k === "dob" || k === "birth_date" || k === "celebration_date") {
     return templateRequiresEventDate(tpl);
   }
   return false;
 }
-
 function getLocalDraftStorageKey(tpl = activeTemplate, variantOverride = null) {
-  const tplId = (tpl && tpl.id) ? tpl.id : (typeof tpl === 'string' ? tpl : 'default');
-  const activeVar = variantOverride || (tpl && tpl.selectedVariant) || null;
-  const varId = (activeVar && activeVar.id) ? activeVar.id : (currentCustomData && currentCustomData.variantId ? currentCustomData.variantId : '');
+  const tplId = tpl && tpl.id ? tpl.id : typeof tpl === "string" ? tpl : "default";
+  const activeVar = variantOverride || tpl && tpl.selectedVariant || null;
+  const varId = activeVar && activeVar.id ? activeVar.id : currentCustomData && currentCustomData.variantId ? currentCustomData.variantId : "";
   return varId ? `wishmagic_draft_${tplId}_${varId}` : `wishmagic_draft_${tplId}`;
 }
-
 window.getLocalDraftStorageKey = getLocalDraftStorageKey;
 window.templateRequiresEventDate = templateRequiresEventDate;
 window.isMandatoryIdentityField = isMandatoryIdentityField;
-
 function ensureDefaultMessagesPreserved() {
   Object.entries(templateDefaultValues).forEach(([k, defVal]) => {
-    if (!isMandatoryIdentityField(k) && defVal !== undefined && defVal !== null && String(defVal) !== '') {
+    if (!isMandatoryIdentityField(k) && defVal !== void 0 && defVal !== null && String(defVal) !== "") {
       const cur = currentCustomData[k];
-      if (cur === undefined || cur === null || (typeof cur === 'string' && cur.trim() === '')) {
+      if (cur === void 0 || cur === null || typeof cur === "string" && cur.trim() === "") {
         currentCustomData[k] = defVal;
       }
     }
   });
   if (!templateRequiresEventDate(activeTemplate) && (!currentCustomData.event_date || !String(currentCustomData.event_date).trim())) {
-    currentCustomData.event_date = new Date().toISOString().split('T')[0];
+    currentCustomData.event_date = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   }
 }
-
-// Centralized Customizer State Model
 let currentCustomData = {
-  recipient_name: '',
-  sender_name: '',
-  sender_contact: '',
-  occasion: 'birthday',
-  relationship: '',
-  customSlug: '',
-  slug: '',
-  event_date: '',
-  custom_message: '',
-  cover_photo: '',
-  photos: [], // Array of { id, url, name, isCover, order }
-  photo_1: '', // for backward compatibility with [data-wm="photo_1"]
-  galleryLayout: 'grid', // 'grid' | 'polaroid' | 'carousel' | 'masonry'
-  voice_note: { enabled: false, url: '', duration: '', recordingBlob: null },
-  music: { enabled: true, trackId: 'celebration-strings', title: 'Celebration Acoustic Strings', url: '' },
-  
+  recipient_name: "",
+  sender_name: "",
+  sender_contact: "",
+  occasion: "birthday",
+  relationship: "",
+  customSlug: "",
+  slug: "",
+  event_date: "",
+  custom_message: "",
+  cover_photo: "",
+  photos: [],
+  // Array of { id, url, name, isCover, order }
+  photo_1: "",
+  // for backward compatibility with [data-wm="photo_1"]
+  galleryLayout: "grid",
+  // 'grid' | 'polaroid' | 'carousel' | 'masonry'
+  voice_note: { enabled: false, url: "", duration: "", recordingBlob: null },
+  music: { enabled: true, trackId: "celebration-strings", title: "Celebration Acoustic Strings", url: "" },
   // Media System Centralized State Model (Part 5)
   media: {
     coverPhoto: null,
-    photos: [], // Array of { id, name, src, order }
+    photos: [],
+    // Array of { id, name, src, order }
     music: {
       enabled: true,
-      type: 'curated',
-      name: 'Celebration Acoustic Strings',
-      trackId: 'celebration-strings',
-      src: '',
-      genre: 'Indie Celebration',
-      duration: '2:40'
+      type: "curated",
+      name: "Celebration Acoustic Strings",
+      trackId: "celebration-strings",
+      src: "",
+      genre: "Indie Celebration",
+      duration: "2:40"
     },
     voiceNote: {
       enabled: false,
-      type: 'none',
-      name: '',
-      src: '',
+      type: "none",
+      name: "",
+      src: "",
       duration: 0
     },
-    galleryLayout: 'grid'
+    galleryLayout: "grid"
   },
-  
   // Theme Engine Centralized Configuration
-  theme: 'magical', // magical, romantic, cute, elegant, royal, dark, pastel, celebration
-  themeConfig: null, // hydrated dynamic config
-  activePalette: 'rose-gold',
+  theme: "magical",
+  // magical, romantic, cute, elegant, royal, dark, pastel, celebration
+  themeConfig: null,
+  // hydrated dynamic config
+  activePalette: "rose-gold",
   colors: {
-    primary: '#ec4899',
-    secondary: '#8b5cf6',
-    accent: '#fbbf24',
-    background: 'radial-gradient(circle at 50% 15%, #2a0845 0%, #17042b 55%, #0d0118 100%)',
-    surface: 'rgba(255, 255, 255, 0.12)',
-    text: '#ffffff',
-    mutedText: '#e9d5ff'
+    primary: "#ec4899",
+    secondary: "#8b5cf6",
+    accent: "#fbbf24",
+    background: "radial-gradient(circle at 50% 15%, #2a0845 0%, #17042b 55%, #0d0118 100%)",
+    surface: "rgba(255, 255, 255, 0.12)",
+    text: "#ffffff",
+    mutedText: "#e9d5ff"
   },
   typography: {
-    headingFont: 'Outfit, sans-serif',
-    bodyFont: 'Plus Jakarta Sans, sans-serif',
-    headingWeight: '800',
-    fontStyle: 'normal',
-    pairingId: 'modern'
+    headingFont: "Outfit, sans-serif",
+    bodyFont: "Plus Jakarta Sans, sans-serif",
+    headingWeight: "800",
+    fontStyle: "normal",
+    pairingId: "modern"
   },
-  font: 'modern', // modern, elegant, romantic, playful
-  background: 'gradient', // gradient, glow, cosmic, solid
+  font: "modern",
+  // modern, elegant, romantic, playful
+  background: "gradient",
+  // gradient, glow, cosmic, solid
   surfaces: {
-    style: 'glass',
-    radius: 'rounded',
-    radiusPx: '20px',
-    blur: '20px',
-    shadow: '0 20px 40px -10px rgba(139, 92, 246, 0.25)'
+    style: "glass",
+    radius: "rounded",
+    radiusPx: "20px",
+    blur: "20px",
+    shadow: "0 20px 40px -10px rgba(139, 92, 246, 0.25)"
   },
   buttons: {
-    style: 'gradient',
-    radius: 'pill',
-    radiusPx: '9999px',
-    shadow: '0 10px 25px -5px rgba(236, 72, 153, 0.4)'
+    style: "gradient",
+    radius: "pill",
+    radiusPx: "9999px",
+    shadow: "0 10px 25px -5px rgba(236, 72, 153, 0.4)"
   },
   effects: {
     master: true,
     particles: true,
-    particleType: 'sparkles',
-    intensity: 'soft',
+    particleType: "sparkles",
+    intensity: "soft",
     glow: true,
     confetti: true,
     hearts: false
   },
   sections: [
-    { id: 'hero', name: 'Hero Unboxing & Cake', enabled: true, order: 1, selector: '#cake-interactive, #sealed-state, .hero-section, #clock-hours' },
-    { id: 'message', name: 'Heartfelt Dedication Letter', enabled: true, order: 2, selector: '[data-wm="custom_message"], .message-card, #revealed-state' },
-    { id: 'gallery', name: 'Time-Capsule Photo Keepsake', enabled: true, order: 3, selector: '[data-wm="photo_1"], .memory-card, .photo-box' },
-    { id: 'music', name: 'Background Soundscape', enabled: true, order: 4, selector: '#audio-player, .audio-widget' },
-    { id: 'voice', name: 'Voice Dedication Note', enabled: false, order: 5, selector: '#voice-note-player, .voice-widget' },
-    { id: 'countdown', name: 'Midnight Countdown Unlock', enabled: true, order: 6, selector: '#clock-hours, .countdown-wrapper' },
-    { id: 'finale', name: 'Celebration Fireworks & Confetti', enabled: true, order: 7, selector: '#screen-confetti-layer, #confetti-layer' }
+    { id: "hero", name: "Hero Unboxing & Cake", enabled: true, order: 1, selector: "#cake-interactive, #sealed-state, .hero-section, #clock-hours" },
+    { id: "message", name: "Heartfelt Dedication Letter", enabled: true, order: 2, selector: '[data-wm="custom_message"], .message-card, #revealed-state' },
+    { id: "gallery", name: "Time-Capsule Photo Keepsake", enabled: true, order: 3, selector: '[data-wm="photo_1"], .memory-card, .photo-box' },
+    { id: "music", name: "Background Soundscape", enabled: true, order: 4, selector: "#audio-player, .audio-widget" },
+    { id: "voice", name: "Voice Dedication Note", enabled: false, order: 5, selector: "#voice-note-player, .voice-widget" },
+    { id: "countdown", name: "Midnight Countdown Unlock", enabled: true, order: 6, selector: "#clock-hours, .countdown-wrapper" },
+    { id: "finale", name: "Celebration Fireworks & Confetti", enabled: true, order: 7, selector: "#screen-confetti-layer, #confetti-layer" }
   ]
 };
-
-// Available Curated BGM Tracks
 const CURATED_MUSIC_TRACKS = [
-  { id: 'celebration-strings', title: 'Celebration Acoustic Strings', genre: 'Acoustic / Celebration', duration: '2:40' },
-  { id: 'celestial-waltz', title: 'Celestial Waltz Violin & Strings', genre: 'Romantic / Classical', duration: '3:15' },
-  { id: 'midnight-stardust', title: 'Midnight Stardust Chimes', genre: 'Cosmic / Electronic', duration: '2:10' },
-  { id: 'acoustic-harmony', title: 'Acoustic Harmony Guitar', genre: 'Gentle / Melodic', duration: '2:50' },
-  { id: 'upbeat-ukulele', title: 'Upbeat Indie Ukulele Party', genre: 'Playful / Cheerful', duration: '2:20' }
+  { id: "celebration-strings", title: "Celebration Acoustic Strings", genre: "Acoustic / Celebration", duration: "2:40" },
+  { id: "celestial-waltz", title: "Celestial Waltz Violin & Strings", genre: "Romantic / Classical", duration: "3:15" },
+  { id: "midnight-stardust", title: "Midnight Stardust Chimes", genre: "Cosmic / Electronic", duration: "2:10" },
+  { id: "acoustic-harmony", title: "Acoustic Harmony Guitar", genre: "Gentle / Melodic", duration: "2:50" },
+  { id: "upbeat-ukulele", title: "Upbeat Indie Ukulele Party", genre: "Playful / Cheerful", duration: "2:20" }
 ];
-
-// Curated Theme Presets
 const THEME_PRESETS = {
   magical: {
-    name: 'Magical',
-    primary: '#ec4899',
-    secondary: '#8b5cf6',
-    background: 'gradient',
-    font: 'modern',
+    name: "Magical",
+    primary: "#ec4899",
+    secondary: "#8b5cf6",
+    background: "gradient",
+    font: "modern",
     effects: { master: true, particles: true, confetti: true, sparkles: true, hearts: false }
   },
   romantic: {
-    name: 'Romantic',
-    primary: '#f43f5e',
-    secondary: '#fb7185',
-    background: 'glow',
-    font: 'romantic',
+    name: "Romantic",
+    primary: "#f43f5e",
+    secondary: "#fb7185",
+    background: "glow",
+    font: "romantic",
     effects: { master: true, particles: true, confetti: true, sparkles: true, hearts: true }
   },
   cute: {
-    name: 'Cute',
-    primary: '#f472b6',
-    secondary: '#fbcfe8',
-    background: 'gradient',
-    font: 'playful',
+    name: "Cute",
+    primary: "#f472b6",
+    secondary: "#fbcfe8",
+    background: "gradient",
+    font: "playful",
     effects: { master: true, particles: true, confetti: true, sparkles: true, hearts: true }
   },
   elegant: {
-    name: 'Elegant',
-    primary: '#f59e0b',
-    secondary: '#fbbf24',
-    background: 'glow',
-    font: 'elegant',
+    name: "Elegant",
+    primary: "#f59e0b",
+    secondary: "#fbbf24",
+    background: "glow",
+    font: "elegant",
     effects: { master: true, particles: false, confetti: true, sparkles: true, hearts: false }
   },
   royal: {
-    name: 'Royal',
-    primary: '#7c3aed',
-    secondary: '#f59e0b',
-    background: 'cosmic',
-    font: 'elegant',
+    name: "Royal",
+    primary: "#7c3aed",
+    secondary: "#f59e0b",
+    background: "cosmic",
+    font: "elegant",
     effects: { master: true, particles: true, confetti: true, sparkles: true, hearts: false }
   },
   dark: {
-    name: 'Dark',
-    primary: '#06b6d4',
-    secondary: '#6366f1',
-    background: 'cosmic',
-    font: 'modern',
+    name: "Dark",
+    primary: "#06b6d4",
+    secondary: "#6366f1",
+    background: "cosmic",
+    font: "modern",
     effects: { master: true, particles: true, confetti: true, sparkles: true, hearts: false }
   },
   pastel: {
-    name: 'Pastel',
-    primary: '#a78bfa',
-    secondary: '#f472b6',
-    background: 'gradient',
-    font: 'playful',
+    name: "Pastel",
+    primary: "#a78bfa",
+    secondary: "#f472b6",
+    background: "gradient",
+    font: "playful",
     effects: { master: true, particles: true, confetti: false, sparkles: true, hearts: false }
   },
   celebration: {
-    name: 'Celebration',
-    primary: '#e11d48',
-    secondary: '#f59e0b',
-    background: 'gradient',
-    font: 'modern',
+    name: "Celebration",
+    primary: "#e11d48",
+    secondary: "#f59e0b",
+    background: "gradient",
+    font: "modern",
     effects: { master: true, particles: true, confetti: true, sparkles: true, hearts: false }
   }
 };
-
-// Audio Recorder State
 let mediaRecorder = null;
 let recordedAudioChunks = [];
 let recordingTimer = null;
 let recordingSeconds = 0;
 let isRecordingAudio = false;
-
-// Audio Preview Synthesizer State
 let studioAudioCtx = null;
 let isPlayingStudioMusic = false;
-
-// Debounce helper for autosave
 let autosaveTimeout = null;
-
 function ensureCustomizerGoogleAuthGate() {
   if (!window.WishAuth) return;
   const checkAndRenderGate = () => {
-    const isLogged = typeof window.WishAuth.isGoogleLoggedIn === 'function'
-      ? window.WishAuth.isGoogleLoggedIn()
-      : window.WishAuth.isAuthenticated();
-    const existingGate = document.getElementById('wm-customizer-google-gate');
+    const isLogged = typeof window.WishAuth.isGoogleLoggedIn === "function" ? window.WishAuth.isGoogleLoggedIn() : window.WishAuth.isAuthenticated();
+    const existingGate = document.getElementById("wm-customizer-google-gate");
     if (isLogged) {
       if (existingGate) existingGate.remove();
       return true;
     }
     if (!existingGate) {
-      const gate = document.createElement('div');
-      gate.id = 'wm-customizer-google-gate';
-      gate.className = 'fixed inset-0 z-[140] bg-black/80 backdrop-blur-lg flex items-center justify-center p-4';
+      const gate = document.createElement("div");
+      gate.id = "wm-customizer-google-gate";
+      gate.className = "fixed inset-0 z-[140] bg-black/80 backdrop-blur-lg flex items-center justify-center p-4";
       gate.innerHTML = `
         <div class="bg-white dark:bg-[#1f123e] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border-2 border-purple-300 dark:border-purple-500/40 text-center flex flex-col items-center">
-          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mb-4 shadow-lg text-2xl">🔒</div>
-          <span class="px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[11px] font-extrabold mb-2">✨ Google Account Required</span>
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mb-4 shadow-lg text-2xl">\u{1F512}</div>
+          <span class="px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[11px] font-extrabold mb-2">\u2728 Google Account Required</span>
           <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">Sign In to Customize Template</h3>
           <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-200/80 mt-2 mb-6 leading-relaxed">
             Template customize karne aur apna personalized wish link banane ke liye pehle Google Account se login karna zaroori hai.
@@ -322,42 +289,41 @@ function ensureCustomizerGoogleAuthGate() {
             </span>
             <span>Continue with Google</span>
           </button>
-          <a href="/templates.html" class="mt-4 text-xs font-bold text-purple-700 dark:text-purple-300 hover:underline">← Back to Templates Preview</a>
+          <a href="/templates.html" class="mt-4 text-xs font-bold text-purple-700 dark:text-purple-300 hover:underline">\u2190 Back to Templates Preview</a>
         </div>
       `;
       document.body.appendChild(gate);
-      const btn = gate.querySelector('#wm-gate-google-btn');
+      const btn = gate.querySelector("#wm-gate-google-btn");
       if (btn) {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener("click", async () => {
           btn.disabled = true;
-          btn.classList.add('opacity-75');
+          btn.classList.add("opacity-75");
           try {
             const u = await window.WishAuth.signInWithGoogle();
             if (u) {
               gate.remove();
             }
-          } catch (_) {}
+          } catch (_) {
+          }
           btn.disabled = false;
-          btn.classList.remove('opacity-75');
+          btn.classList.remove("opacity-75");
         });
       }
     }
     return false;
   };
-
-  if (typeof window.WishAuth.onAuthStateChange === 'function') {
+  if (typeof window.WishAuth.onAuthStateChange === "function") {
     window.WishAuth.onAuthStateChange((user) => {
       if (user && user.id) {
-        const g = document.getElementById('wm-customizer-google-gate');
+        const g = document.getElementById("wm-customizer-google-gate");
         if (g) g.remove();
       }
     });
   }
-
-  if (typeof window.WishAuth.isGoogleLoggedIn === 'function' && window.WishAuth.isGoogleLoggedIn()) {
+  if (typeof window.WishAuth.isGoogleLoggedIn === "function" && window.WishAuth.isGoogleLoggedIn()) {
     return;
   }
-  if (typeof window.WishAuth.waitForAuthReady === 'function') {
+  if (typeof window.WishAuth.waitForAuthReady === "function") {
     window.WishAuth.waitForAuthReady(1500).then(() => {
       checkAndRenderGate();
     });
@@ -365,51 +331,46 @@ function ensureCustomizerGoogleAuthGate() {
     checkAndRenderGate();
   }
 }
-
-// Initialize on DOM load
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener("DOMContentLoaded", async () => {
   ensureCustomizerGoogleAuthGate();
   setupStepNavigation();
   initFormInputs();
-  window._customizerViewportMode = window.innerWidth >= 1024 ? 'desktop' : 'mobile';
-
+  window._customizerViewportMode = window.innerWidth >= 1024 ? "desktop" : "mobile";
   const urlParams = new URLSearchParams(window.location.search);
-  const cloneWishId = urlParams.get('clone') || urlParams.get('duplicate');
-  const editWishId = urlParams.get('edit');
-  const draftId = urlParams.get('draft');
-  let templateId = urlParams.get('template') || urlParams.get('id') || 'tpl_glitter_birthday';
-
+  const cloneWishId = urlParams.get("clone") || urlParams.get("duplicate");
+  const editWishId = urlParams.get("edit");
+  const draftId = urlParams.get("draft");
+  let templateId = urlParams.get("template") || urlParams.get("id") || "tpl_glitter_birthday";
   if (cloneWishId) {
     try {
-      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(cloneWishId)}`, { credentials: 'include' });
+      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(cloneWishId)}`, { credentials: "include" });
       const wishResult = await wishRes.json();
       if (wishResult.success && wishResult.wish) {
         const clonedWish = wishResult.wish;
         templateId = clonedWish.templateId || templateId;
         await loadTemplateData(templateId);
-
         if (clonedWish.customData) {
           currentCustomData = {
             ...currentCustomData,
             ...clonedWish.customData,
             // Reset to a new target date for the new wish
-            event_date: new Date().toISOString().split('T')[0]
+            event_date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
           };
           populateFormValuesFromState();
           syncDataToIframe();
-          showToast('Cloned into a new celebration wish ✨ (Old link remains expired)');
+          showToast("Cloned into a new celebration wish \u2728 (Old link remains expired)");
         }
       } else {
         await loadTemplateData(templateId);
       }
     } catch (e) {
-      console.warn('Error cloning wish:', e);
+      console.warn("Error cloning wish:", e);
       await loadTemplateData(templateId);
     }
   } else if (editWishId) {
     try {
       currentEditingWishId = editWishId;
-      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(editWishId)}`, { credentials: 'include' });
+      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(editWishId)}`, { credentials: "include" });
       const wishResult = await wishRes.json();
       if (wishResult.success && wishResult.wish) {
         const editWish = wishResult.wish;
@@ -422,45 +383,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         templateId = editWish.templateId || templateId;
         await loadTemplateData(templateId);
-
         if (editWish.customData) {
           currentCustomData = {
             ...currentCustomData,
             ...editWish.customData,
-            customSlug: editWish.slug || (editWish.customData && editWish.customData.customSlug) || currentCustomData.customSlug
+            customSlug: editWish.slug || editWish.customData && editWish.customData.customSlug || currentCustomData.customSlug
           };
           populateFormValuesFromState();
           syncDataToIframe();
-          showToast(`Editing wish for ${currentCustomData.recipient_name || 'Recipient'} ✏️`);
+          showToast(`Editing wish for ${currentCustomData.recipient_name || "Recipient"} \u270F\uFE0F`);
         }
       } else {
         await loadTemplateData(templateId);
       }
     } catch (e) {
-      console.warn('Error loading wish for edit:', e);
+      console.warn("Error loading wish for edit:", e);
       await loadTemplateData(templateId);
     }
   } else if (draftId) {
     try {
       currentEditingWishId = draftId;
       let targetDraft = null;
-
-      // 1. First attempt to load real server draft
       try {
-        const dRes = await fetch(`/api/wishes/${encodeURIComponent(draftId)}`, { credentials: 'include' });
+        const dRes = await fetch(`/api/wishes/${encodeURIComponent(draftId)}`, { credentials: "include" });
         const dJson = await dRes.json();
         if (dJson && dJson.success && dJson.wish) {
           targetDraft = dJson.wish;
         }
-      } catch (err) {}
-
-      // 2. Fallback to local storage if offline or guest
-      if (!targetDraft) {
-        const rawDrafts = localStorage.getItem('wishmagic_drafts');
-        const drafts = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawDrafts, []) : JSON.parse(rawDrafts || '[]');
-        targetDraft = Array.isArray(drafts) ? drafts.find(d => d.id === draftId) : null;
+      } catch (err) {
       }
-
+      if (!targetDraft) {
+        const rawDrafts = localStorage.getItem("wishmagic_drafts");
+        const drafts = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawDrafts, []) : JSON.parse(rawDrafts || "[]");
+        targetDraft = Array.isArray(drafts) ? drafts.find((d) => d.id === draftId) : null;
+      }
       if (targetDraft) {
         templateId = targetDraft.templateId || templateId;
         currentLockVersion = Number(targetDraft.lock_version || targetDraft.lockVersion || 1);
@@ -472,65 +428,57 @@ document.addEventListener('DOMContentLoaded', async () => {
           };
           populateFormValuesFromState();
           syncDataToIframe();
-          showToast(`Restored draft for ${currentCustomData.recipient_name || 'Recipient'} 📝`);
+          showToast(`Restored draft for ${currentCustomData.recipient_name || "Recipient"} \u{1F4DD}`);
         }
       } else {
         await loadTemplateData(templateId);
       }
     } catch (e) {
-      console.warn('Error loading draft by id:', e);
+      console.warn("Error loading draft by id:", e);
       await loadTemplateData(templateId);
     }
   } else {
     await loadTemplateData(templateId);
   }
-
   setupStepNavigation();
   initFormInputs();
   renderPhotosUI();
   renderSectionsUI();
-
-  // Stage 5: Warn before leaving with unsaved changes
   window.addEventListener('beforeunload', (e) => {
     if (currentCustomizerRevision > lastSavedRevision && !isPublishingInProgress) {
       e.preventDefault();
-      e.returnValue = 'You have unsaved celebration edits. Are you sure you want to leave?';
+      e.returnValue = "You have unsaved celebration edits. Are you sure you want to leave?";
       return e.returnValue;
     }
   });
 });
-
 function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
-  if (!activeTemplate || !variant || variant.code === 'VARIANT_UNAVAILABLE') return;
+  if (!activeTemplate || !variant || variant.code === "VARIANT_UNAVAILABLE") return;
   activeTemplate.selectedVariant = variant;
-  activeTemplate.entryFile = variant.entryFile || activeTemplate.entryFile || 'index.html';
-
-  const relSlug = String(variant.relationshipSlug || variant.relationship || currentCustomData.relationship || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
-  const declaredVarId = String(variant.declaredId || variant.declaredVariantId || (!String(variant.id || '').startsWith('trv_') ? variant.id : '') || variant.slug || relSlug).trim();
-
+  activeTemplate.entryFile = variant.entryFile || activeTemplate.entryFile || "index.html";
+  const relSlug = String(variant.relationshipSlug || variant.relationship || currentCustomData.relationship || "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  const declaredVarId = String(variant.declaredId || variant.declaredVariantId || (!String(variant.id || "").startsWith("trv_") ? variant.id : "") || variant.slug || relSlug).trim();
   currentCustomData.variantId = variant.id;
   currentCustomData.declaredVariantId = declaredVarId;
   currentCustomData.variantSlug = variant.slug || declaredVarId || variant.id;
   currentCustomData.relationship = relSlug || variant.relationshipSlug || currentCustomData.relationship;
   currentCustomData.relationshipLabel = variant.relationshipLabel || variant.label || variant.relationshipSlug;
-
-  // Preserve selected variant and relation in URL for refresh & back navigation (Rule E)
   try {
     const url = new URL(window.location.href);
-    url.searchParams.set('template', activeTemplate.id);
-    url.searchParams.set('variant', variant.id);
-    url.searchParams.set('rel', currentCustomData.relationship);
-    window.history.replaceState({}, '', url.toString());
-  } catch (_) {}
-
+    url.searchParams.set("template", activeTemplate.id);
+    url.searchParams.set("variant", variant.id);
+    url.searchParams.set("rel", currentCustomData.relationship);
+    window.history.replaceState({}, "", url.toString());
+  } catch (_) {
+  }
   const mergedVariantMessages = {
-    ...(variant.messages && typeof variant.messages === 'object' ? variant.messages : {})
+    ...variant.messages && typeof variant.messages === "object" ? variant.messages : {}
   };
   if (Array.isArray(variant.fields)) {
-    variant.fields.forEach(vf => {
+    variant.fields.forEach((vf) => {
       const fk = vf && (vf.id || vf.key);
-      if (fk && vf.defaultValue !== undefined && vf.defaultValue !== null && vf.defaultValue !== '' && mergedVariantMessages[fk] === undefined) {
-        if (!['image', 'audio', 'video'].includes(vf.type)) {
+      if (fk && vf.defaultValue !== void 0 && vf.defaultValue !== null && vf.defaultValue !== "" && mergedVariantMessages[fk] === void 0) {
+        if (!["image", "audio", "video"].includes(vf.type)) {
           mergedVariantMessages[fk] = vf.defaultValue;
         }
       }
@@ -552,20 +500,16 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
     mergedVariantMessages.hero_subtitle = mergedVariantMessages.subtitle;
   }
   variant.messages = mergedVariantMessages;
-
-  // Merge variant-specific fields and sections onto activeTemplate
-  const baseFields = Array.isArray(activeTemplate._baseFields)
-    ? activeTemplate._baseFields
-    : (Array.isArray(activeTemplate.fields) ? [...activeTemplate.fields] : []);
+  const baseFields = Array.isArray(activeTemplate._baseFields) ? activeTemplate._baseFields : Array.isArray(activeTemplate.fields) ? [...activeTemplate.fields] : [];
   activeTemplate._baseFields = baseFields;
-  const mergedMap = new Map();
-  baseFields.forEach(f => {
-    const k = String(f.id || f.key || '').trim();
+  const mergedMap = /* @__PURE__ */ new Map();
+  baseFields.forEach((f) => {
+    const k = String(f.id || f.key || "").trim();
     if (k) mergedMap.set(k, { ...f });
   });
   if (Array.isArray(variant.fields) && variant.fields.length > 0) {
-    variant.fields.forEach(vf => {
-      const k = String(vf.id || vf.key || '').trim();
+    variant.fields.forEach((vf) => {
+      const k = String(vf.id || vf.key || "").trim();
       if (!k) return;
       if (vf.disabled === true || vf.enabled === false) {
         mergedMap.delete(k);
@@ -576,9 +520,8 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
       }
     });
   }
-  // Propagate variant messages into field defaultValues so dynamic fields & iframe sync use variant defaults
   Object.entries(mergedVariantMessages).forEach(([mk, mval]) => {
-    if (mval !== undefined && mval !== null && String(mval) !== '' && mergedMap.has(mk)) {
+    if (mval !== void 0 && mval !== null && String(mval) !== "" && mergedMap.has(mk)) {
       mergedMap.set(mk, { ...mergedMap.get(mk), defaultValue: mval });
     }
   });
@@ -586,22 +529,19 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
     const mergedList = Array.from(mergedMap.values());
     activeTemplate.fields = mergedList;
     activeTemplate.detectedFields = mergedList;
-    if (activeTemplate.manifest && typeof activeTemplate.manifest === 'object') {
+    if (activeTemplate.manifest && typeof activeTemplate.manifest === "object") {
       activeTemplate.manifest.fields = mergedList;
     }
   }
-
   if (Array.isArray(variant.sections) && variant.sections.length > 0) {
     activeTemplate.sections = variant.sections;
-    if (activeTemplate.manifest && typeof activeTemplate.manifest === 'object') {
+    if (activeTemplate.manifest && typeof activeTemplate.manifest === "object") {
       activeTemplate.manifest.sections = variant.sections;
     }
   }
-
-  // Apply variant messages, assets, and theme palette into defaults (preserving user-edited values)
-  const userEditedSet = window._userModifiedFields instanceof Set ? window._userModifiedFields : new Set();
+  const userEditedSet = window._userModifiedFields instanceof Set ? window._userModifiedFields : /* @__PURE__ */ new Set();
   Object.entries(mergedVariantMessages).forEach(([k, val]) => {
-    if (val !== undefined && val !== null && String(val) !== '') {
+    if (val !== void 0 && val !== null && String(val) !== "") {
       const prevDefault = templateDefaultValues[k];
       templateDefaultValues[k] = val;
       const curVal = currentCustomData[k];
@@ -615,24 +555,20 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
   if (varWish) {
     const prevWishDef = templateDefaultValues.custom_message;
     templateDefaultValues.custom_message = varWish;
-    if (!currentCustomData.custom_message || currentCustomData.custom_message === prevWishDef || !userEditedSet.has('custom_message')) {
+    if (!currentCustomData.custom_message || currentCustomData.custom_message === prevWishDef || !userEditedSet.has("custom_message")) {
       currentCustomData.custom_message = varWish;
     }
   }
-
-  if (variant.assets && typeof variant.assets === 'object') {
+  if (variant.assets && typeof variant.assets === "object") {
     Object.entries(variant.assets).forEach(([k, val]) => {
-      if (val && typeof val === 'string') {
+      if (val && typeof val === "string") {
         templateDefaultValues[k] = val;
         if (!currentCustomData[k]) currentCustomData[k] = val;
       }
     });
   }
-
   const applyVariantPalette = () => {
-    const rawTheme = (variant.theme && typeof variant.theme === 'object')
-      ? (variant.theme.palette || variant.theme)
-      : (variant.palette || null);
+    const rawTheme = variant.theme && typeof variant.theme === "object" ? variant.theme.palette || variant.theme : variant.palette || null;
     if (rawTheme && !currentCustomData._userOverrodePalette) {
       if (rawTheme.primary || rawTheme.accentColor) currentCustomData.colors.primary = rawTheme.primary || rawTheme.accentColor;
       if (rawTheme.secondary) currentCustomData.colors.secondary = rawTheme.secondary;
@@ -641,7 +577,6 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
     }
   };
   applyVariantPalette();
-
   if (!isInitialLoad) {
     renderCustomizerHeader();
     applyUtpTemplateCapabilityGating(activeTemplate);
@@ -651,54 +586,42 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
     loadTemplateInSandbox();
   }
 }
-
-// Load template metadata & check for saved local draft (UTP v1.1.0 Variant-Aware + Rule D / E / Flow J)
 async function loadTemplateData(templateId) {
   const currentGen = ++customizerTemplateLoadGeneration;
   try {
     const urlParams = new URLSearchParams(window.location.search);
-    const variantParam = urlParams.get('variant') || '';
-    const relParam = urlParams.get('rel') || urlParams.get('relationship') || '';
+    const variantParam = urlParams.get("variant") || "";
+    const relParam = urlParams.get("rel") || urlParams.get("relationship") || "";
     const qs = new URLSearchParams();
-    if (variantParam) qs.set('variant', variantParam);
-    if (relParam) qs.set('rel', relParam);
-    const qsStr = qs.toString() ? `?${qs.toString()}` : '';
-
+    if (variantParam) qs.set("variant", variantParam);
+    if (relParam) qs.set("rel", relParam);
+    const qsStr = qs.toString() ? `?${qs.toString()}` : "";
     const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}${qsStr}`);
     const data = await res.json();
-    if (currentGen !== customizerTemplateLoadGeneration) return; // Stale request dropped
-
+    if (currentGen !== customizerTemplateLoadGeneration) return;
     if (data.success && data.template) {
       activeTemplate = data.template;
     } else {
-      // Fallback: try fetching all templates
-      const allRes = await fetch('/api/templates');
+      const allRes = await fetch("/api/templates");
       const allData = await allRes.json();
       if (currentGen !== customizerTemplateLoadGeneration) return;
       if (allData.success && allData.templates && allData.templates.length > 0) {
         activeTemplate = allData.templates[0];
       }
     }
-
     if (!activeTemplate) {
-      renderTemplateLoadErrorState(templateId, 'Could not load the selected template metadata.');
+      renderTemplateLoadErrorState(templateId, "Could not load the selected template metadata.");
       return;
     }
     if (currentGen !== customizerTemplateLoadGeneration) return;
-
-    // Graceful backward compatibility for all template versions (v1.0 - v1.4.0): never error on missing/mismatched variant
     let resolvedInitialVariant = activeTemplate.selectedVariant || null;
     let shouldPromptForVariant = false;
     let availVariantsForPrompt = [];
-
     if (window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate) && !currentEditingWishId) {
       availVariantsForPrompt = window.WishMagicVariantFlow.getAvailablePublishedVariants(activeTemplate);
       const explicitRelOrVar = relParam || variantParam || window.WishMagicVariantFlow.getActiveRelationFilter();
       if (explicitRelOrVar) {
-        const matched =
-          (relParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relParam)) ||
-          (variantParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, variantParam)) ||
-          window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
+        const matched = relParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relParam) || variantParam && window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, variantParam) || window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
         if (matched) {
           resolvedInitialVariant = matched;
         } else if (availVariantsForPrompt.length === 1) {
@@ -712,20 +635,16 @@ async function loadTemplateData(templateId) {
         shouldPromptForVariant = true;
       }
     }
-
-    // Apply template defaults
     applyTemplateDefaults(activeTemplate);
     if (resolvedInitialVariant) {
       applySelectedVariantToCustomizer(resolvedInitialVariant, true);
     }
-
-    // Check for existing local draft (scoped by variant via unified getLocalDraftStorageKey, with legacy fallback)
     const draftKey = getLocalDraftStorageKey(activeTemplate, resolvedInitialVariant);
     const legacyDraftKey = `wishmagic_draft_${activeTemplate.id}`;
     const rawSavedDraft = localStorage.getItem(draftKey) || (!resolvedInitialVariant ? localStorage.getItem(legacyDraftKey) : null);
     if (rawSavedDraft) {
       const parsed = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawSavedDraft, null) : JSON.parse(rawSavedDraft);
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === "object") {
         currentCustomData = { ...currentCustomData, ...parsed };
         if (resolvedInitialVariant) {
           currentCustomData.variantId = resolvedInitialVariant.id;
@@ -733,64 +652,57 @@ async function loadTemplateData(templateId) {
           currentCustomData.relationship = resolvedInitialVariant.relationshipSlug || currentCustomData.relationship;
           currentCustomData.relationshipLabel = resolvedInitialVariant.relationshipLabel || resolvedInitialVariant.relationshipSlug;
         }
-        showToast('Restored your saved local draft ✨');
+        showToast("Restored your saved local draft \u2728");
       }
     }
-
     if (currentGen !== customizerTemplateLoadGeneration) return;
-
     renderCustomizerHeader();
     await loadTemplateManifestIfNeeded(activeTemplate);
     if (currentGen !== customizerTemplateLoadGeneration) return;
     if (resolvedInitialVariant) {
       applySelectedVariantToCustomizer(resolvedInitialVariant, true);
     }
-
     applyUtpTemplateCapabilityGating(activeTemplate);
     renderDynamicTemplateFields(activeTemplate);
-    if (typeof window.switchStep1SubTab === 'function') {
-      window.switchStep1SubTab('all');
+    if (typeof window.switchStep1SubTab === "function") {
+      window.switchStep1SubTab("all");
     }
     populateFormValuesFromState();
     validateDraftEntitlements(currentCustomData);
     loadTemplateInSandbox();
-
-    // Rule D: If multi-variant template opened in Customizer without a chosen relation, prompt immediately
     if (shouldPromptForVariant && availVariantsForPrompt.length > 1 && window.WishMagicVariantFlow) {
-      window.WishMagicVariantFlow.showRelationSelectionModal(activeTemplate, availVariantsForPrompt, 'customize', {
+      window.WishMagicVariantFlow.showRelationSelectionModal(activeTemplate, availVariantsForPrompt, "customize", {
         onSelectVariant: (chosen) => {
           applySelectedVariantToCustomizer(chosen, false);
         }
       });
     }
-
-    if (typeof window.updateCustomizationProgressUI === 'function') {
+    if (typeof window.updateCustomizationProgressUI === "function") {
       window.updateCustomizationProgressUI();
     }
   } catch (err) {
-    console.error('Error loading template for customizer:', err);
-    renderTemplateLoadErrorState(templateId, err && err.message ? err.message : 'Network error while loading template.');
+    console.error("Error loading template for customizer:", err);
+    renderTemplateLoadErrorState(templateId, err && err.message ? err.message : "Network error while loading template.");
   }
 }
-
 function renderTemplateLoadErrorState(templateId, errorMsg) {
-  const titleEl = document.getElementById('customizer-template-name');
-  if (titleEl) titleEl.textContent = 'Template Load Error';
-  const errBox = document.getElementById('step-1-validation-error');
+  const titleEl = document.getElementById("customizer-template-name");
+  if (titleEl) titleEl.textContent = "Template Load Error";
+  const errBox = document.getElementById("step-1-validation-error");
   if (errBox) {
-    errBox.setAttribute('role', 'alert');
-    errBox.setAttribute('aria-live', 'assertive');
+    errBox.setAttribute("role", "alert");
+    errBox.setAttribute("aria-live", "assertive");
     errBox.innerHTML = `
       <div class="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-800 dark:text-rose-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         <div class="flex items-start gap-2.5">
           <span class="material-symbols-outlined text-[20px] text-rose-500 shrink-0">error</span>
           <div>
-            <p class="font-extrabold text-sm">Unable to load template "${escapeHtml(String(templateId || ''))}"</p>
-            <p class="mt-0.5 opacity-90">${escapeHtml(String(errorMsg || 'Please check your connection and try again.'))}</p>
+            <p class="font-extrabold text-sm">Unable to load template "${escapeHtml(String(templateId || ""))}"</p>
+            <p class="mt-0.5 opacity-90">${escapeHtml(String(errorMsg || "Please check your connection and try again."))}</p>
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <button type="button" onclick="window.retryLoadTemplateData('${escapeHtml(String(templateId || ''))}')" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer">
+          <button type="button" onclick="window.retryLoadTemplateData('${escapeHtml(String(templateId || ""))}')" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer">
             Retry Load
           </button>
           <a href="/templates.html" class="px-3.5 py-2 rounded-xl bg-white/80 dark:bg-purple-900/60 text-purple-900 dark:text-purple-100 font-bold text-xs border border-purple-300/60 transition">
@@ -799,40 +711,34 @@ function renderTemplateLoadErrorState(templateId, errorMsg) {
         </div>
       </div>
     `;
-    errBox.classList.remove('hidden');
+    errBox.classList.remove("hidden");
   }
 }
-
 window.retryLoadTemplateData = function(tplId) {
-  const errBox = document.getElementById('step-1-validation-error');
-  if (errBox) errBox.classList.add('hidden');
+  const errBox = document.getElementById("step-1-validation-error");
+  if (errBox) errBox.classList.add("hidden");
   const urlParams = new URLSearchParams(window.location.search);
-  const targetId = tplId || urlParams.get('template') || urlParams.get('id') || 'tpl_glitter_birthday';
+  const targetId = tplId || urlParams.get("template") || urlParams.get("id") || "tpl_glitter_birthday";
   loadTemplateData(targetId);
 };
-
-// -----------------------------------------------------------------------------
-// PART 4: MANIFEST-DRIVEN UNIVERSAL CUSTOMIZER & DYNAMIC FIELDS ENGINE
-// -----------------------------------------------------------------------------
-
 async function loadTemplateManifestIfNeeded(template) {
   if (!template) return null;
-  if (template.manifest && typeof template.manifest === 'object') {
+  if (template.manifest && typeof template.manifest === "object") {
     return template.manifest;
   }
   if (template.manifest_json) {
     try {
-      template.manifest = typeof template.manifest_json === 'string' ? JSON.parse(template.manifest_json) : template.manifest_json;
+      template.manifest = typeof template.manifest_json === "string" ? JSON.parse(template.manifest_json) : template.manifest_json;
       return template.manifest;
-    } catch (e) {}
+    } catch (e) {
+    }
   }
-  // Try fetching wishmagic.json from templates-store
   try {
     const folder = resolveCanonicalCustomizeFolder(template);
     const res = await fetch(`/templates-store/${folder}/wishmagic.json`);
     if (res.ok) {
       const manifest = await res.json();
-      if (manifest && typeof manifest === 'object') {
+      if (manifest && typeof manifest === "object") {
         template.manifest = manifest;
         if (manifest.fields && Array.isArray(manifest.fields) && (!template.fields || template.fields.length === 0)) {
           template.fields = manifest.fields;
@@ -840,79 +746,51 @@ async function loadTemplateManifestIfNeeded(template) {
         return manifest;
       }
     }
-  } catch (e) {}
+  } catch (e) {
+  }
   return null;
 }
-
-/**
- * Enforces strict UTP v1.0.0 capability & field gating so custom uploaded templates
- * ONLY display customization controls, media uploaders, and sections that they genuinely support.
- */
 function applyUtpTemplateCapabilityGating(template) {
   if (!template) return;
-  const manifest = (template.manifest && typeof template.manifest === "object")
-    ? template.manifest
-    : (typeof template.theme === "object" && template.theme && template.theme.fields ? template.theme : null);
-
-  const rawFields = (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0)
-    ? manifest.fields
-    : (Array.isArray(template.detectedFields) && template.detectedFields.length > 0
-      ? template.detectedFields
-      : (Array.isArray(template.fields) ? template.fields : []));
-
+  const manifest = template.manifest && typeof template.manifest === "object" ? template.manifest : typeof template.theme === "object" && template.theme && template.theme.fields ? template.theme : null;
+  const rawFields = manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0 ? manifest.fields : Array.isArray(template.detectedFields) && template.detectedFields.length > 0 ? template.detectedFields : Array.isArray(template.fields) ? template.fields : [];
   const hasExplicitUtpSchema = Boolean(
-    (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0) ||
-    (Array.isArray(template.detectedFields) && template.detectedFields.length > 0)
+    manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0 || Array.isArray(template.detectedFields) && template.detectedFields.length > 0
   );
-
   if (!hasExplicitUtpSchema) return;
-
-  const fieldByKey = new Map();
-  rawFields.forEach(f => {
+  const fieldByKey = /* @__PURE__ */ new Map();
+  rawFields.forEach((f) => {
     const k = String(f.id || f.key || "").trim();
     if (k) fieldByKey.set(k, f);
   });
-
-  const capsList = Array.isArray(manifest?.capabilities)
-    ? manifest.capabilities
-    : (Array.isArray(template.capabilities) ? template.capabilities : []);
-  const capsObj = (!Array.isArray(manifest?.capabilities) && typeof manifest?.capabilities === "object" && manifest?.capabilities)
-    ? manifest.capabilities
-    : ((!Array.isArray(template.capabilities) && typeof template.capabilities === "object" && template.capabilities) ? template.capabilities : {});
-
+  const capsList = Array.isArray(manifest?.capabilities) ? manifest.capabilities : Array.isArray(template.capabilities) ? template.capabilities : [];
+  const capsObj = !Array.isArray(manifest?.capabilities) && typeof manifest?.capabilities === "object" && manifest?.capabilities ? manifest.capabilities : !Array.isArray(template.capabilities) && typeof template.capabilities === "object" && template.capabilities ? template.capabilities : {};
   const hasCap = (name) => capsList.includes(name) || Boolean(capsObj[name]);
-
-  // 1. Sync Core Personal Info Fields (recipient_name, sender_name, event_date, custom_message)
   const coreFieldInputs = [
     { key: "recipient_name", inputId: "input-recipient" },
     { key: "sender_name", inputId: "input-sender" },
     { key: "event_date", inputId: "input-date" },
     { key: "custom_message", inputId: "input-message" }
   ];
-
-  rawFields.forEach(f => {
+  rawFields.forEach((f) => {
     const fKey = String(f.id || f.key || "").trim();
-    if (fKey && f.defaultValue !== undefined && f.defaultValue !== null && String(f.defaultValue) !== "") {
+    if (fKey && f.defaultValue !== void 0 && f.defaultValue !== null && String(f.defaultValue) !== "") {
       templateDefaultValues[fKey] = f.defaultValue;
     }
   });
-
   coreFieldInputs.forEach(({ key, inputId }) => {
     const inputEl = document.getElementById(inputId);
     if (!inputEl) return;
     const wrapper = inputEl.closest("div");
-    const declared = fieldByKey.get(key) || (key === "event_date" ? (fieldByKey.get("dob") || fieldByKey.get("birth_date") || fieldByKey.get("celebration_date")) : null);
-
+    const declared = fieldByKey.get(key) || (key === "event_date" ? fieldByKey.get("dob") || fieldByKey.get("birth_date") || fieldByKey.get("celebration_date") : null);
     const dateIsSupported = templateRequiresEventDate(template);
-    if (key === "recipient_name" || (key === "event_date" && dateIsSupported)) {
+    if (key === "recipient_name" || key === "event_date" && dateIsSupported) {
       if (wrapper) wrapper.classList.remove("hidden");
       inputEl.setAttribute("aria-required", "true");
       const labelEl = wrapper ? wrapper.querySelector("label") : null;
       if (labelEl) {
-        const baseLabel = (declared && declared.label)
-          ? declared.label
-          : (key === "recipient_name" ? "Recipient's Name" : "Date of Birth / Celebration Date");
-        labelEl.innerHTML = baseLabel + " <span class=\"text-pink-500\" aria-hidden=\"true\">*</span>";
+        const baseLabel = declared && declared.label ? declared.label : key === "recipient_name" ? "Recipient's Name" : "Date of Birth / Celebration Date";
+        labelEl.innerHTML = baseLabel + ' <span class="text-pink-500" aria-hidden="true">*</span>';
       }
       if (declared && declared.defaultValue) {
         templateDefaultValues[key] = declared.defaultValue;
@@ -929,16 +807,15 @@ function applyUtpTemplateCapabilityGating(template) {
       if (wrapper) wrapper.classList.add("hidden");
       inputEl.removeAttribute("aria-required");
       if (!currentCustomData.event_date) {
-        currentCustomData.event_date = new Date().toISOString().split("T")[0];
+        currentCustomData.event_date = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
       }
       return;
     }
-
     if (declared) {
       if (wrapper) wrapper.classList.remove("hidden");
       const labelEl = wrapper ? wrapper.querySelector("label") : null;
       if (labelEl && declared.label) {
-        labelEl.innerHTML = declared.label + " <span class=\"text-purple-500 font-normal\">(Optional)</span>";
+        labelEl.innerHTML = declared.label + ' <span class="text-purple-500 font-normal">(Optional)</span>';
       }
       if (declared.placeholder) inputEl.placeholder = declared.placeholder;
       if (declared.defaultValue) {
@@ -955,33 +832,27 @@ function applyUtpTemplateCapabilityGating(template) {
       }
     }
   });
-
-  // 1b. Gate Contact, Occasion, and Relationship inputs strictly to template fields/variants
   const contactInput = document.getElementById("input-contact");
   const contactWrap = document.getElementById("wrapper-input-contact") || (contactInput ? contactInput.closest("div") : null);
   if (contactWrap) {
     if (fieldByKey.has("sender_contact")) contactWrap.classList.remove("hidden");
     else contactWrap.classList.add("hidden");
   }
-
   const occasionInput = document.getElementById("input-occasion");
   const occasionWrap = document.getElementById("wrapper-input-occasion") || (occasionInput ? occasionInput.closest("div") : null);
   if (occasionWrap) {
     if (fieldByKey.has("occasion")) occasionWrap.classList.remove("hidden");
     else occasionWrap.classList.add("hidden");
   }
-
   const relInput = document.getElementById("input-relationship");
   const relWrap = document.getElementById("wrapper-input-relationship") || (relInput ? relInput.closest("div") : null);
-  const availVariants = Array.isArray(template.variants)
-    ? template.variants.filter(v => v && v.enabled !== false && v.status !== "disabled" && v.status !== "archived")
-    : [];
+  const availVariants = Array.isArray(template.variants) ? template.variants.filter((v) => v && v.enabled !== false && v.status !== "disabled" && v.status !== "archived") : [];
   if (relWrap) {
     if (availVariants.length > 0 || fieldByKey.has("relationship")) {
       relWrap.classList.remove("hidden");
       if (relInput && availVariants.length > 0 && typeof relInput.innerHTML === "string") {
-        const currentRel = currentCustomData.relationship || (template.selectedVariant && (template.selectedVariant.relationshipSlug || template.selectedVariant.relationship)) || "";
-        relInput.innerHTML = availVariants.map(v => {
+        const currentRel = currentCustomData.relationship || template.selectedVariant && (template.selectedVariant.relationshipSlug || template.selectedVariant.relationship) || "";
+        relInput.innerHTML = availVariants.map((v) => {
           const slug = String(v.relationshipSlug || v.relationship || v.slug || v.id || "").trim();
           const label = String(v.relationshipLabel || v.name || slug).trim();
           const sel = slug === currentRel ? " selected" : "";
@@ -993,14 +864,10 @@ function applyUtpTemplateCapabilityGating(template) {
       relWrap.classList.add("hidden");
     }
   }
-
-  // 2. Gate Photo / Gallery Section
-  const imageFields = rawFields.filter(f => f && (f.type === "image" || f.type === "image-multiple" || /^photo_\d+$/i.test(String(f.id || f.key || "")) || String(f.id || f.key || "") === "cover_photo" || String(f.id || f.key || "") === "hero_photo"));
-  const supportsMultiGallery = rawFields.some(f => f && f.type === "image-multiple") || imageFields.length > 1 || hasCap("gallery") || hasCap("multiplePhotos");
+  const imageFields = rawFields.filter((f) => f && (f.type === "image" || f.type === "image-multiple" || /^photo_\d+$/i.test(String(f.id || f.key || "")) || String(f.id || f.key || "") === "cover_photo" || String(f.id || f.key || "") === "hero_photo"));
+  const supportsMultiGallery = rawFields.some((f) => f && f.type === "image-multiple") || imageFields.length > 1 || hasCap("gallery") || hasCap("multiplePhotos");
   const supportsAnyPhoto = imageFields.length > 0 || hasCap("photos") || supportsMultiGallery;
-
   const photoCard = document.getElementById("step1-card-photos") || (document.getElementById("photo-dropzone") ? document.getElementById("photo-dropzone").closest(".glass-surface") : null);
-
   if (photoCard) {
     if (!supportsAnyPhoto) {
       photoCard.classList.add("hidden");
@@ -1008,24 +875,18 @@ function applyUtpTemplateCapabilityGating(template) {
       photoCard.classList.remove("hidden");
     }
   }
-
-  // 3. Gate Voice Note Section strictly on whether the template has a voice field
-  const supportsVoice = rawFields.some(f => f && (f.type === "voice" || f.id === "voice_note" || f.key === "voice_note"));
+  const supportsVoice = rawFields.some((f) => f && (f.type === "voice" || f.id === "voice_note" || f.key === "voice_note"));
   const voiceWrapper = document.getElementById("voice-note-section-wrapper");
   if (voiceWrapper) {
     if (!supportsVoice) voiceWrapper.classList.add("hidden");
     else voiceWrapper.classList.remove("hidden");
   }
-
-  // 4. Gate Background Music Section strictly on whether the template has an audio/music field
-  const supportsMusic = rawFields.some(f => f && (f.type === "audio" || f.id === "background_music" || f.key === "background_music" || f.id === "music" || f.key === "music"));
+  const supportsMusic = rawFields.some((f) => f && (f.type === "audio" || f.id === "background_music" || f.key === "background_music" || f.id === "music" || f.key === "music"));
   const musicWrapper = document.getElementById("music-section-wrapper");
   if (musicWrapper) {
     if (!supportsMusic) musicWrapper.classList.add("hidden");
     else musicWrapper.classList.remove("hidden");
   }
-
-  // 5. Sync Declared Sections for Step 3 (excluding any admin-disabled sections/subsections per UTP v1.2.0)
   const adminDisabledSet = new Set(Array.isArray(template.disabledIds) ? template.disabledIds : []);
   if (template.visibilityMap && typeof template.visibilityMap === "object") {
     Object.entries(template.visibilityMap).forEach(([k, v]) => {
@@ -1038,26 +899,42 @@ function applyUtpTemplateCapabilityGating(template) {
   if (adminDisabledSet.has("music") || adminDisabledSet.has("background_music")) {
     if (musicWrapper) musicWrapper.classList.add("hidden");
   }
-
   const effectiveVoiceSupported = Boolean(supportsVoice && !adminDisabledSet.has("voice") && !adminDisabledSet.has("voice_note"));
   const effectiveMusicSupported = Boolean(supportsMusic && !adminDisabledSet.has("music") && !adminDisabledSet.has("background_music"));
+  const effectiveSupportsAnyPhoto = Boolean(
+    template.supportsPhotos !== false &&
+    template.supportsAnyPhoto !== false &&
+    supportsAnyPhoto &&
+    !adminDisabledSet.has("gallery") &&
+    !adminDisabledSet.has("photos")
+  );
+  if (photoCard) {
+    if (!effectiveSupportsAnyPhoto) {
+      photoCard.classList.add("hidden");
+    } else {
+      photoCard.classList.remove("hidden");
+    }
+  }
   window._customizerCapabilities = {
-    ...(window._customizerCapabilities || {}),
-    supportsAnyPhoto: Boolean(supportsAnyPhoto && !adminDisabledSet.has("gallery") && !adminDisabledSet.has("photos")),
-    supportsMultiGallery: Boolean(supportsMultiGallery && !adminDisabledSet.has("gallery")),
+    ...window._customizerCapabilities || {},
+    supportsAnyPhoto: effectiveSupportsAnyPhoto,
+    supportsMultiGallery: Boolean(effectiveSupportsAnyPhoto && supportsMultiGallery && !adminDisabledSet.has("gallery")),
     supportsVoice: effectiveVoiceSupported,
     supportsMusic: effectiveMusicSupported,
     supportsDate: templateRequiresEventDate(template)
   };
-
-  const declaredSections = (Array.isArray(template.sections) && template.sections.length > 0)
-    ? template.sections
-    : ((manifest && Array.isArray(manifest.sections) && manifest.sections.length > 0) ? manifest.sections : []);
-
+  if (!effectiveSupportsAnyPhoto) {
+    if (typeof selectedHdPhotosAddon !== "undefined") selectedHdPhotosAddon = false;
+    if (typeof selectedRandomHdPhotos !== "undefined") selectedRandomHdPhotos = false;
+  }
+  if (typeof window.renderPersonalizedPaymentCallout === "function") {
+    try { window.renderPersonalizedPaymentCallout(); } catch (_) {}
+  }
+  const declaredSections = Array.isArray(template.sections) && template.sections.length > 0 ? template.sections : manifest && Array.isArray(manifest.sections) && manifest.sections.length > 0 ? manifest.sections : [];
   if (declaredSections.length > 0) {
-    const prevEnabledMap = new Map();
+    const prevEnabledMap = /* @__PURE__ */ new Map();
     if (Array.isArray(currentCustomData.sections)) {
-      currentCustomData.sections.forEach(s => {
+      currentCustomData.sections.forEach((s) => {
         if (s && s.id) prevEnabledMap.set(s.id, s.enabled !== false);
       });
     }
@@ -1067,26 +944,24 @@ function applyUtpTemplateCapabilityGating(template) {
       if (!Array.isArray(secList)) return;
       secList.forEach((sec) => {
         if (!sec) return;
-        const sId = typeof sec === "string" ? sec : (sec.id || sec.key);
+        const sId = typeof sec === "string" ? sec : sec.id || sec.key;
         if (!sId || adminDisabledSet.has(sId)) return;
         if (typeof sec === "object" && (sec.enabled === false || sec.isEnabled === false || sec.effectiveEnabled === false)) return;
         const isReq = Boolean(sec.required || sId === "hero");
         const defaultOn = sec.defaultEnabled !== false && sec.enabled !== false && sec.isEnabled !== false;
-        const isEnabled = isReq
-          ? true
-          : (hiddenSecSet.has(sId) ? false : (prevEnabledMap.has(sId) ? prevEnabledMap.get(sId) : defaultOn));
+        const isEnabled = isReq ? true : hiddenSecSet.has(sId) ? false : prevEnabledMap.has(sId) ? prevEnabledMap.get(sId) : defaultOn;
         flattenedCustomerSecs.push({
           id: sId,
-          name: sec.label || sec.name || sId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-          description: sec.description || (depth > 0 ? ("Sub-part of " + parentId.replace(/_/g, " ")) : ""),
+          name: sec.label || sec.name || sId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+          description: sec.description || (depth > 0 ? "Sub-part of " + parentId.replace(/_/g, " ") : ""),
           required: isReq,
-          toggleable: isReq ? false : (sec.toggleable !== false),
+          toggleable: isReq ? false : sec.toggleable !== false,
           enabled: isEnabled,
           isSubsection: depth > 0,
           parentSectionId: parentId,
           depth,
           order: flattenedCustomerSecs.length + 1,
-          selector: depth > 0 ? ("[data-wm-subsection=\"" + sId + "\"]") : ("[data-wm-section=\"" + sId + "\"]")
+          selector: depth > 0 ? '[data-wm-subsection="' + sId + '"]' : '[data-wm-section="' + sId + '"]'
         });
         if (Array.isArray(sec.subsections) && sec.subsections.length > 0 && depth < 3) {
           walkDeclaredSecs(sec.subsections, sId, depth + 1);
@@ -1099,98 +974,95 @@ function applyUtpTemplateCapabilityGating(template) {
     if (typeof updateGallerySectionQuickButtonUI === "function") updateGallerySectionQuickButtonUI();
   }
 }
-
 function renderDynamicTemplateFields(template) {
-  const container = document.getElementById('template-dynamic-fields-container');
-  const card = document.getElementById('dynamic-template-fields-card');
-  const countBadge = document.getElementById('dynamic-fields-count-badge');
+  const container = document.getElementById("template-dynamic-fields-container");
+  const card = document.getElementById("dynamic-template-fields-card");
+  const countBadge = document.getElementById("dynamic-fields-count-badge");
   if (!container || !card) return;
-
   const manifest = template ? template.manifest : null;
-  let rawFields = (manifest && manifest.fields) || (template && template.fields) || (template && template.detectedFields) || [];
+  let rawFields = manifest && manifest.fields || template && template.fields || template && template.detectedFields || [];
   if (!Array.isArray(rawFields)) rawFields = [];
-
-  const STANDARD_BUILTIN_KEYS = new Set([
-    'recipient_name', 'sender_name', 'sender_contact', 'event_date',
-    'occasion', 'relationship', 'custom_message', 'photos', 'music',
-    'voice_note', 'cover_photo', 'photo_1', 'customSlug', 'slug', 'buyerName'
+  const STANDARD_BUILTIN_KEYS = /* @__PURE__ */ new Set([
+    "recipient_name",
+    "sender_name",
+    "sender_contact",
+    "event_date",
+    "occasion",
+    "relationship",
+    "custom_message",
+    "photos",
+    "music",
+    "voice_note",
+    "cover_photo",
+    "photo_1",
+    "customSlug",
+    "slug",
+    "buyerName"
   ]);
-
   const disabledIdsSet = new Set(Array.isArray(template?.disabledIds) ? template.disabledIds : []);
-  if (template?.visibilityMap && typeof template.visibilityMap === 'object') {
-    Object.entries(template.visibilityMap).forEach(([k, v]) => { if (v === false) disabledIdsSet.add(k); });
+  if (template?.visibilityMap && typeof template.visibilityMap === "object") {
+    Object.entries(template.visibilityMap).forEach(([k, v]) => {
+      if (v === false) disabledIdsSet.add(k);
+    });
   }
   const excludedFieldIdsSet = new Set(Array.isArray(template?.excludedFieldIds) ? template.excludedFieldIds : []);
-
-  const dynamicFields = rawFields.filter(f => {
+  const dynamicFields = rawFields.filter((f) => {
     if (!f || f.disabled === true || f.enabled === false) return false;
-    const k = (f.id || f.key || '').trim();
+    const k = (f.id || f.key || "").trim();
     if (!k || STANDARD_BUILTIN_KEYS.has(k) || excludedFieldIdsSet.has(k)) return false;
-    const fType = String(f.type || '').toLowerCase();
-    // Image/photo fields are handled in the Template Photo Slots Manager so they are never duplicated
-    if (fType === 'image' || /^photo_\d+$/i.test(k) || k === 'hero_photo') return false;
-    if ((f.sectionId && disabledIdsSet.has(f.sectionId)) || (f.subsectionId && disabledIdsSet.has(f.subsectionId)) || (f.section && disabledIdsSet.has(f.section))) {
+    const fType = String(f.type || "").toLowerCase();
+    if (fType === "image" || /^photo_\d+$/i.test(k) || k === "hero_photo") return false;
+    if (f.sectionId && disabledIdsSet.has(f.sectionId) || f.subsectionId && disabledIdsSet.has(f.subsectionId) || f.section && disabledIdsSet.has(f.section)) {
       return false;
     }
     return true;
   });
-
   window._customizerCapabilities = {
-    ...(window._customizerCapabilities || {}),
+    ...window._customizerCapabilities || {},
     hasDynamicFields: dynamicFields.length > 0
   };
-
   if (dynamicFields.length === 0) {
     if (countBadge) countBadge.textContent = `${(currentCustomData.sections || []).length} Sections`;
-    const navBoxEmpty = document.getElementById('dynamic-fields-section-navigator');
-    if (navBoxEmpty) navBoxEmpty.innerHTML = '';
-    container.innerHTML = '';
-    card.classList.add('hidden');
-    if (typeof renderTemplatePhotoSlotsManager === 'function') {
+    const navBoxEmpty = document.getElementById("dynamic-fields-section-navigator");
+    if (navBoxEmpty) navBoxEmpty.innerHTML = "";
+    container.innerHTML = "";
+    card.classList.add("hidden");
+    if (typeof renderTemplatePhotoSlotsManager === "function") {
       renderTemplatePhotoSlotsManager();
     }
-    if (typeof window.syncStep1SubTabCapabilitiesUI === 'function') {
+    if (typeof window.syncStep1SubTabCapabilitiesUI === "function") {
       window.syncStep1SubTabCapabilitiesUI();
     }
-    if (typeof window.updateCustomizationProgressUI === 'function') {
+    if (typeof window.updateCustomizationProgressUI === "function") {
       window.updateCustomizationProgressUI();
     }
     return;
   }
-
-  card.classList.remove('hidden');
+  card.classList.remove("hidden");
   if (countBadge) {
-    countBadge.textContent = `${dynamicFields.length} Field${dynamicFields.length === 1 ? '' : 's'}`;
+    countBadge.textContent = `${dynamicFields.length} Field${dynamicFields.length === 1 ? "" : "s"}`;
   }
-  container.innerHTML = '';
-
-  const navBox = document.getElementById('dynamic-fields-section-navigator');
-  if (navBox) navBox.innerHTML = '';
-
+  container.innerHTML = "";
+  const navBox = document.getElementById("dynamic-fields-section-navigator");
+  if (navBox) navBox.innerHTML = "";
   const hiddenFieldsSet = new Set(Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : []);
-
-  dynamicFields.forEach(field => {
+  dynamicFields.forEach((field) => {
     const fieldKey = field.id || field.key;
     field.key = fieldKey;
     field.id = fieldKey;
-    const secKey = String(field.section || field.sectionId || field.group || 'general').trim() || 'general';
-
+    const secKey = String(field.section || field.sectionId || field.group || "general").trim() || "general";
     if (!isMandatoryIdentityField(fieldKey)) {
       field.required = false;
       field.isRequired = false;
     }
-    if (templateDefaultValues[fieldKey] === undefined || templateDefaultValues[fieldKey] === '') {
-      if (field.defaultValue !== undefined && field.defaultValue !== null && String(field.defaultValue) !== '') {
+    if (templateDefaultValues[fieldKey] === void 0 || templateDefaultValues[fieldKey] === "") {
+      if (field.defaultValue !== void 0 && field.defaultValue !== null && String(field.defaultValue) !== "") {
         templateDefaultValues[fieldKey] = field.defaultValue;
       }
     }
-
-    if (currentCustomData[fieldKey] === undefined || currentCustomData[fieldKey] === '') {
-      currentCustomData[fieldKey] = (templateDefaultValues[fieldKey] !== undefined && templateDefaultValues[fieldKey] !== '')
-        ? templateDefaultValues[fieldKey]
-        : ((field.defaultValue !== undefined && field.defaultValue !== null) ? field.defaultValue : '');
+    if (currentCustomData[fieldKey] === void 0 || currentCustomData[fieldKey] === "") {
+      currentCustomData[fieldKey] = templateDefaultValues[fieldKey] !== void 0 && templateDefaultValues[fieldKey] !== "" ? templateDefaultValues[fieldKey] : field.defaultValue !== void 0 && field.defaultValue !== null ? field.defaultValue : "";
     }
-
     const isVisibleByRule = evaluateFieldVisibility(field, currentCustomData);
     const isFieldHiddenByCustomer = hiddenFieldsSet.has(fieldKey);
     const fieldState = {
@@ -1198,8 +1070,7 @@ function renderDynamicTemplateFields(template) {
       visible: isVisibleByRule,
       disabled: isFieldHiddenByCustomer
     };
-
-    if (window.WishMagicFieldRenderer && typeof window.WishMagicFieldRenderer.render === 'function') {
+    if (window.WishMagicFieldRenderer && typeof window.WishMagicFieldRenderer.render === "function") {
       const renderedNode = window.WishMagicFieldRenderer.render(
         field,
         fieldState,
@@ -1208,43 +1079,46 @@ function renderDynamicTemplateFields(template) {
         }
       );
       let elNode = null;
-      if (typeof renderedNode === 'string') {
-        const wrapper = document.createElement('div');
+      if (typeof renderedNode === "string") {
+        const wrapper = document.createElement("div");
         wrapper.innerHTML = renderedNode;
         elNode = wrapper.firstElementChild || wrapper;
       } else if (renderedNode instanceof HTMLElement) {
         elNode = renderedNode;
       }
       if (elNode) {
-        elNode.setAttribute('data-field-section', secKey);
+        elNode.setAttribute("data-field-section", secKey);
         container.appendChild(elNode);
       }
     }
   });
-  if (typeof renderTemplatePhotoSlotsManager === 'function') {
+  if (typeof renderTemplatePhotoSlotsManager === "function") {
     renderTemplatePhotoSlotsManager();
   }
-  if (typeof window.syncStep1SubTabCapabilitiesUI === 'function') {
+  if (typeof window.syncStep1SubTabCapabilitiesUI === "function") {
     window.syncStep1SubTabCapabilitiesUI();
   }
-  if (typeof window.updateCustomizationProgressUI === 'function') {
+  if (typeof window.updateCustomizationProgressUI === "function") {
     window.updateCustomizationProgressUI();
   }
 }
-
 function evaluateFieldVisibility(field, state) {
   if (!field || !field.visibleIf) return true;
   const cond = field.visibleIf;
-  if (typeof cond === 'function') {
-    try { return Boolean(cond(state)); } catch (e) { return true; }
+  if (typeof cond === "function") {
+    try {
+      return Boolean(cond(state));
+    } catch (e) {
+      return true;
+    }
   }
-  if (typeof cond === 'object') {
+  if (typeof cond === "object") {
     const targetKey = cond.field || cond.key;
     const currentVal = state[targetKey];
-    if (cond.equals !== undefined) {
+    if (cond.equals !== void 0) {
       return currentVal === cond.equals;
     }
-    if (cond.notEquals !== undefined) {
+    if (cond.notEquals !== void 0) {
       return currentVal !== cond.notEquals;
     }
     if (cond.in && Array.isArray(cond.in)) {
@@ -1259,36 +1133,31 @@ function evaluateFieldVisibility(field, state) {
   }
   return true;
 }
-
 function handleDynamicFieldChange(key, newVal, field) {
   currentCustomData[key] = newVal;
   if (window._userModifiedFields instanceof Set) window._userModifiedFields.add(key);
-
-  // Re-evaluate visibility for all fields in container
-  const container = document.getElementById('template-dynamic-fields-container');
+  const container = document.getElementById("template-dynamic-fields-container");
   if (container && activeTemplate) {
     const manifest = activeTemplate.manifest;
-    const rawFields = (manifest && manifest.fields) || activeTemplate.fields || [];
-    rawFields.forEach(f => {
+    const rawFields = manifest && manifest.fields || activeTemplate.fields || [];
+    rawFields.forEach((f) => {
       const fKey = f.id || f.key;
       const el = container.querySelector(`[data-field-key="${fKey}"]`);
       if (el) {
         const visible = evaluateFieldVisibility(f, currentCustomData);
         if (visible) {
-          el.style.display = 'block';
-          el.classList.remove('wm-field-hidden');
+          el.style.display = "block";
+          el.classList.remove("wm-field-hidden");
         } else {
-          el.style.display = 'none';
-          el.classList.add('wm-field-hidden');
+          el.style.display = "none";
+          el.classList.add("wm-field-hidden");
           if (f.clearOnHide) {
-            currentCustomData[fKey] = (f.defaultValue !== undefined && f.defaultValue !== null) ? f.defaultValue : '';
+            currentCustomData[fKey] = f.defaultValue !== void 0 && f.defaultValue !== null ? f.defaultValue : "";
           }
         }
       }
     });
   }
-
-  // Live preview update via Runtime Bridge
   if (window.WishMagicRuntimeBridge) {
     window.WishMagicRuntimeBridge.updateField(key, newVal);
     window.WishMagicRuntimeBridge.updateState(currentCustomData);
@@ -1296,223 +1165,170 @@ function handleDynamicFieldChange(key, newVal, field) {
   syncDataToIframe();
   triggerAutosave();
 }
-
-// Part 11: Validate loaded draft against entitlement without corrupting data
 function validateDraftEntitlements(data) {
   if (!window.WishFeatureAccess || !data) return;
   const isPrem = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
-  if (isPrem) return; // User has full entitlement
-
+  if (isPrem) return;
   const issues = [];
-
-  if (activeTemplate && (activeTemplate.tier === 'vip' || activeTemplate.isPremium || activeTemplate.price > 0)) {
-    issues.push('VIP Blueprint');
+  if (activeTemplate && (activeTemplate.tier === "vip" || activeTemplate.isPremium || activeTemplate.price > 0)) {
+    issues.push("VIP Blueprint");
   }
-
-  if (data.theme && ['romantic', 'elegant', 'royal', 'dark'].includes(String(data.theme).toLowerCase())) {
+  if (data.theme && ["romantic", "elegant", "royal", "dark"].includes(String(data.theme).toLowerCase())) {
     issues.push(`VIP Theme (${data.theme})`);
   }
-
   if (data.media) {
     if (data.media.photos && data.media.photos.length > 3) {
       issues.push(`Expanded Keepsakes (${data.media.photos.length} photos)`);
     }
     if (data.media.voiceNote && data.media.voiceNote.enabled) {
-      issues.push('Spoken Voice Dedication Note');
+      issues.push("Spoken Voice Dedication Note");
     }
-    if (data.media.music && data.media.music.type === 'upload') {
-      issues.push('Custom Audio Upload');
+    if (data.media.music && data.media.music.type === "upload") {
+      issues.push("Custom Audio Upload");
     }
-    if (data.media.galleryLayout && ['polaroid', 'carousel', 'masonry'].includes(data.media.galleryLayout)) {
+    if (data.media.galleryLayout && ["polaroid", "carousel", "masonry"].includes(data.media.galleryLayout)) {
       issues.push(`VIP Gallery Layout (${data.media.galleryLayout})`);
     }
   }
-
   if (data.sections && Array.isArray(data.sections)) {
-    data.sections.forEach(s => {
-      if (s.enabled && ['countdown', 'timeline', 'voice', 'secret_message', 'open_when', 'final_surprise'].includes(s.id)) {
+    data.sections.forEach((s) => {
+      if (s.enabled && ["countdown", "timeline", "voice", "secret_message", "open_when", "final_surprise"].includes(s.id)) {
         issues.push(`VIP Section (${s.name})`);
       }
     });
   }
-
   if (data.lifetimePreservation) {
-    issues.push('Lifetime Link Preservation');
+    issues.push("Lifetime Link Preservation");
   }
   if (data.watermarkRemoved) {
-    issues.push('Zero Platform Watermark');
+    issues.push("Zero Platform Watermark");
   }
-
   if (issues.length > 0) {
-    console.info('[WishEntitlement] Detected draft contains premium capabilities without active entitlement:', issues);
-    showToast(`⚠️ This draft includes VIP features (${issues.length}) locked on Free Tier. Upgrade to VIP to keep them active in the gift link.`, 5000);
+    console.info("[WishEntitlement] Detected draft contains premium capabilities without active entitlement:", issues);
+    showToast(`\u26A0\uFE0F This draft includes VIP features (${issues.length}) locked on Free Tier. Upgrade to VIP to keep them active in the gift link.`, 5e3);
   }
 }
-
-// Apply sensible template-specific defaults
 function applyTemplateDefaults(tpl) {
-  const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
-
-  // Default detected fields (store all defaults; pre-fill optional messages/texts while keeping Name & DOB for user input)
+  const isVip = tpl.tier === "vip" || tpl.price && Number(tpl.price) > 0;
   templateDefaultValues = {};
   const allTplFields = [
-    ...((tpl.manifest && Array.isArray(tpl.manifest.fields)) ? tpl.manifest.fields : []),
-    ...(Array.isArray(tpl.fields) ? tpl.fields : []),
-    ...(Array.isArray(tpl.detectedFields) ? tpl.detectedFields : [])
+    ...tpl.manifest && Array.isArray(tpl.manifest.fields) ? tpl.manifest.fields : [],
+    ...Array.isArray(tpl.fields) ? tpl.fields : [],
+    ...Array.isArray(tpl.detectedFields) ? tpl.detectedFields : []
   ];
-  allTplFields.forEach(f => {
+  allTplFields.forEach((f) => {
     const fKey = f && (f.key || f.id);
     if (!fKey) return;
-    if (f.defaultValue !== undefined && f.defaultValue !== null && String(f.defaultValue) !== '') {
+    if (f.defaultValue !== void 0 && f.defaultValue !== null && String(f.defaultValue) !== "") {
       templateDefaultValues[fKey] = f.defaultValue;
       if (!isMandatoryIdentityField(fKey) && !currentCustomData[fKey]) {
         currentCustomData[fKey] = f.defaultValue;
       }
     }
   });
-
-  // Cover photo default
   if (!currentCustomData.cover_photo) {
-    currentCustomData.cover_photo = tpl.thumbnail || tpl.previewImage || '/assets/file_ab2082.png';
+    currentCustomData.cover_photo = tpl.thumbnail || tpl.previewImage || "/assets/file_ab2082.webp";
     currentCustomData.photo_1 = currentCustomData.cover_photo;
     if (currentCustomData.photos.length === 0) {
       currentCustomData.photos.push({
-        id: 'photo_default_1',
+        id: "photo_default_1",
         url: currentCustomData.cover_photo,
-        name: 'Cover Memory Photo',
+        name: "Cover Memory Photo",
         isCover: true
       });
     }
   }
-
-  // Match theme to category / mood
-  const cat = (tpl.category || '').toLowerCase();
-  if (cat.includes('love') || cat.includes('romance') || cat.includes('crush')) {
-    currentCustomData.theme = 'romantic';
-    currentCustomData.colors.primary = '#f43f5e';
-    currentCustomData.colors.secondary = '#fb7185';
-    currentCustomData.font = 'romantic';
-  } else if (cat.includes('anniversary')) {
-    currentCustomData.theme = 'elegant';
-    currentCustomData.colors.primary = '#f59e0b';
-    currentCustomData.colors.secondary = '#fbbf24';
-    currentCustomData.font = 'elegant';
-  } else if (cat.includes('friendship')) {
-    currentCustomData.theme = 'celebration';
-    currentCustomData.colors.primary = '#a855f7';
-    currentCustomData.colors.secondary = '#ec4899';
-    currentCustomData.font = 'playful';
+  const cat = (tpl.category || "").toLowerCase();
+  if (cat.includes("love") || cat.includes("romance") || cat.includes("crush")) {
+    currentCustomData.theme = "romantic";
+    currentCustomData.colors.primary = "#f43f5e";
+    currentCustomData.colors.secondary = "#fb7185";
+    currentCustomData.font = "romantic";
+  } else if (cat.includes("anniversary")) {
+    currentCustomData.theme = "elegant";
+    currentCustomData.colors.primary = "#f59e0b";
+    currentCustomData.colors.secondary = "#fbbf24";
+    currentCustomData.font = "elegant";
+  } else if (cat.includes("friendship")) {
+    currentCustomData.theme = "celebration";
+    currentCustomData.colors.primary = "#a855f7";
+    currentCustomData.colors.secondary = "#ec4899";
+    currentCustomData.font = "playful";
   } else {
-    currentCustomData.theme = 'magical';
-    currentCustomData.colors.primary = '#ec4899';
-    currentCustomData.colors.secondary = '#8b5cf6';
-    currentCustomData.font = 'modern';
+    currentCustomData.theme = "magical";
+    currentCustomData.colors.primary = "#ec4899";
+    currentCustomData.colors.secondary = "#8b5cf6";
+    currentCustomData.font = "modern";
   }
-
-  // Set music title
   if (tpl.supportsMusic) {
-    currentCustomData.music.title = typeof tpl.supportsMusic === 'string' ? tpl.supportsMusic : 'Celebration Acoustic Strings';
+    currentCustomData.music.title = typeof tpl.supportsMusic === "string" ? tpl.supportsMusic : "Celebration Acoustic Strings";
     currentCustomData.music.enabled = true;
   }
-
-  // Set voice note support
   if (tpl.supportsVoice) {
-    const voiceSection = currentCustomData.sections.find(s => s.id === 'voice');
+    const voiceSection = currentCustomData.sections.find((s) => s.id === "voice");
     if (voiceSection) voiceSection.enabled = true;
   }
-
-  // Adapt sections to template
   if (tpl.sections && Array.isArray(tpl.sections)) {
-    // Keep customizer sections aligned
-    currentCustomData.sections.forEach(s => {
-      if (s.id === 'countdown' && !tpl.id.includes('countdown') && !tpl.name.toLowerCase().includes('countdown')) {
+    currentCustomData.sections.forEach((s) => {
+      if (s.id === "countdown" && !tpl.id.includes("countdown") && !tpl.name.toLowerCase().includes("countdown")) {
         s.enabled = false;
       }
     });
   }
 }
-
-// Render Top Header Ribbon
 function renderCustomizerHeader() {
   if (!activeTemplate) return;
-  const isVip = activeTemplate.tier === 'vip' || (activeTemplate.price && Number(activeTemplate.price) > 0);
-
-  const titleEl = document.getElementById('customizer-template-name');
+  const isVip = activeTemplate.tier === "vip" || activeTemplate.price && Number(activeTemplate.price) > 0;
+  const titleEl = document.getElementById("customizer-template-name");
   if (titleEl) {
-    titleEl.textContent = (activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipLabel)
-      ? `${activeTemplate.name} — ${activeTemplate.selectedVariant.relationshipLabel}`
-      : activeTemplate.name;
+    titleEl.textContent = activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipLabel ? `${activeTemplate.name} \u2014 ${activeTemplate.selectedVariant.relationshipLabel}` : activeTemplate.name;
   }
-
-  const badgeEl = document.getElementById('customizer-tier-badge');
+  const badgeEl = document.getElementById("customizer-tier-badge");
   if (badgeEl) {
-    badgeEl.textContent = isVip ? `VIP • ₹${activeTemplate.price || 49}` : 'FREE';
-    badgeEl.className = isVip
-      ? 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm'
-      : 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-sm';
+    badgeEl.textContent = isVip ? `VIP \u2022 \u20B9${activeTemplate.price || 49}` : "FREE";
+    badgeEl.className = isVip ? "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm" : "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-sm";
   }
-
-  const categoryEl = document.getElementById('customizer-category-name');
-  if (categoryEl) categoryEl.textContent = `✦ ${activeTemplate.category || 'Celebration'}`;
-
-  // Update button labels (Compact on mobile so template title is never crushed)
-  const btnFinal = document.getElementById('btn-header-continue');
+  const categoryEl = document.getElementById("customizer-category-name");
+  if (categoryEl) categoryEl.textContent = `\u2726 ${activeTemplate.category || "Celebration"}`;
+  const btnFinal = document.getElementById("btn-header-continue");
   if (btnFinal) {
-    btnFinal.innerHTML = isVip
-      ? `<span class="hidden sm:inline">Create Link • ₹${activeTemplate.price || 49}</span><span class="sm:hidden">Create • ₹${activeTemplate.price || 49}</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`
-      : `<span class="hidden sm:inline">Create Wish Link</span><span class="sm:hidden">Create Link</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`;
+    btnFinal.innerHTML = isVip ? `<span class="hidden sm:inline">Create Link \u2022 \u20B9${activeTemplate.price || 49}</span><span class="sm:hidden">Create \u2022 \u20B9${activeTemplate.price || 49}</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>` : `<span class="hidden sm:inline">Create Wish Link</span><span class="sm:hidden">Create Link</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`;
   }
-
-  // Update back to preview link (Rule E: preserve selected variant & relation on back navigation)
-  const backLink = document.getElementById('btn-back-to-preview');
+  const backLink = document.getElementById("btn-back-to-preview");
   if (backLink) {
-    backLink.href = (activeTemplate.selectedVariant && activeTemplate.selectedVariant.id)
-      ? `/template-preview.html?template=${encodeURIComponent(activeTemplate.id)}&variant=${encodeURIComponent(activeTemplate.selectedVariant.id)}&rel=${encodeURIComponent(activeTemplate.selectedVariant.relationshipSlug || '')}`
-      : `/template/${activeTemplate.id}`;
+    backLink.href = activeTemplate.selectedVariant && activeTemplate.selectedVariant.id ? `/template-preview.html?template=${encodeURIComponent(activeTemplate.id)}&variant=${encodeURIComponent(activeTemplate.selectedVariant.id)}&rel=${encodeURIComponent(activeTemplate.selectedVariant.relationshipSlug || "")}` : `/template/${activeTemplate.id}`;
   }
 }
-
-// Populate input elements with current state values
 function populateFormValuesFromState() {
-  const recipientInput = document.getElementById('input-recipient');
-  if (recipientInput) recipientInput.value = currentCustomData.recipient_name || '';
-
-  const senderInput = document.getElementById('input-sender');
-  if (senderInput) senderInput.value = currentCustomData.sender_name || '';
-
-  const dateInput = document.getElementById('input-date');
-  if (dateInput) dateInput.value = currentCustomData.event_date || '';
-
-  const contactInput = document.getElementById('input-contact');
-  if (contactInput) contactInput.value = currentCustomData.sender_contact || '';
-
-  const occasionInput = document.getElementById('input-occasion');
+  const recipientInput = document.getElementById("input-recipient");
+  if (recipientInput) recipientInput.value = currentCustomData.recipient_name || "";
+  const senderInput = document.getElementById("input-sender");
+  if (senderInput) senderInput.value = currentCustomData.sender_name || "";
+  const dateInput = document.getElementById("input-date");
+  if (dateInput) dateInput.value = currentCustomData.event_date || "";
+  const contactInput = document.getElementById("input-contact");
+  if (contactInput) contactInput.value = currentCustomData.sender_contact || "";
+  const occasionInput = document.getElementById("input-occasion");
   if (occasionInput && currentCustomData.occasion) occasionInput.value = currentCustomData.occasion;
-
-  const relationshipInput = document.getElementById('input-relationship');
+  const relationshipInput = document.getElementById("input-relationship");
   if (relationshipInput && currentCustomData.relationship) relationshipInput.value = currentCustomData.relationship;
-
-  const slugInput = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
+  const slugInput = document.getElementById("wish-slug-input") || document.getElementById("custom-slug-input");
   if (slugInput && (currentCustomData.customSlug || currentCustomData.slug)) {
     slugInput.value = currentCustomData.customSlug || currentCustomData.slug;
   }
-
-  const messageInput = document.getElementById('input-message');
+  const messageInput = document.getElementById("input-message");
   if (messageInput) {
-    messageInput.value = currentCustomData.custom_message || '';
-    const counter = document.getElementById('message-char-count');
-    if (counter) counter.textContent = `${(currentCustomData.custom_message || '').length} / 500`;
+    messageInput.value = currentCustomData.custom_message || "";
+    const counter = document.getElementById("message-char-count");
+    if (counter) counter.textContent = `${(currentCustomData.custom_message || "").length} / 500`;
   }
-
-  // Style inputs (preserve any custom or variant-assigned colors across theme preset UI sync)
   const savedColorsBeforePreset = currentCustomData.colors ? { ...currentCustomData.colors } : null;
-  selectThemePreset(currentCustomData.theme || 'magical', false);
-  if (savedColorsBeforePreset && (currentCustomData._userOverrodePalette || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.theme))) {
+  selectThemePreset(currentCustomData.theme || "magical", false);
+  if (savedColorsBeforePreset && (currentCustomData._userOverrodePalette || activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.theme)) {
     currentCustomData.colors = { ...currentCustomData.colors, ...savedColorsBeforePreset };
   }
-  selectFont(currentCustomData.font || 'modern', false);
-  selectBackgroundStyle(currentCustomData.background || 'gradient', false);
-
+  selectFont(currentCustomData.font || "modern", false);
+  selectBackgroundStyle(currentCustomData.background || "gradient", false);
   if (currentCustomData.surfaces && currentCustomData.surfaces.style) {
     selectCardStyle(currentCustomData.surfaces.style, false);
   }
@@ -1523,558 +1339,501 @@ function populateFormValuesFromState() {
     selectParticleType(currentCustomData.effects.particleType, false);
   }
   if (currentCustomData.effects && currentCustomData.effects.intensity) {
-    const intensitySel = document.getElementById('select-particle-intensity');
+    const intensitySel = document.getElementById("select-particle-intensity");
     if (intensitySel) intensitySel.value = currentCustomData.effects.intensity;
   }
-  const glowCheck = document.getElementById('check-glow-fx');
+  const glowCheck = document.getElementById("check-glow-fx");
   if (glowCheck) glowCheck.checked = currentCustomData.effects ? currentCustomData.effects.glow !== false : true;
-
-  const confettiCheck = document.getElementById('check-confetti-fx');
+  const confettiCheck = document.getElementById("check-confetti-fx");
   if (confettiCheck) confettiCheck.checked = currentCustomData.effects ? currentCustomData.effects.confetti !== false : true;
-
-  const masterFxSwitch = document.getElementById('switch-master-fx');
+  const masterFxSwitch = document.getElementById("switch-master-fx");
   if (masterFxSwitch) masterFxSwitch.checked = currentCustomData.effects ? currentCustomData.effects.master !== false : true;
-
-  const colPrimary = document.getElementById('color-primary-input');
-  if (colPrimary) colPrimary.value = currentCustomData.colors.primary || '#ec4899';
-  const hexPrimary = document.getElementById('hex-primary-label');
-  if (hexPrimary) hexPrimary.textContent = currentCustomData.colors.primary || '#ec4899';
-
-  const colSecondary = document.getElementById('color-secondary-input');
-  if (colSecondary) colSecondary.value = currentCustomData.colors.secondary || '#8b5cf6';
-  const hexSecondary = document.getElementById('hex-secondary-label');
-  if (hexSecondary) hexSecondary.textContent = currentCustomData.colors.secondary || '#8b5cf6';
-
-  const colAccent = document.getElementById('color-accent-input');
-  if (colAccent) colAccent.value = currentCustomData.colors.accent || '#fbbf24';
-  const hexAccent = document.getElementById('hex-accent-label');
-  if (hexAccent) hexAccent.textContent = currentCustomData.colors.accent || '#fbbf24';
-
+  const colPrimary = document.getElementById("color-primary-input");
+  if (colPrimary) colPrimary.value = currentCustomData.colors.primary || "#ec4899";
+  const hexPrimary = document.getElementById("hex-primary-label");
+  if (hexPrimary) hexPrimary.textContent = currentCustomData.colors.primary || "#ec4899";
+  const colSecondary = document.getElementById("color-secondary-input");
+  if (colSecondary) colSecondary.value = currentCustomData.colors.secondary || "#8b5cf6";
+  const hexSecondary = document.getElementById("hex-secondary-label");
+  if (hexSecondary) hexSecondary.textContent = currentCustomData.colors.secondary || "#8b5cf6";
+  const colAccent = document.getElementById("color-accent-input");
+  if (colAccent) colAccent.value = currentCustomData.colors.accent || "#fbbf24";
+  const hexAccent = document.getElementById("hex-accent-label");
+  if (hexAccent) hexAccent.textContent = currentCustomData.colors.accent || "#fbbf24";
   updateContrastBadge();
-
-  // Sync dynamic manifest fields if rendered
-  const dynContainer = document.getElementById('template-dynamic-fields-container');
+  const dynContainer = document.getElementById("template-dynamic-fields-container");
   if (dynContainer) {
-    const fieldGroups = dynContainer.querySelectorAll('[data-field-key]');
-    fieldGroups.forEach(grp => {
-      const fKey = grp.getAttribute('data-field-key');
-      if (fKey && currentCustomData[fKey] !== undefined) {
+    const fieldGroups = dynContainer.querySelectorAll("[data-field-key]");
+    fieldGroups.forEach((grp) => {
+      const fKey = grp.getAttribute("data-field-key");
+      if (fKey && currentCustomData[fKey] !== void 0) {
         const input = grp.querySelector('input:not([type="file"]), textarea, select');
         if (input) {
-          if (input.type === 'file') {
-            // Never programmatically set a non-empty value on <input type="file">
-          } else if (input.type === 'checkbox') {
+          if (input.type === "file") {
+          } else if (input.type === "checkbox") {
             input.checked = Boolean(currentCustomData[fKey]);
           } else {
             try {
-              input.value = currentCustomData[fKey] || '';
-            } catch (_) {}
+              input.value = currentCustomData[fKey] || "";
+            } catch (_) {
+            }
           }
         }
       }
     });
   }
-
-  // Keep variant reset button hidden for clean template-only UI
-  const resetBtn = document.getElementById('btn-reset-variant-defaults');
+  const resetBtn = document.getElementById("btn-reset-variant-defaults");
   if (resetBtn) {
-    resetBtn.classList.add('hidden');
+    resetBtn.classList.add("hidden");
   }
-
-  // Part 5 Advanced Media System Initialization
   initMediaSystemUI();
 }
-
-// Step Navigation Controller
 function setupStepNavigation() {
   window.goToStep = function(stepNum) {
     if (stepNum < 1 || stepNum > TOTAL_STEPS) return;
-
-    // Validate if moving forward from Step 1
     if (stepNum > 1 && currentStep === 1) {
       if (!validateStep1()) return;
     }
-
     currentStep = stepNum;
     updateStepVisibility();
   };
-
   window.handlePrevStep = function() {
     if (currentStep > 1) {
       window.goToStep(currentStep - 1);
     }
   };
 }
-
 function updateStepVisibility() {
-  // 1. Update Stepper Header Pills
   for (let i = 1; i <= TOTAL_STEPS; i++) {
     const stepTab = document.getElementById(`step-tab-${i}`);
     const checkIcon = document.getElementById(`step-check-${i}`);
     const numIcon = document.getElementById(`step-num-${i}`);
-
     if (stepTab) {
-      stepTab.setAttribute('role', 'tab');
-      stepTab.setAttribute('aria-selected', i === currentStep ? 'true' : 'false');
-      stepTab.setAttribute('aria-controls', `step-content-${i}`);
+      stepTab.setAttribute("role", "tab");
+      stepTab.setAttribute("aria-selected", i === currentStep ? "true" : "false");
+      stepTab.setAttribute("aria-controls", `step-content-${i}`);
       stepTab.tabIndex = i === currentStep ? 0 : -1;
       if (i === currentStep) {
-        stepTab.className = 'step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-700 text-white shadow-md transition-all';
+        stepTab.className = "step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-700 text-white shadow-md transition-all";
       } else if (i < currentStep) {
-        stepTab.className = 'step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-100/90 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 transition-all cursor-pointer';
+        stepTab.className = "step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-100/90 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 transition-all cursor-pointer";
       } else {
-        stepTab.className = 'step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer';
+        stepTab.className = "step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer";
       }
     }
-
     if (checkIcon && numIcon) {
       if (i < currentStep) {
-        checkIcon.classList.remove('hidden');
-        numIcon.classList.add('hidden');
+        checkIcon.classList.remove("hidden");
+        numIcon.classList.add("hidden");
       } else {
-        checkIcon.classList.add('hidden');
-        numIcon.classList.remove('hidden');
+        checkIcon.classList.add("hidden");
+        numIcon.classList.remove("hidden");
       }
     }
   }
-
-  // 2. Show/Hide Step Content Panes with ARIA tabpanel semantics
   for (let i = 1; i <= TOTAL_STEPS; i++) {
     const pane = document.getElementById(`step-content-${i}`);
     if (pane) {
-      pane.setAttribute('role', 'tabpanel');
-      pane.setAttribute('aria-labelledby', `step-tab-${i}`);
+      pane.setAttribute("role", "tabpanel");
+      pane.setAttribute("aria-labelledby", `step-tab-${i}`);
       if (i === currentStep) {
-        pane.classList.remove('hidden');
-        pane.setAttribute('aria-hidden', 'false');
+        pane.classList.remove("hidden");
+        pane.setAttribute("aria-hidden", "false");
       } else {
-        pane.classList.add('hidden');
-        pane.setAttribute('aria-hidden', 'true');
+        pane.classList.add("hidden");
+        pane.setAttribute("aria-hidden", "true");
       }
     }
   }
-  if (typeof window.syncCustomizationLevelButtonsUI === 'function') {
+  if (typeof window.syncCustomizationLevelButtonsUI === "function") {
     window.syncCustomizationLevelButtonsUI();
   }
-
-  // 3. Update Footer Navigation Bar
-  const btnPrev = document.getElementById('btn-step-prev');
+  const btnPrev = document.getElementById("btn-step-prev");
   if (btnPrev) {
     if (currentStep === 1) {
-      btnPrev.classList.add('invisible');
+      btnPrev.classList.add("invisible");
     } else {
-      btnPrev.classList.remove('invisible');
+      btnPrev.classList.remove("invisible");
     }
   }
-
-  const stepStatusText = document.getElementById('step-indicator-text');
+  const stepStatusText = document.getElementById("step-indicator-text");
   if (stepStatusText) {
-    const stepNames = ['Personal Details', 'Visual Styling & Theme', 'Sections & Layout', 'Preview & Finalize'];
+    const stepNames = ["Personal Details", "Visual Styling & Theme", "Sections & Layout", "Preview & Finalize"];
     stepStatusText.textContent = `Step ${currentStep} of ${TOTAL_STEPS}: ${stepNames[currentStep - 1]}`;
   }
-
-  const btnNext = document.getElementById('btn-step-next');
+  const btnNext = document.getElementById("btn-step-next");
   if (btnNext) {
-    const isVip = activeTemplate && (activeTemplate.tier === 'vip' || (activeTemplate.price && Number(activeTemplate.price) > 0));
-    btnNext.innerHTML = isVip
-      ? `<span>✨ Create Wish Link (₹${activeTemplate.price || 49})</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`
-      : `<span>✨ Create Wish Link</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`;
-    btnNext.className = 'w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 active:scale-95 text-white font-extrabold text-sm shadow-xl shadow-pink-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer';
+    const isVip = activeTemplate && (activeTemplate.tier === "vip" || activeTemplate.price && Number(activeTemplate.price) > 0);
+    btnNext.innerHTML = isVip ? `<span>\u2728 Create Wish Link (\u20B9${activeTemplate.price || 49})</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>` : `<span>\u2728 Create Wish Link</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`;
+    btnNext.className = "w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 active:scale-95 text-white font-extrabold text-sm shadow-xl shadow-pink-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer";
   }
-
-  // If entering Step 4 Preview, update the summary card
   if (currentStep === 4) {
     renderStep4Summary();
-    if (typeof window.setMobileActiveView === 'function' && window.innerWidth < 1024) {
-      window.setMobileActiveView('preview');
+    if (typeof window.setMobileActiveView === "function" && window.innerWidth < 1024) {
+      window.setMobileActiveView("preview");
     }
   } else {
-    if (typeof window.setMobileActiveView === 'function' && window.innerWidth < 1024) {
-      window.setMobileActiveView('customize');
+    if (typeof window.setMobileActiveView === "function" && window.innerWidth < 1024) {
+      window.setMobileActiveView("customize");
     }
   }
 }
-
-// Validation for Step 1
 function setInlineFieldError(inputEl, errorId, message) {
   if (!inputEl) return;
   let errEl = document.getElementById(errorId);
   if (!errEl && inputEl.parentElement) {
-    errEl = document.createElement('p');
+    errEl = document.createElement("p");
     errEl.id = errorId;
-    errEl.className = 'mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hidden';
+    errEl.className = "mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hidden";
     inputEl.parentElement.appendChild(errEl);
   }
   if (message) {
-    inputEl.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
-    inputEl.setAttribute('aria-invalid', 'true');
-    inputEl.setAttribute('aria-describedby', errorId);
+    inputEl.classList.add("border-red-500", "ring-2", "ring-red-400/40");
+    inputEl.setAttribute("aria-invalid", "true");
+    inputEl.setAttribute("aria-describedby", errorId);
     if (errEl) {
       errEl.textContent = message;
-      errEl.classList.remove('hidden');
+      errEl.classList.remove("hidden");
     }
   } else {
-    inputEl.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
-    inputEl.setAttribute('aria-invalid', 'false');
+    inputEl.classList.remove("border-red-500", "ring-2", "ring-red-400/40");
+    inputEl.setAttribute("aria-invalid", "false");
     if (errEl) {
-      errEl.textContent = '';
-      errEl.classList.add('hidden');
+      errEl.textContent = "";
+      errEl.classList.add("hidden");
     }
   }
 }
-
 function validateStep1() {
   ensureDefaultMessagesPreserved();
-
-  const errorBox = document.getElementById('step-1-validation-error');
-  const recipientInput = document.getElementById('input-recipient');
-  const senderInput = document.getElementById('input-sender');
-  const dateInput = document.getElementById('input-date');
-
-  if (senderInput) senderInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
-
+  const errorBox = document.getElementById("step-1-validation-error");
+  const recipientInput = document.getElementById("input-recipient");
+  const senderInput = document.getElementById("input-sender");
+  const dateInput = document.getElementById("input-date");
+  if (senderInput) senderInput.classList.remove("border-red-500", "ring-2", "ring-red-400/40");
   let errors = [];
-
   if (!currentCustomData.recipient_name || currentCustomData.recipient_name.trim().length === 0) {
     const msg = "Please enter the recipient's name (e.g., Aarav).";
     errors.push("Recipient Name is required");
-    setInlineFieldError(recipientInput, 'input-recipient-error', msg);
+    setInlineFieldError(recipientInput, "input-recipient-error", msg);
   } else {
-    setInlineFieldError(recipientInput, 'input-recipient-error', '');
+    setInlineFieldError(recipientInput, "input-recipient-error", "");
   }
-
   const requiresDate = templateRequiresEventDate(activeTemplate);
   if (requiresDate && (!currentCustomData.event_date || currentCustomData.event_date.trim().length === 0)) {
     const msg = "Please choose the celebration or birthday date.";
     errors.push("Date of Birth / Celebration Date is required");
-    setInlineFieldError(dateInput, 'input-date-error', msg);
+    setInlineFieldError(dateInput, "input-date-error", msg);
   } else {
-    setInlineFieldError(dateInput, 'input-date-error', '');
+    setInlineFieldError(dateInput, "input-date-error", "");
   }
-
-  // Validate dynamic manifest fields (only Name/DOB are required; uncustomized messages/texts keep their template defaults)
-  const dynContainer = document.getElementById('template-dynamic-fields-container');
+  const dynContainer = document.getElementById("template-dynamic-fields-container");
   if (dynContainer && activeTemplate) {
     const manifest = activeTemplate.manifest;
-    const rawFields = (manifest && manifest.fields) || activeTemplate.fields || [];
-    rawFields.forEach(f => {
+    const rawFields = manifest && manifest.fields || activeTemplate.fields || [];
+    rawFields.forEach((f) => {
       const fKey = f.id || f.key;
       const el = dynContainer.querySelector(`[data-field-key="${fKey}"]`);
-      if (el && el.style.display !== 'none' && !el.classList.contains('wm-field-hidden')) {
+      if (el && el.style.display !== "none" && !el.classList.contains("wm-field-hidden")) {
         const fieldForVal = { ...f, required: isMandatoryIdentityField(fKey) };
         if (window.WishMagicFieldRenderer) {
           const valResult = window.WishMagicFieldRenderer.validate(fieldForVal, currentCustomData[fKey]);
           if (!valResult.valid) {
             errors.push(valResult.errors[0] || `${f.label || fKey} is invalid`);
-            el.classList.add('wm-field-invalid');
-            const inputCtrl = el.querySelector('input, textarea, select');
-            if (inputCtrl) inputCtrl.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
+            el.classList.add("wm-field-invalid");
+            const inputCtrl = el.querySelector("input, textarea, select");
+            if (inputCtrl) inputCtrl.classList.add("border-red-500", "ring-2", "ring-red-400/40");
           } else {
-            el.classList.remove('wm-field-invalid');
-            const inputCtrl = el.querySelector('input, textarea, select');
-            if (inputCtrl) inputCtrl.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
+            el.classList.remove("wm-field-invalid");
+            const inputCtrl = el.querySelector("input, textarea, select");
+            if (inputCtrl) inputCtrl.classList.remove("border-red-500", "ring-2", "ring-red-400/40");
           }
         }
       }
     });
   }
-
   if (errors.length > 0) {
-    if (window._activeStep1SubTab && window._activeStep1SubTab !== 'basic' && window._activeStep1SubTab !== 'all') {
-      window.switchStep1SubTab('basic');
+    if (window._activeStep1SubTab && window._activeStep1SubTab !== "basic" && window._activeStep1SubTab !== "all") {
+      window.switchStep1SubTab("basic");
     }
     if (errorBox) {
-      errorBox.setAttribute('role', 'alert');
-      errorBox.setAttribute('aria-live', 'assertive');
+      errorBox.setAttribute("role", "alert");
+      errorBox.setAttribute("aria-live", "assertive");
       errorBox.innerHTML = `
         <div class="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2 mb-3">
           <span class="material-symbols-outlined text-[18px]">error</span>
-          <span>Please complete the required fields: ${errors.join(', ')}</span>
+          <span>Please complete the required fields: ${errors.join(", ")}</span>
         </div>
       `;
-      errorBox.classList.remove('hidden');
+      errorBox.classList.remove("hidden");
     }
-    showToast('⚠️ Please fill in all required fields');
+    showToast("\u26A0\uFE0F Please fill in all required fields");
     return false;
   }
-
-  if (errorBox) errorBox.classList.add('hidden');
+  if (errorBox) errorBox.classList.add("hidden");
   return true;
 }
-
 const DEFAULT_RELATIONSHIP_CONFIGS = {
   girlfriend: {
-    theme: { style: 'romantic', mood: 'intimate' },
-    palette: { primary: '#ec4899', secondary: '#be185d', accent: '#f43f5e', background: '#fff1f2' },
+    theme: { style: "romantic", mood: "intimate" },
+    palette: { primary: "#ec4899", secondary: "#be185d", accent: "#f43f5e", background: "#fff1f2" },
     messages: {
-      defaultWish: 'To my dearest girlfriend, you are the magic in every single day of my life. Happy Birthday my love!',
-      heading: 'Forever Yours ❤️',
-      subheading: 'A celebration crafted with all my heart'
+      defaultWish: "To my dearest girlfriend, you are the magic in every single day of my life. Happy Birthday my love!",
+      heading: "Forever Yours \u2764\uFE0F",
+      subheading: "A celebration crafted with all my heart"
     },
-    atmosphere: { particles: 'floating_hearts', intensity: 'vibrant', glow: 'rose_gold' },
-    musicCategory: 'romantic'
+    atmosphere: { particles: "floating_hearts", intensity: "vibrant", glow: "rose_gold" },
+    musicCategory: "romantic"
   },
   boyfriend: {
-    theme: { style: 'romantic', mood: 'warm' },
-    palette: { primary: '#3b82f6', secondary: '#1d4ed8', accent: '#60a5fa', background: '#eff6ff' },
+    theme: { style: "romantic", mood: "warm" },
+    palette: { primary: "#3b82f6", secondary: "#1d4ed8", accent: "#60a5fa", background: "#eff6ff" },
     messages: {
-      defaultWish: 'To my handsome boyfriend, thank you for being my rock, my greatest laugh, and my favorite adventure. Happy Birthday!',
-      heading: 'My Best Friend & Love 💙',
-      subheading: 'Celebrating the incredible person you are'
+      defaultWish: "To my handsome boyfriend, thank you for being my rock, my greatest laugh, and my favorite adventure. Happy Birthday!",
+      heading: "My Best Friend & Love \u{1F499}",
+      subheading: "Celebrating the incredible person you are"
     },
-    atmosphere: { particles: 'sparkling_stars', intensity: 'warm', glow: 'sapphire' },
-    musicCategory: 'romantic'
+    atmosphere: { particles: "sparkling_stars", intensity: "warm", glow: "sapphire" },
+    musicCategory: "romantic"
   },
   crush: {
-    theme: { style: 'romantic', mood: 'playful_shy' },
-    palette: { primary: '#a855f7', secondary: '#7e22ce', accent: '#c084fc', background: '#faf5ff' },
+    theme: { style: "romantic", mood: "playful_shy" },
+    palette: { primary: "#a855f7", secondary: "#7e22ce", accent: "#c084fc", background: "#faf5ff" },
     messages: {
-      defaultWish: 'Hey there! Just wanted to make sure your special day is as wonderfully captivating as your smile. Happy Birthday ✨',
-      heading: 'A Little Secret Magic ✨',
-      subheading: 'Sent with a quiet smile just for you'
+      defaultWish: "Hey there! Just wanted to make sure your special day is as wonderfully captivating as your smile. Happy Birthday \u2728",
+      heading: "A Little Secret Magic \u2728",
+      subheading: "Sent with a quiet smile just for you"
     },
-    atmosphere: { particles: 'stardust_chimes', intensity: 'subtle', glow: 'lavender_dream' },
-    musicCategory: 'romantic'
+    atmosphere: { particles: "stardust_chimes", intensity: "subtle", glow: "lavender_dream" },
+    musicCategory: "romantic"
   },
   friend: {
-    theme: { style: 'celebration', mood: 'energetic' },
-    palette: { primary: '#f59e0b', secondary: '#d97706', accent: '#fbbf24', background: '#fffbeb' },
+    theme: { style: "celebration", mood: "energetic" },
+    palette: { primary: "#f59e0b", secondary: "#d97706", accent: "#fbbf24", background: "#fffbeb" },
     messages: {
-      defaultWish: 'Happy Birthday to my absolute favorite human! Here is to countless more wild memories and unstoppable laughter.',
-      heading: 'Best Friends Forever 🎈',
-      subheading: 'Cheers to another year of legendary times!'
+      defaultWish: "Happy Birthday to my absolute favorite human! Here is to countless more wild memories and unstoppable laughter.",
+      heading: "Best Friends Forever \u{1F388}",
+      subheading: "Cheers to another year of legendary times!"
     },
-    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'golden_sunshine' },
-    musicCategory: 'celebration'
+    atmosphere: { particles: "confetti_burst", intensity: "high", glow: "golden_sunshine" },
+    musicCategory: "celebration"
   },
   best_friend: {
-    theme: { style: 'celebration', mood: 'energetic' },
-    palette: { primary: '#f59e0b', secondary: '#d97706', accent: '#fbbf24', background: '#fffbeb' },
+    theme: { style: "celebration", mood: "energetic" },
+    palette: { primary: "#f59e0b", secondary: "#d97706", accent: "#fbbf24", background: "#fffbeb" },
     messages: {
-      defaultWish: 'Happy Birthday to my absolute best friend and ride-or-die! May your special year be legendary and filled with adventures.',
-      heading: 'Ride or Die Bestie 🌟',
-      subheading: 'To the one who knows all my stories'
+      defaultWish: "Happy Birthday to my absolute best friend and ride-or-die! May your special year be legendary and filled with adventures.",
+      heading: "Ride or Die Bestie \u{1F31F}",
+      subheading: "To the one who knows all my stories"
     },
-    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'golden_sunshine' },
-    musicCategory: 'celebration'
+    atmosphere: { particles: "confetti_burst", intensity: "high", glow: "golden_sunshine" },
+    musicCategory: "celebration"
   },
   wife: {
-    theme: { style: 'romantic', mood: 'deep_love' },
-    palette: { primary: '#e11d48', secondary: '#9f1239', accent: '#fb7185', background: '#fff1f2' },
+    theme: { style: "romantic", mood: "deep_love" },
+    palette: { primary: "#e11d48", secondary: "#9f1239", accent: "#fb7185", background: "#fff1f2" },
     messages: {
-      defaultWish: 'To my beloved wife, thank you for filling our world with grace, boundless love, and gentle warmth. Happy Birthday my queen.',
-      heading: 'My Wife, My Everything 💍',
-      subheading: 'Honoring our beautiful journey together'
+      defaultWish: "To my beloved wife, thank you for filling our world with grace, boundless love, and gentle warmth. Happy Birthday my queen.",
+      heading: "My Wife, My Everything \u{1F48D}",
+      subheading: "Honoring our beautiful journey together"
     },
-    atmosphere: { particles: 'golden_ribbons', intensity: 'graceful', glow: 'champagne_rose' },
-    musicCategory: 'romantic'
+    atmosphere: { particles: "golden_ribbons", intensity: "graceful", glow: "champagne_rose" },
+    musicCategory: "romantic"
   },
   husband: {
-    theme: { style: 'romantic', mood: 'deep_love' },
-    palette: { primary: '#2563eb', secondary: '#1e40af', accent: '#38bdf8', background: '#f0f9ff' },
+    theme: { style: "romantic", mood: "deep_love" },
+    palette: { primary: "#2563eb", secondary: "#1e40af", accent: "#38bdf8", background: "#f0f9ff" },
     messages: {
-      defaultWish: 'Happy Birthday to my loving husband. Thank you for your strength, your kindness, and the countless smiles you bring to my heart.',
-      heading: 'My King & Partner 👑',
-      subheading: 'Celebrating our everlasting bond'
+      defaultWish: "Happy Birthday to my loving husband. Thank you for your strength, your kindness, and the countless smiles you bring to my heart.",
+      heading: "My King & Partner \u{1F451}",
+      subheading: "Celebrating our everlasting bond"
     },
-    atmosphere: { particles: 'celestial_glow', intensity: 'steady', glow: 'royal_gold' },
-    musicCategory: 'romantic'
+    atmosphere: { particles: "celestial_glow", intensity: "steady", glow: "royal_gold" },
+    musicCategory: "romantic"
   },
   mother: {
-    theme: { style: 'peaceful', mood: 'reverent' },
-    palette: { primary: '#d97706', secondary: '#b45309', accent: '#f59e0b', background: '#fffbeb' },
+    theme: { style: "peaceful", mood: "reverent" },
+    palette: { primary: "#d97706", secondary: "#b45309", accent: "#f59e0b", background: "#fffbeb" },
     messages: {
-      defaultWish: 'Dearest Mom, thank you for your unconditional love, endless sacrifices, and warm embrace. Happy Birthday to the heart of our family.',
-      heading: 'To the World\'s Best Mom 🌸',
-      subheading: 'With infinite love and eternal gratitude'
+      defaultWish: "Dearest Mom, thank you for your unconditional love, endless sacrifices, and warm embrace. Happy Birthday to the heart of our family.",
+      heading: "To the World's Best Mom \u{1F338}",
+      subheading: "With infinite love and eternal gratitude"
     },
-    atmosphere: { particles: 'golden_dust', intensity: 'gentle', glow: 'amber_warmth' },
-    musicCategory: 'acoustic'
+    atmosphere: { particles: "golden_dust", intensity: "gentle", glow: "amber_warmth" },
+    musicCategory: "acoustic"
   },
   father: {
-    theme: { style: 'peaceful', mood: 'reverent' },
-    palette: { primary: '#0284c7', secondary: '#0369a1', accent: '#38bdf8', background: '#f0f9ff' },
+    theme: { style: "peaceful", mood: "reverent" },
+    palette: { primary: "#0284c7", secondary: "#0369a1", accent: "#38bdf8", background: "#f0f9ff" },
     messages: {
-      defaultWish: 'Happy Birthday Dad! Thank you for being my constant guide, my protector, and the greatest inspiration in my life.',
-      heading: 'To My Hero, Dad 👔',
-      subheading: 'With respect, pride, and boundless love'
+      defaultWish: "Happy Birthday Dad! Thank you for being my constant guide, my protector, and the greatest inspiration in my life.",
+      heading: "To My Hero, Dad \u{1F454}",
+      subheading: "With respect, pride, and boundless love"
     },
-    atmosphere: { particles: 'starlight_chimes', intensity: 'gentle', glow: 'sapphire' },
-    musicCategory: 'acoustic'
+    atmosphere: { particles: "starlight_chimes", intensity: "gentle", glow: "sapphire" },
+    musicCategory: "acoustic"
   },
   family: {
-    theme: { style: 'celebration', mood: 'warm' },
-    palette: { primary: '#8b5cf6', secondary: '#6d28d9', accent: '#fbbf24', background: '#faf5ff' },
+    theme: { style: "celebration", mood: "warm" },
+    palette: { primary: "#8b5cf6", secondary: "#6d28d9", accent: "#fbbf24", background: "#faf5ff" },
     messages: {
-      defaultWish: 'Wishing our wonderful family member the happiest celebration! May joy, laughter, and blessings surround you always.',
-      heading: 'Family Forever 🏡',
-      subheading: 'Celebrating someone truly special to us all'
+      defaultWish: "Wishing our wonderful family member the happiest celebration! May joy, laughter, and blessings surround you always.",
+      heading: "Family Forever \u{1F3E1}",
+      subheading: "Celebrating someone truly special to us all"
     },
-    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'golden_sunshine' },
-    musicCategory: 'celebration'
+    atmosphere: { particles: "confetti_burst", intensity: "high", glow: "golden_sunshine" },
+    musicCategory: "celebration"
   },
   sister: {
-    theme: { style: 'magical', mood: 'radiant_sisterhood' },
-    palette: { primary: '#ec4899', secondary: '#a855f7', accent: '#fbbf24', background: '#fdf2f8' },
+    theme: { style: "magical", mood: "radiant_sisterhood" },
+    palette: { primary: "#ec4899", secondary: "#a855f7", accent: "#fbbf24", background: "#fdf2f8" },
     messages: {
-      defaultWish: 'Having you as my sister is the greatest gift life has ever given me. Thank you for filling every childhood memory and every new chapter with laughter, warmth, and sparkle!',
-      main_message: 'Having you as my sister is the greatest gift life has ever given me. Thank you for filling every childhood memory and every new chapter with laughter, warmth, and sparkle!',
-      hero_title: 'To The Best Sister In The Universe 💖',
-      heading: 'To The Best Sister In The Universe 💖',
-      subtitle: 'My built-in best friend and forever confidante',
-      subheading: 'My built-in best friend and forever confidante'
+      defaultWish: "Having you as my sister is the greatest gift life has ever given me. Thank you for filling every childhood memory and every new chapter with laughter, warmth, and sparkle!",
+      main_message: "Having you as my sister is the greatest gift life has ever given me. Thank you for filling every childhood memory and every new chapter with laughter, warmth, and sparkle!",
+      hero_title: "To The Best Sister In The Universe \u{1F496}",
+      heading: "To The Best Sister In The Universe \u{1F496}",
+      subtitle: "My built-in best friend and forever confidante",
+      subheading: "My built-in best friend and forever confidante"
     },
-    atmosphere: { particles: 'sparkles', intensity: 'vibrant', glow: 'rose_gold' },
-    musicCategory: 'celebration'
+    atmosphere: { particles: "sparkles", intensity: "vibrant", glow: "rose_gold" },
+    musicCategory: "celebration"
   },
   brother: {
-    theme: { style: 'celebration', mood: 'bold_brotherhood' },
-    palette: { primary: '#3b82f6', secondary: '#6366f1', accent: '#38bdf8', background: '#eff6ff' },
+    theme: { style: "celebration", mood: "bold_brotherhood" },
+    palette: { primary: "#3b82f6", secondary: "#6366f1", accent: "#38bdf8", background: "#eff6ff" },
     messages: {
-      defaultWish: 'From our crazy childhood adventures to chasing our biggest dreams, having you in my corner means everything. Wishing you unstoppable success and happiness!',
-      main_message: 'From our crazy childhood adventures to chasing our biggest dreams, having you in my corner means everything. Wishing you unstoppable success and happiness!',
-      hero_title: 'Cheers To An Incredible Brother 🌟',
-      heading: 'Cheers To An Incredible Brother 🌟',
-      subtitle: 'My protector, partner-in-crime, and lifelong friend',
-      subheading: 'My protector, partner-in-crime, and lifelong friend'
+      defaultWish: "From our crazy childhood adventures to chasing our biggest dreams, having you in my corner means everything. Wishing you unstoppable success and happiness!",
+      main_message: "From our crazy childhood adventures to chasing our biggest dreams, having you in my corner means everything. Wishing you unstoppable success and happiness!",
+      hero_title: "Cheers To An Incredible Brother \u{1F31F}",
+      heading: "Cheers To An Incredible Brother \u{1F31F}",
+      subtitle: "My protector, partner-in-crime, and lifelong friend",
+      subheading: "My protector, partner-in-crime, and lifelong friend"
     },
-    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'sapphire' },
-    musicCategory: 'celebration'
+    atmosphere: { particles: "confetti_burst", intensity: "high", glow: "sapphire" },
+    musicCategory: "celebration"
   },
   parents: {
-    theme: { style: 'peaceful', mood: 'golden_tribute' },
-    palette: { primary: '#eab308', secondary: '#f97316', accent: '#fde047', background: '#fefce8' },
+    theme: { style: "peaceful", mood: "golden_tribute" },
+    palette: { primary: "#eab308", secondary: "#f97316", accent: "#fde047", background: "#fefce8" },
     messages: {
-      defaultWish: 'Everything we are today is because of your sacrifices, warmth, and endless love. Wishing you both boundless joy, health, and togetherness!',
-      main_message: 'Everything we are today is because of your sacrifices, warmth, and endless love. Wishing you both boundless joy, health, and togetherness!',
-      hero_title: 'To The World’s Most Wonderful Parents 💛',
-      heading: 'To The World’s Most Wonderful Parents 💛',
-      subtitle: 'Celebrating the love and foundation you gave us',
-      subheading: 'Celebrating the love and foundation you gave us'
+      defaultWish: "Everything we are today is because of your sacrifices, warmth, and endless love. Wishing you both boundless joy, health, and togetherness!",
+      main_message: "Everything we are today is because of your sacrifices, warmth, and endless love. Wishing you both boundless joy, health, and togetherness!",
+      hero_title: "To The World\u2019s Most Wonderful Parents \u{1F49B}",
+      heading: "To The World\u2019s Most Wonderful Parents \u{1F49B}",
+      subtitle: "Celebrating the love and foundation you gave us",
+      subheading: "Celebrating the love and foundation you gave us"
     },
-    atmosphere: { particles: 'golden_dust', intensity: 'gentle', glow: 'amber_warmth' },
-    musicCategory: 'acoustic'
+    atmosphere: { particles: "golden_dust", intensity: "gentle", glow: "amber_warmth" },
+    musicCategory: "acoustic"
   },
   partner: {
-    theme: { style: 'romantic', mood: 'deep_love' },
-    palette: { primary: '#e11d48', secondary: '#9333ea', accent: '#fbbf24', background: '#fff1f2' },
+    theme: { style: "romantic", mood: "deep_love" },
+    palette: { primary: "#e11d48", secondary: "#9333ea", accent: "#fbbf24", background: "#fff1f2" },
     messages: {
-      defaultWish: 'Every single day with you feels like my favorite adventure. Thank you for being my rock, my home, and my greatest love!',
-      main_message: 'Every single day with you feels like my favorite adventure. Thank you for being my rock, my home, and my greatest love!',
-      hero_title: 'To My Forever Partner In Everything 💞',
-      heading: 'To My Forever Partner In Everything 💞',
-      subtitle: 'Celebrating our journey and endless love',
-      subheading: 'Celebrating our journey and endless love'
+      defaultWish: "Every single day with you feels like my favorite adventure. Thank you for being my rock, my home, and my greatest love!",
+      main_message: "Every single day with you feels like my favorite adventure. Thank you for being my rock, my home, and my greatest love!",
+      hero_title: "To My Forever Partner In Everything \u{1F49E}",
+      heading: "To My Forever Partner In Everything \u{1F49E}",
+      subtitle: "Celebrating our journey and endless love",
+      subheading: "Celebrating our journey and endless love"
     },
-    atmosphere: { particles: 'floating_hearts', intensity: 'vibrant', glow: 'rose_gold' },
-    musicCategory: 'romantic'
+    atmosphere: { particles: "floating_hearts", intensity: "vibrant", glow: "rose_gold" },
+    musicCategory: "romantic"
   }
 };
-
 function findRelationshipVariantConfig(rel) {
   if (!rel) return null;
-  const relNorm = String(rel).toLowerCase().trim().replace(/[\s-]+/g, '_');
+  const relNorm = String(rel).toLowerCase().trim().replace(/[\s-]+/g, "_");
   const fallbackPreset = DEFAULT_RELATIONSHIP_CONFIGS[relNorm] || null;
   if (activeTemplate && window.WishMagicVariantFlow) {
     const resolved = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relNorm);
     if (resolved) {
-      const rawPal = (resolved.theme && (resolved.theme.palette || resolved.theme)) || resolved.palette || (fallbackPreset && fallbackPreset.palette) || null;
+      const rawPal = resolved.theme && (resolved.theme.palette || resolved.theme) || resolved.palette || fallbackPreset && fallbackPreset.palette || null;
       return {
         ...resolved,
-        theme: resolved.theme || (fallbackPreset && fallbackPreset.theme) || null,
+        theme: resolved.theme || fallbackPreset && fallbackPreset.theme || null,
         palette: rawPal ? {
-          primary: rawPal.primary || rawPal.accentColor || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.primary) || '#ec4899',
-          secondary: rawPal.secondary || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.secondary) || '#8b5cf6',
-          accent: rawPal.accent || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.accent) || '#fbbf24',
-          background: rawPal.background || (fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.background) || ''
+          primary: rawPal.primary || rawPal.accentColor || fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.primary || "#ec4899",
+          secondary: rawPal.secondary || fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.secondary || "#8b5cf6",
+          accent: rawPal.accent || fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.accent || "#fbbf24",
+          background: rawPal.background || fallbackPreset && fallbackPreset.palette && fallbackPreset.palette.background || ""
         } : null,
         messages: {
-          ...(fallbackPreset && fallbackPreset.messages ? fallbackPreset.messages : {}),
-          ...(resolved.messages && typeof resolved.messages === 'object' ? resolved.messages : {})
+          ...fallbackPreset && fallbackPreset.messages ? fallbackPreset.messages : {},
+          ...resolved.messages && typeof resolved.messages === "object" ? resolved.messages : {}
         }
       };
     }
   }
   if (activeTemplate && Array.isArray(activeTemplate.variants)) {
-    const match = activeTemplate.variants.find(v =>
-      (v.relationshipSlug && v.relationshipSlug.toLowerCase().replace(/[\s-]+/g, '_') === relNorm) ||
-      (v.relationship_slug && v.relationship_slug.toLowerCase().replace(/[\s-]+/g, '_') === relNorm) ||
-      (v.relationship && v.relationship.toLowerCase().replace(/[\s-]+/g, '_') === relNorm)
+    const match = activeTemplate.variants.find(
+      (v) => v.relationshipSlug && v.relationshipSlug.toLowerCase().replace(/[\s-]+/g, "_") === relNorm || v.relationship_slug && v.relationship_slug.toLowerCase().replace(/[\s-]+/g, "_") === relNorm || v.relationship && v.relationship.toLowerCase().replace(/[\s-]+/g, "_") === relNorm
     );
     if (match) {
-      const cfg = typeof match.configuration_json === 'string' ? JSON.parse(match.configuration_json) : (match.configuration || match);
+      const cfg = typeof match.configuration_json === "string" ? JSON.parse(match.configuration_json) : match.configuration || match;
       return {
         ...cfg,
-        palette: cfg.palette || cfg.theme || (fallbackPreset && fallbackPreset.palette) || null,
+        palette: cfg.palette || cfg.theme || fallbackPreset && fallbackPreset.palette || null,
         messages: {
-          ...(fallbackPreset && fallbackPreset.messages ? fallbackPreset.messages : {}),
-          ...(cfg.messages && typeof cfg.messages === 'object' ? cfg.messages : {})
+          ...fallbackPreset && fallbackPreset.messages ? fallbackPreset.messages : {},
+          ...cfg.messages && typeof cfg.messages === "object" ? cfg.messages : {}
         }
       };
     }
   }
   return fallbackPreset;
 }
-
-// Form Inputs Handlers
 function initFormInputs() {
   window.handleRecipientInput = function(val) {
     currentCustomData.recipient_name = val;
-    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('recipient_name');
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add("recipient_name");
     if (val && String(val).trim()) {
-      setInlineFieldError(document.getElementById('input-recipient'), 'input-recipient-error', '');
+      setInlineFieldError(document.getElementById("input-recipient"), "input-recipient-error", "");
     }
     triggerAutosave();
     syncDataToIframe();
-    if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
-    if (typeof window.initSmartWishLinkUI === 'function' && currentStep === 4) {
+    if (typeof window.updateCustomizationProgressUI === "function") window.updateCustomizationProgressUI();
+    if (typeof window.initSmartWishLinkUI === "function" && currentStep === 4) {
       window.initSmartWishLinkUI();
     }
   };
-
   window.handleSenderInput = function(val) {
     currentCustomData.sender_name = val;
-    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('sender_name');
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add("sender_name");
     triggerAutosave();
     syncDataToIframe();
-    if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
-    if (typeof window.initSmartWishLinkUI === 'function' && currentStep === 4) {
+    if (typeof window.updateCustomizationProgressUI === "function") window.updateCustomizationProgressUI();
+    if (typeof window.initSmartWishLinkUI === "function" && currentStep === 4) {
       window.initSmartWishLinkUI();
     }
   };
-
   window.handleDateInput = function(val) {
     currentCustomData.event_date = val;
-    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('event_date');
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add("event_date");
     if (val && String(val).trim()) {
-      setInlineFieldError(document.getElementById('input-date'), 'input-date-error', '');
+      setInlineFieldError(document.getElementById("input-date"), "input-date-error", "");
     }
     triggerAutosave();
     syncDataToIframe();
-    if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
+    if (typeof window.updateCustomizationProgressUI === "function") window.updateCustomizationProgressUI();
   };
-
   window.handleContactInput = function(val) {
     currentCustomData.sender_contact = val;
-    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('sender_contact');
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add("sender_contact");
     triggerAutosave();
   };
-
   window.handleOccasionInput = function(val) {
     currentCustomData.occasion = val;
     triggerAutosave();
-    if (typeof window.initSmartWishLinkUI === 'function') {
+    if (typeof window.initSmartWishLinkUI === "function") {
       window.initSmartWishLinkUI();
     }
   };
-
   window.handleRelationshipInput = function(val) {
-    const relNorm = String(val || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+    const relNorm = String(val || "").toLowerCase().trim().replace(/[\s-]+/g, "_");
     currentCustomData.relationship = relNorm || val;
-    const resetBtn = document.getElementById('btn-reset-variant-defaults');
-    const userEditedSet = window._userModifiedFields instanceof Set ? window._userModifiedFields : new Set();
-
-    // If activeTemplate is a multi-variant template family, resolve and apply the full relationship variant safely
+    const resetBtn = document.getElementById("btn-reset-variant-defaults");
+    const userEditedSet = window._userModifiedFields instanceof Set ? window._userModifiedFields : /* @__PURE__ */ new Set();
     let appliedFullVariant = false;
     if (activeTemplate && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate)) {
       const matchedVariant = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, val);
@@ -2083,37 +1842,29 @@ function initFormInputs() {
         appliedFullVariant = true;
       }
     } else if (activeTemplate && Array.isArray(activeTemplate.variants) && activeTemplate.variants.length > 0) {
-      const matchedVariant = activeTemplate.variants.find(v =>
-        v && v.enabled !== false && v.status !== 'disabled' && (
-          String(v.relationship || v.relationshipSlug || v.slug || '').toLowerCase().replace(/[\s-]+/g, '_') === relNorm
-        )
+      const matchedVariant = activeTemplate.variants.find(
+        (v) => v && v.enabled !== false && v.status !== "disabled" && String(v.relationship || v.relationshipSlug || v.slug || "").toLowerCase().replace(/[\s-]+/g, "_") === relNorm
       );
       if (matchedVariant) {
         applySelectedVariantToCustomizer(matchedVariant, false);
         appliedFullVariant = true;
       }
     }
-
     const variantConfig = findRelationshipVariantConfig(val);
     if (variantConfig) {
-      if (resetBtn) resetBtn.classList.remove('hidden');
-
-      // Auto-apply message if empty or not manually edited by the user
-      const messageInput = document.getElementById('input-message');
-      const curMsg = (currentCustomData.custom_message || '').trim();
+      if (resetBtn) resetBtn.classList.remove("hidden");
+      const messageInput = document.getElementById("input-message");
+      const curMsg = (currentCustomData.custom_message || "").trim();
       const variantWish = variantConfig.messages?.custom_message || variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
-
-      if (variantWish && (!curMsg || !userEditedSet.has('custom_message'))) {
+      if (variantWish && (!curMsg || !userEditedSet.has("custom_message"))) {
         currentCustomData.custom_message = variantWish;
         templateDefaultValues.custom_message = variantWish;
         if (messageInput) {
           messageInput.value = variantWish;
-          const counter = document.getElementById('message-char-count');
+          const counter = document.getElementById("message-char-count");
           if (counter) counter.textContent = `${variantWish.length} / 500`;
         }
       }
-
-      // Apply theme palette if provided and not explicitly overridden
       if (variantConfig.palette && variantConfig.palette.primary) {
         if (!currentCustomData._userOverrodePalette) {
           currentCustomData.colors = {
@@ -2126,18 +1877,17 @@ function initFormInputs() {
           if (variantConfig.theme?.style) {
             currentCustomData.theme = variantConfig.theme.style;
           }
-          const colPrimary = document.getElementById('color-primary-input');
+          const colPrimary = document.getElementById("color-primary-input");
           if (colPrimary) colPrimary.value = currentCustomData.colors.primary;
-          const hexPrimary = document.getElementById('hex-primary-label');
+          const hexPrimary = document.getElementById("hex-primary-label");
           if (hexPrimary) hexPrimary.textContent = currentCustomData.colors.primary;
-          const colSecondary = document.getElementById('color-secondary-input');
+          const colSecondary = document.getElementById("color-secondary-input");
           if (colSecondary) colSecondary.value = currentCustomData.colors.secondary;
         }
       }
     } else {
-      if (resetBtn) resetBtn.classList.add('hidden');
+      if (resetBtn) resetBtn.classList.add("hidden");
     }
-
     triggerAutosave();
     if (!appliedFullVariant) {
       syncDataToIframe();
@@ -2145,33 +1895,29 @@ function initFormInputs() {
     if (window.WishMagicRuntimeBridge) {
       window.WishMagicRuntimeBridge.updateState(currentCustomData);
     }
-    if (typeof window.initSmartWishLinkUI === 'function') {
+    if (typeof window.initSmartWishLinkUI === "function") {
       window.initSmartWishLinkUI();
     }
   };
-
   window.resetToVariantDefaults = function() {
     const rel = currentCustomData.relationship;
     const variantConfig = findRelationshipVariantConfig(rel);
     if (!variantConfig) {
-      showToast('No variant defaults configured for this relationship');
+      showToast("No variant defaults configured for this relationship");
       return;
     }
-
     if (window._userModifiedFields instanceof Set) {
-      window._userModifiedFields.delete('custom_message');
+      window._userModifiedFields.delete("custom_message");
     }
-
     const variantWish = variantConfig.messages?.custom_message || variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
     if (variantWish) {
       currentCustomData.custom_message = variantWish;
       templateDefaultValues.custom_message = variantWish;
-      const messageInput = document.getElementById('input-message');
+      const messageInput = document.getElementById("input-message");
       if (messageInput) messageInput.value = variantWish;
-      const counter = document.getElementById('message-char-count');
+      const counter = document.getElementById("message-char-count");
       if (counter) counter.textContent = `${variantWish.length} / 500`;
     }
-
     if (variantConfig.palette) {
       currentCustomData.colors = {
         ...currentCustomData.colors,
@@ -2183,216 +1929,158 @@ function initFormInputs() {
         currentCustomData.theme = variantConfig.theme.style;
       }
       currentCustomData._userOverrodePalette = false;
-
-      const colPrimary = document.getElementById('color-primary-input');
+      const colPrimary = document.getElementById("color-primary-input");
       if (colPrimary) colPrimary.value = currentCustomData.colors.primary;
-      const hexPrimary = document.getElementById('hex-primary-label');
+      const hexPrimary = document.getElementById("hex-primary-label");
       if (hexPrimary) hexPrimary.textContent = currentCustomData.colors.primary;
-      const colSecondary = document.getElementById('color-secondary-input');
+      const colSecondary = document.getElementById("color-secondary-input");
       if (colSecondary) colSecondary.value = currentCustomData.colors.secondary;
     }
-
-    showToast(`Reset to ${rel || 'relationship'} crafted defaults ↺`);
+    showToast(`Reset to ${rel || "relationship"} crafted defaults \u21BA`);
     syncDataToIframe();
     if (window.WishMagicRuntimeBridge) {
       window.WishMagicRuntimeBridge.updateState(currentCustomData);
     }
     triggerAutosave();
   };
-
   window.handleMessageInput = function(val) {
     currentCustomData.custom_message = val;
-    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('custom_message');
-    const counter = document.getElementById('message-char-count');
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add("custom_message");
+    const counter = document.getElementById("message-char-count");
     if (counter) counter.textContent = `${val.length} / 500`;
     triggerAutosave();
     syncDataToIframe();
   };
 }
-
-// -----------------------------------------------------------------------------
-// PART 5: ADVANCED MEDIA SYSTEM CONTROLLERS (PHOTOS, GALLERY, VOICE, MUSIC)
-// -----------------------------------------------------------------------------
-
 let replacePhotoTargetId = null;
 let isAudioSeeking = false;
-
-// Initialize Media System UI from State & Template Capabilities
 function initMediaSystemUI() {
   if (!window.WishMediaSystem) return;
-
-  // 1. Normalize media state
   currentCustomData.media = window.WishMediaSystem.normalizeMediaState(currentCustomData);
   window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
-
-  // 2. Setup Drag & Drop Zone for Photos
   setupPhotoDropzone();
-
-  // 3. Render Template Capabilities Notice & Enforce Limits
   updateMediaCapabilitiesUI();
-
-  // 4. Render Gallery Layout Selector State
-  updateGalleryLayoutButtons(currentCustomData.media.galleryLayout || 'grid');
-
-  // 5. Render Photos List & Thumbnails
+  updateGalleryLayoutButtons(currentCustomData.media.galleryLayout || "grid");
   renderPhotosUI();
-
-  // 6. Render Voice Note Player / Recorder
   renderVoiceNotePlayer();
-
-  // 7. Render Curated Music Soundscapes List & Live Player Bar
   renderCuratedMusicLibrary();
   updateStudioPlayerUI();
 }
-
 function updateMediaCapabilitiesUI() {
   const tpl = activeTemplate || {};
   const caps = tpl.capabilities || {};
-
-  // 1. Gallery / Photos capability
   const gallerySupported = caps.gallery !== false;
-  const maxPhotos = typeof tpl.supportsGallery === 'number' 
-    ? tpl.supportsGallery 
-    : (caps.galleryMax || CONFIG_MAX_PHOTOS());
-
-  const countBadge = document.getElementById('photo-count-badge');
+  const maxPhotos = typeof tpl.supportsGallery === "number" ? tpl.supportsGallery : caps.galleryMax || CONFIG_MAX_PHOTOS();
+  const countBadge = document.getElementById("photo-count-badge");
   if (countBadge) {
-    const curCount = (currentCustomData.media && currentCustomData.media.photos) ? currentCustomData.media.photos.length : 0;
+    const curCount = currentCustomData.media && currentCustomData.media.photos ? currentCustomData.media.photos.length : 0;
     countBadge.textContent = `${curCount} / ${maxPhotos} Photos`;
   }
-
-  const galNotice = document.getElementById('gallery-capability-notice');
-  const galText = document.getElementById('gallery-capability-text');
-  const photoDropzone = document.getElementById('photo-dropzone');
-  const galleryLayoutSelector = document.getElementById('gallery-layout-selector');
-
+  const galNotice = document.getElementById("gallery-capability-notice");
+  const galText = document.getElementById("gallery-capability-text");
+  const photoDropzone = document.getElementById("photo-dropzone");
+  const galleryLayoutSelector = document.getElementById("gallery-layout-selector");
   if (!gallerySupported) {
-    if (galText) galText.textContent = 'Photo gallery & memories are disabled by this template design.';
-    if (galNotice) galNotice.classList.remove('hidden');
-    if (photoDropzone) photoDropzone.classList.add('opacity-40', 'pointer-events-none');
-    if (galleryLayoutSelector) galleryLayoutSelector.classList.add('opacity-40', 'pointer-events-none');
+    if (galText) galText.textContent = "Photo gallery & memories are disabled by this template design.";
+    if (galNotice) galNotice.classList.remove("hidden");
+    if (photoDropzone) photoDropzone.classList.add("opacity-40", "pointer-events-none");
+    if (galleryLayoutSelector) galleryLayoutSelector.classList.add("opacity-40", "pointer-events-none");
   } else if (galNotice && galText) {
-    if (typeof tpl.supportsGallery === 'number' || caps.galleryMax) {
+    if (typeof tpl.supportsGallery === "number" || caps.galleryMax) {
       galText.textContent = `This template layout is optimized for up to ${maxPhotos} celebration photos.`;
-      galNotice.classList.remove('hidden');
+      galNotice.classList.remove("hidden");
     } else {
-      galNotice.classList.add('hidden');
+      galNotice.classList.add("hidden");
     }
-    if (photoDropzone) photoDropzone.classList.remove('opacity-40', 'pointer-events-none');
-    if (galleryLayoutSelector) galleryLayoutSelector.classList.remove('opacity-40', 'pointer-events-none');
+    if (photoDropzone) photoDropzone.classList.remove("opacity-40", "pointer-events-none");
+    if (galleryLayoutSelector) galleryLayoutSelector.classList.remove("opacity-40", "pointer-events-none");
   }
-
-  // 2. Voice note capability check (Part 10 Section 11)
-  const voiceNotice = document.getElementById('voice-capability-notice');
-  const voiceBtns = document.getElementById('voice-action-buttons-group');
+  const voiceNotice = document.getElementById("voice-capability-notice");
+  const voiceBtns = document.getElementById("voice-action-buttons-group");
   const voiceSupported = caps.voiceNote !== false && tpl.supportsVoice !== false;
-
   if (!voiceSupported) {
     if (voiceNotice) {
-      voiceNotice.textContent = 'Voice dedications are not supported by this template.';
-      voiceNotice.classList.remove('hidden');
+      voiceNotice.textContent = "Voice dedications are not supported by this template.";
+      voiceNotice.classList.remove("hidden");
     }
-    if (voiceBtns) voiceBtns.classList.add('opacity-40', 'pointer-events-none');
+    if (voiceBtns) voiceBtns.classList.add("opacity-40", "pointer-events-none");
   } else {
-    if (voiceNotice) voiceNotice.classList.add('hidden');
-    if (voiceBtns) voiceBtns.classList.remove('opacity-40', 'pointer-events-none');
+    if (voiceNotice) voiceNotice.classList.add("hidden");
+    if (voiceBtns) voiceBtns.classList.remove("opacity-40", "pointer-events-none");
   }
-
-  // 3. Music capability check (Part 10 Section 11)
-  const musicNotice = document.getElementById('music-capability-notice');
+  const musicNotice = document.getElementById("music-capability-notice");
   const musicSupported = caps.music !== false && tpl.supportsMusic !== false;
-  const musicSection = document.getElementById('music-section-wrapper');
-
+  const musicSection = document.getElementById("music-section-wrapper");
   if (!musicSupported) {
     if (musicNotice) {
-      musicNotice.textContent = 'This template emphasizes ambient silence and does not feature audio playback.';
-      musicNotice.classList.remove('hidden');
+      musicNotice.textContent = "This template emphasizes ambient silence and does not feature audio playback.";
+      musicNotice.classList.remove("hidden");
     }
-    const musicSwitch = document.getElementById('switch-enable-music');
+    const musicSwitch = document.getElementById("switch-enable-music");
     if (musicSwitch) {
       musicSwitch.checked = false;
       musicSwitch.disabled = true;
     }
   } else if (musicNotice) {
-    musicNotice.classList.add('hidden');
-    const musicSwitch = document.getElementById('switch-enable-music');
+    musicNotice.classList.add("hidden");
+    const musicSwitch = document.getElementById("switch-enable-music");
     if (musicSwitch) musicSwitch.disabled = false;
   }
 }
-
 function CONFIG_MAX_PHOTOS() {
-  const isPrem = (window.WishEntitlement && typeof window.WishEntitlement.isPremium === 'function')
-    ? window.WishEntitlement.isPremium()
-    : false;
-  const planLimits = (window.WishPlanService && typeof window.WishPlanService.getPlanLimits === 'function')
-    ? window.WishPlanService.getPlanLimits(isPrem ? 'premium' : 'free')
-    : { maxPhotos: isPrem ? 16 : 3 };
+  const isPrem = window.WishEntitlement && typeof window.WishEntitlement.isPremium === "function" ? window.WishEntitlement.isPremium() : false;
+  const planLimits = window.WishPlanService && typeof window.WishPlanService.getPlanLimits === "function" ? window.WishPlanService.getPlanLimits(isPrem ? "premium" : "free") : { maxPhotos: isPrem ? 16 : 3 };
   const planMax = planLimits.maxPhotos || (isPrem ? 16 : 3);
-  if (activeTemplate && typeof activeTemplate.supportsGallery === 'number') {
+  if (activeTemplate && typeof activeTemplate.supportsGallery === "number") {
     return Math.min(activeTemplate.supportsGallery, planMax);
   }
   return planMax;
 }
-
-// -----------------------------------------------------------------------------
-// PHOTO MANAGER (MULTIPLE UPLOAD, VALIDATION, REORDER, COVER, REPLACE, LIGHTBOX)
-// -----------------------------------------------------------------------------
 function setupPhotoDropzone() {
-  const dropzone = document.getElementById('photo-dropzone');
+  const dropzone = document.getElementById("photo-dropzone");
   if (!dropzone || dropzone._dragSetupDone) return;
-
-  ['dragenter', 'dragover'].forEach(eventName => {
+  ["dragenter", "dragover"].forEach((eventName) => {
     dropzone.addEventListener(eventName, (e) => {
       e.preventDefault();
       e.stopPropagation();
-      dropzone.classList.add('border-pink-500', 'bg-pink-500/10', 'scale-[1.01]');
+      dropzone.classList.add("border-pink-500", "bg-pink-500/10", "scale-[1.01]");
     }, false);
   });
-
-  ['dragleave', 'dragend', 'drop'].forEach(eventName => {
+  ["dragleave", "dragend", "drop"].forEach((eventName) => {
     dropzone.addEventListener(eventName, (e) => {
       e.preventDefault();
       e.stopPropagation();
-      dropzone.classList.remove('border-pink-500', 'bg-pink-500/10', 'scale-[1.01]');
+      dropzone.classList.remove("border-pink-500", "bg-pink-500/10", "scale-[1.01]");
     }, false);
   });
-
-  dropzone.addEventListener('drop', (e) => {
+  dropzone.addEventListener("drop", (e) => {
     const dt = e.dataTransfer;
     if (dt && dt.files && dt.files.length > 0) {
       processMultiplePhotoFiles(Array.from(dt.files));
     }
   }, false);
-
-  dropzone.addEventListener('click', (e) => {
-    // If not clicking input itself
-    if (e.target.tagName !== 'INPUT') {
-      const picker = document.getElementById('photo-file-picker');
+  dropzone.addEventListener("click", (e) => {
+    if (e.target.tagName !== "INPUT") {
+      const picker = document.getElementById("photo-file-picker");
       if (picker) picker.click();
     }
   });
-
   dropzone._dragSetupDone = true;
 }
-
 window.handlePhotoFileInput = function(input) {
   if (!input.files || input.files.length === 0) return;
   processMultiplePhotoFiles(Array.from(input.files));
-  input.value = '';
+  input.value = "";
 };
-
 async function processMultiplePhotoFiles(files) {
   const maxPhotos = CONFIG_MAX_PHOTOS();
   const media = currentCustomData.media;
   let added = 0;
-
-  showPhotoError(null); // Clear errors
-
-  // Check limit before processing files
+  showPhotoError(null);
   if (media.photos.length >= maxPhotos) {
     if (window.WishPremiumLock && (!window.WishEntitlement || !window.WishEntitlement.isPremium())) {
       window.WishPremiumLock.open({
-        context: 'media_limit',
+        context: "media_limit",
         onUnlocked: () => {
           updateMediaCapabilitiesUI();
           renderPhotosUI();
@@ -2403,12 +2091,11 @@ async function processMultiplePhotoFiles(files) {
     showToast(`Photo limit reached (${maxPhotos} photos max). Unlock VIP for up to 16 photos!`);
     return;
   }
-
   for (const file of files) {
     if (media.photos.length >= maxPhotos) {
       if (window.WishPremiumLock && (!window.WishEntitlement || !window.WishEntitlement.isPremium())) {
         window.WishPremiumLock.open({
-          context: 'media_limit',
+          context: "media_limit",
           onUnlocked: () => {
             updateMediaCapabilitiesUI();
             renderPhotosUI();
@@ -2418,240 +2105,200 @@ async function processMultiplePhotoFiles(files) {
       showPhotoError(`Maximum limit of ${maxPhotos} photos reached for your plan.`);
       break;
     }
-
     try {
-      // Validate & optimize via WishMediaSystem
       const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
-      const photoId = 'photo_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+      const photoId = "photo_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 4);
       const isFirst = media.photos.length === 0;
-
       const newPhoto = {
         id: photoId,
-        name: file.name.replace(/\.[^/.]+$/, ''),
+        name: file.name.replace(/\.[^/.]+$/, ""),
         src: optimized.src,
         url: optimized.src,
         order: media.photos.length,
         isCover: isFirst || !media.coverPhoto
       };
-
       media.photos.push(newPhoto);
-
       if (isFirst || !media.coverPhoto) {
         media.coverPhoto = optimized.src;
       }
-
       added++;
     } catch (err) {
-      console.warn('Photo processing error:', err);
-      showPhotoError(err.message || 'Image is too large or could not be decoded. Please choose a smaller image.');
+      console.warn("Photo processing error:", err);
+      showPhotoError(err.message || "Image is too large or could not be decoded. Please choose a smaller image.");
     }
   }
-
   if (added > 0) {
     window.WishMediaSystem.syncMediaToCustomData(media, currentCustomData);
     renderPhotosUI();
     updateMediaCapabilitiesUI();
     triggerAutosave();
     syncDataToIframe();
-    showToast(`📸 Added ${added} photo memory${added > 1 ? 'ies' : ''}!`);
+    showToast(`\u{1F4F8} Added ${added} photo memory${added > 1 ? "ies" : ""}!`);
   }
 }
-
 function showPhotoError(msg) {
-  const errorEl = document.getElementById('photo-upload-error');
-  const errorText = document.getElementById('photo-upload-error-text');
+  const errorEl = document.getElementById("photo-upload-error");
+  const errorText = document.getElementById("photo-upload-error-text");
   if (!errorEl) return;
-
   if (msg) {
     if (errorText) errorText.textContent = msg;
-    errorEl.classList.remove('hidden');
-    setTimeout(() => { errorEl.classList.add('hidden'); }, 6000);
+    errorEl.classList.remove("hidden");
+    setTimeout(() => {
+      errorEl.classList.add("hidden");
+    }, 6e3);
   } else {
-    errorEl.classList.add('hidden');
+    errorEl.classList.add("hidden");
   }
 }
-
-// In-place Photo Replacement (Section 34)
 window.replacePhoto = function(photoId) {
   replacePhotoTargetId = photoId;
-  const picker = document.getElementById('photo-replace-picker');
+  const picker = document.getElementById("photo-replace-picker");
   if (picker) {
-    picker.value = '';
+    picker.value = "";
     picker.click();
   }
 };
-
 window.handleReplacePhotoFile = async function(input) {
   if (!input.files || input.files.length === 0 || !replacePhotoTargetId) return;
   const file = input.files[0];
   const targetId = replacePhotoTargetId;
   replacePhotoTargetId = null;
-
   try {
     const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
     const media = currentCustomData.media;
-    const idx = media.photos.findIndex(p => p.id === targetId);
-
+    const idx = media.photos.findIndex((p) => p.id === targetId);
     if (idx !== -1) {
       const wasCover = media.photos[idx].isCover || media.coverPhoto === media.photos[idx].src;
       media.photos[idx].src = optimized.src;
       media.photos[idx].url = optimized.src;
-      media.photos[idx].name = file.name.replace(/\.[^/.]+$/, '');
-
+      media.photos[idx].name = file.name.replace(/\.[^/.]+$/, "");
       if (wasCover) {
         media.coverPhoto = optimized.src;
       }
-
       window.WishMediaSystem.syncMediaToCustomData(media, currentCustomData);
       renderPhotosUI();
       triggerAutosave();
       syncDataToIframe();
-      showToast('🔄 Photo replaced in-place!');
+      showToast("\u{1F504} Photo replaced in-place!");
     }
   } catch (err) {
-    showPhotoError(err.message || 'Image is too large or could not be decoded. Please choose a smaller image.');
+    showPhotoError(err.message || "Image is too large or could not be decoded. Please choose a smaller image.");
   }
-
-  input.value = '';
+  input.value = "";
 };
-
-// Photo Removal (Section 11)
 window.removePhoto = function(photoId) {
   const media = currentCustomData.media;
-  const idx = media.photos.findIndex(p => p.id === photoId);
+  const idx = media.photos.findIndex((p) => p.id === photoId);
   if (idx === -1) return;
-
   const wasCover = media.photos[idx].isCover || media.coverPhoto === media.photos[idx].src;
   media.photos.splice(idx, 1);
-
-  // Update order indices
-  media.photos.forEach((p, i) => { p.order = i; });
-
+  media.photos.forEach((p, i) => {
+    p.order = i;
+  });
   if (wasCover) {
     if (media.photos.length > 0) {
       media.photos[0].isCover = true;
       media.coverPhoto = media.photos[0].src;
     } else {
-      media.coverPhoto = activeTemplate ? (activeTemplate.thumbnail || '/assets/file_ab2082.png') : null;
+      media.coverPhoto = activeTemplate ? activeTemplate.thumbnail || "/assets/file_ab2082.webp" : null;
     }
   }
-
   window.WishMediaSystem.syncMediaToCustomData(media, currentCustomData);
   renderPhotosUI();
   updateMediaCapabilitiesUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast('Photo removed');
+  showToast("Photo removed");
 };
-
-// Set as Cover Photo (Section 9)
 window.setCoverPhoto = function(photoId) {
   const media = currentCustomData.media;
-  media.photos.forEach(p => {
-    p.isCover = (p.id === photoId);
+  media.photos.forEach((p) => {
+    p.isCover = p.id === photoId;
     if (p.isCover) {
       media.coverPhoto = p.src;
     }
   });
-
   window.WishMediaSystem.syncMediaToCustomData(media, currentCustomData);
   renderPhotosUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast('⭐️ Set as primary cover photo');
+  showToast("\u2B50\uFE0F Set as primary cover photo");
 };
-
 window.removeCoverPhoto = function() {
   const media = currentCustomData.media;
   if (media.photos.length > 0) {
-    media.photos.forEach((p, i) => { p.isCover = (i === 0); });
+    media.photos.forEach((p, i) => {
+      p.isCover = i === 0;
+    });
     media.coverPhoto = media.photos[0].src;
   } else {
     media.coverPhoto = null;
   }
-
   window.WishMediaSystem.syncMediaToCustomData(media, currentCustomData);
   renderPhotosUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast('Cover photo reset to default');
+  showToast("Cover photo reset to default");
 };
-
-// Reorder Photos (Section 10)
 window.movePhoto = function(photoId, direction) {
   const media = currentCustomData.media;
-  const idx = media.photos.findIndex(p => p.id === photoId);
+  const idx = media.photos.findIndex((p) => p.id === photoId);
   if (idx === -1) return;
-
-  const newIdx = direction === 'left' ? idx - 1 : idx + 1;
+  const newIdx = direction === "left" ? idx - 1 : idx + 1;
   if (newIdx < 0 || newIdx >= media.photos.length) return;
-
   const temp = media.photos[idx];
   media.photos[idx] = media.photos[newIdx];
   media.photos[newIdx] = temp;
-
-  media.photos.forEach((p, i) => { p.order = i; });
-
+  media.photos.forEach((p, i) => {
+    p.order = i;
+  });
   window.WishMediaSystem.syncMediaToCustomData(media, currentCustomData);
   renderPhotosUI();
   triggerAutosave();
   syncDataToIframe();
 };
-
-// Desktop Drag-and-Drop Reordering
 let draggedPhotoId = null;
-
 window.handlePhotoDragStart = function(e, photoId) {
   draggedPhotoId = photoId;
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', photoId);
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", photoId);
 };
-
 window.handlePhotoDragOver = function(e) {
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
+  e.dataTransfer.dropEffect = "move";
 };
-
 window.handlePhotoDrop = function(e, targetPhotoId) {
   e.preventDefault();
   if (!draggedPhotoId || draggedPhotoId === targetPhotoId) return;
-
   const media = currentCustomData.media;
-  const fromIdx = media.photos.findIndex(p => p.id === draggedPhotoId);
-  const toIdx = media.photos.findIndex(p => p.id === targetPhotoId);
-
+  const fromIdx = media.photos.findIndex((p) => p.id === draggedPhotoId);
+  const toIdx = media.photos.findIndex((p) => p.id === targetPhotoId);
   if (fromIdx === -1 || toIdx === -1) return;
-
   const [movedItem] = media.photos.splice(fromIdx, 1);
   media.photos.splice(toIdx, 0, movedItem);
-
-  media.photos.forEach((p, i) => { p.order = i; });
+  media.photos.forEach((p, i) => {
+    p.order = i;
+  });
   draggedPhotoId = null;
-
   window.WishMediaSystem.syncMediaToCustomData(media, currentCustomData);
   renderPhotosUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast('Photo order updated');
+  showToast("Photo order updated");
 };
-
-// Lightbox modal opener (Section 33)
 window.openPhotoLightbox = function(photoId) {
   if (!window.WishMediaSystem || !window.WishMediaSystem.lightbox) return;
   const photos = currentCustomData.media.photos || [];
-  const idx = photos.findIndex(p => p.id === photoId);
+  const idx = photos.findIndex((p) => p.id === photoId);
   window.WishMediaSystem.lightbox.open(photos, Math.max(0, idx));
 };
-
-// Gallery Layout Switcher (Section 15)
 window.selectGalleryLayout = function(layout) {
-  // Part 11: Feature Access Check
   if (window.WishFeatureAccess) {
     const access = window.WishFeatureAccess.canUseGalleryLayout(layout);
     if (!access.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'media_limit',
+          context: "media_limit",
           key: layout,
           onUnlocked: () => {
             window.selectGalleryLayout(layout);
@@ -2661,56 +2308,43 @@ window.selectGalleryLayout = function(layout) {
       return;
     }
   }
-
   if (!currentCustomData.media) currentCustomData.media = {};
   currentCustomData.media.galleryLayout = layout;
   currentCustomData.galleryLayout = layout;
-
   updateGalleryLayoutButtons(layout);
   triggerAutosave();
   syncDataToIframe();
   showToast(`Gallery layout set to ${layout.charAt(0).toUpperCase() + layout.slice(1)}`);
 };
-
 function updateGalleryLayoutButtons(activeLayout) {
-  const container = document.getElementById('gallery-layout-selector');
+  const container = document.getElementById("gallery-layout-selector");
   if (!container) return;
-
-  container.querySelectorAll('.gallery-layout-btn').forEach(btn => {
-    const lay = btn.getAttribute('data-layout');
+  container.querySelectorAll(".gallery-layout-btn").forEach((btn) => {
+    const lay = btn.getAttribute("data-layout");
     if (lay === activeLayout) {
-      btn.className = 'gallery-layout-btn py-2 px-3 rounded-xl border border-pink-500 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs';
+      btn.className = "gallery-layout-btn py-2 px-3 rounded-xl border border-pink-500 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs";
     } else {
-      btn.className = 'gallery-layout-btn py-2 px-3 rounded-xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 text-purple-950 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = "gallery-layout-btn py-2 px-3 rounded-xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 text-purple-950 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer";
     }
   });
 }
-
-// Render Thumbnails UI
 function renderPhotosUI() {
-  const container = document.getElementById('photo-thumbnails-list');
-  const emptyState = document.getElementById('photos-empty-state');
+  const container = document.getElementById("photo-thumbnails-list");
+  const emptyState = document.getElementById("photos-empty-state");
   if (!container) return;
-
-  container.innerHTML = '';
-  const photos = (currentCustomData.media && currentCustomData.media.photos) ? currentCustomData.media.photos : [];
-
+  container.innerHTML = "";
+  const photos = currentCustomData.media && currentCustomData.media.photos ? currentCustomData.media.photos : [];
   if (emptyState) {
-    emptyState.classList.add('hidden');
+    emptyState.classList.add("hidden");
   }
-
   photos.forEach((photo, idx) => {
-    const isCover = photo.isCover || (currentCustomData.media && currentCustomData.media.coverPhoto === photo.src);
-    const card = document.createElement('div');
+    const isCover = photo.isCover || currentCustomData.media && currentCustomData.media.coverPhoto === photo.src;
+    const card = document.createElement("div");
     card.draggable = true;
     card.ondragstart = (e) => handlePhotoDragStart(e, photo.id);
     card.ondragover = (e) => handlePhotoDragOver(e);
     card.ondrop = (e) => handlePhotoDrop(e, photo.id);
-
-    card.className = `group relative aspect-square rounded-2xl overflow-hidden border-2 transition-all cursor-grab active:cursor-grabbing ${
-      isCover ? 'border-amber-400 shadow-md shadow-amber-400/25 ring-2 ring-amber-400/30' : 'border-purple-200/80 dark:border-purple-800/60'
-    } bg-purple-950/20 flex flex-col justify-between`;
-
+    card.className = `group relative aspect-square rounded-2xl overflow-hidden border-2 transition-all cursor-grab active:cursor-grabbing ${isCover ? "border-amber-400 shadow-md shadow-amber-400/25 ring-2 ring-amber-400/30" : "border-purple-200/80 dark:border-purple-800/60"} bg-purple-950/20 flex flex-col justify-between`;
     card.innerHTML = `
       <img src="${photo.src || photo.url}" alt="${photo.name}" class="w-full h-full object-cover select-none" onclick="openPhotoLightbox('${photo.id}')" title="Click to open full preview"/>
       
@@ -2719,18 +2353,15 @@ function renderPhotosUI() {
 
       <!-- Top Badges / Remove -->
       <div class="absolute top-1.5 inset-x-1.5 flex items-center justify-between z-10">
-        ${isCover 
-          ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm flex items-center gap-1">⭐ Cover</span>`
-          : `<span class="px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-black/60 text-white/80">#0${idx + 1}</span>`
-        }
-        <button type="button" onclick="removePhoto('${photo.id}')" class="w-6 h-6 rounded-full bg-black/70 hover:bg-red-500 text-white flex items-center justify-center text-xs transition cursor-pointer" title="Remove photo">✕</button>
+        ${isCover ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm flex items-center gap-1">\u2B50 Cover</span>` : `<span class="px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-black/60 text-white/80">#0${idx + 1}</span>`}
+        <button type="button" onclick="removePhoto('${photo.id}')" class="w-6 h-6 rounded-full bg-black/70 hover:bg-red-500 text-white flex items-center justify-center text-xs transition cursor-pointer" title="Remove photo">\u2715</button>
       </div>
 
       <!-- Bottom Actions (Reorder, Replace, Set Cover) -->
       <div class="absolute bottom-1.5 inset-x-1.5 flex items-center justify-between gap-1 z-10">
         <div class="flex items-center gap-1">
-          <button type="button" onclick="movePhoto('${photo.id}', 'left')" ${idx === 0 ? 'disabled class="opacity-25 pointer-events-none"' : ''} class="w-6 h-6 rounded-lg bg-black/70 hover:bg-black text-white text-[10px] flex items-center justify-center font-bold cursor-pointer" title="Move Left">◀</button>
-          <button type="button" onclick="movePhoto('${photo.id}', 'right')" ${idx === photos.length - 1 ? 'disabled class="opacity-25 pointer-events-none"' : ''} class="w-6 h-6 rounded-lg bg-black/70 hover:bg-black text-white text-[10px] flex items-center justify-center font-bold cursor-pointer" title="Move Right">▶</button>
+          <button type="button" onclick="movePhoto('${photo.id}', 'left')" ${idx === 0 ? 'disabled class="opacity-25 pointer-events-none"' : ""} class="w-6 h-6 rounded-lg bg-black/70 hover:bg-black text-white text-[10px] flex items-center justify-center font-bold cursor-pointer" title="Move Left">\u25C0</button>
+          <button type="button" onclick="movePhoto('${photo.id}', 'right')" ${idx === photos.length - 1 ? 'disabled class="opacity-25 pointer-events-none"' : ""} class="w-6 h-6 rounded-lg bg-black/70 hover:bg-black text-white text-[10px] flex items-center justify-center font-bold cursor-pointer" title="Move Right">\u25B6</button>
         </div>
 
         <div class="flex items-center gap-1">
@@ -2738,30 +2369,24 @@ function renderPhotosUI() {
           ${!isCover ? `
             <button type="button" onclick="setCoverPhoto('${photo.id}')" class="px-1.5 py-0.5 rounded-md bg-black/70 hover:bg-amber-400 hover:text-black text-white text-[9px] font-bold transition cursor-pointer">Set Cover</button>
           ` : `
-            <button type="button" onclick="removeCoverPhoto()" class="px-1.5 py-0.5 rounded-md bg-amber-400/90 text-black text-[9px] font-bold transition cursor-pointer" title="Reset Cover">Cover ✓</button>
+            <button type="button" onclick="removeCoverPhoto()" class="px-1.5 py-0.5 rounded-md bg-amber-400/90 text-black text-[9px] font-bold transition cursor-pointer" title="Reset Cover">Cover \u2713</button>
           `}
         </div>
       </div>
     `;
-
     container.appendChild(card);
   });
-  if (typeof renderTemplatePhotoSlotsManager === 'function') {
+  if (typeof renderTemplatePhotoSlotsManager === "function") {
     renderTemplatePhotoSlotsManager();
   }
 }
-
-// -----------------------------------------------------------------------------
-// VOICE NOTE SYSTEM (RECORDING, PERMISSIONS, PLAYBACK, RECORD AGAIN)
-// -----------------------------------------------------------------------------
 window.startVoiceRecording = function() {
-  // Part 11: Feature Access Check
   if (window.WishFeatureAccess) {
     const access = window.WishFeatureAccess.canUploadVoiceNote();
     if (!access.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'voice',
+          context: "voice",
           onUnlocked: () => {
             window.startVoiceRecording();
           }
@@ -2770,163 +2395,140 @@ window.startVoiceRecording = function() {
       return;
     }
   }
-
   const voiceRecorder = window.WishMediaSystem.voiceRecorder;
-  const errorEl = document.getElementById('voice-recorder-error');
-  const banner = document.getElementById('voice-recording-banner');
-  const timerText = document.getElementById('voice-live-timer');
-  const btnGroup = document.getElementById('voice-action-buttons-group');
-
-  if (errorEl) errorEl.classList.add('hidden');
-
+  const errorEl = document.getElementById("voice-recorder-error");
+  const banner = document.getElementById("voice-recording-banner");
+  const timerText = document.getElementById("voice-live-timer");
+  const btnGroup = document.getElementById("voice-action-buttons-group");
+  if (errorEl) errorEl.classList.add("hidden");
   voiceRecorder.startRecording(
     // onTick
     (seconds) => {
-      if (banner) banner.classList.remove('hidden');
-      if (btnGroup) btnGroup.classList.add('hidden');
+      if (banner) banner.classList.remove("hidden");
+      if (btnGroup) btnGroup.classList.add("hidden");
       if (timerText) {
-        const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-        const secs = (seconds % 60).toString().padStart(2, '0');
+        const mins = Math.floor(seconds / 60).toString().padStart(2, "0");
+        const secs = (seconds % 60).toString().padStart(2, "0");
         timerText.textContent = `${mins}:${secs} (Max 02:00)`;
       }
     },
     // onComplete
     (result) => {
-      if (banner) banner.classList.add('hidden');
-      if (btnGroup) btnGroup.classList.remove('hidden');
-
-      // Update voice state (replaces previous recording now that new one is done)
+      if (banner) banner.classList.add("hidden");
+      if (btnGroup) btnGroup.classList.remove("hidden");
       currentCustomData.media.voiceNote = {
         enabled: true,
-        type: 'record',
-        name: 'Spoken Voice Dedication',
+        type: "record",
+        name: "Spoken Voice Dedication",
         src: result.url,
         duration: result.duration,
         blob: result.blob
       };
-
       window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
       renderVoiceNotePlayer();
       triggerAutosave();
       syncDataToIframe();
-      showToast('🎙️ Voice dedication note recorded successfully!');
+      showToast("\u{1F399}\uFE0F Voice dedication note recorded successfully!");
     },
     // onError
     (err) => {
-      if (banner) banner.classList.add('hidden');
-      if (btnGroup) btnGroup.classList.remove('hidden');
+      if (banner) banner.classList.add("hidden");
+      if (btnGroup) btnGroup.classList.remove("hidden");
       if (errorEl) {
-        errorEl.textContent = err.message || 'Microphone permission was denied. You can upload an audio file instead.';
-        errorEl.classList.remove('hidden');
+        errorEl.textContent = err.message || "Microphone permission was denied. You can upload an audio file instead.";
+        errorEl.classList.remove("hidden");
       }
     }
   );
 };
-
 window.stopVoiceRecording = function() {
   window.WishMediaSystem.voiceRecorder.stopRecording();
 };
-
 window.cancelVoiceRecording = function() {
   window.WishMediaSystem.voiceRecorder.cancelRecording();
-  const banner = document.getElementById('voice-recording-banner');
-  const btnGroup = document.getElementById('voice-action-buttons-group');
-  if (banner) banner.classList.add('hidden');
-  if (btnGroup) btnGroup.classList.remove('hidden');
-  showToast('Recording cancelled');
+  const banner = document.getElementById("voice-recording-banner");
+  const btnGroup = document.getElementById("voice-action-buttons-group");
+  if (banner) banner.classList.add("hidden");
+  if (btnGroup) btnGroup.classList.remove("hidden");
+  showToast("Recording cancelled");
 };
-
 window.handleVoiceFileUpload = function(input) {
   if (!input.files || input.files.length === 0) return;
-
-  // Part 11: Feature Access Check
   if (window.WishFeatureAccess) {
     const access = window.WishFeatureAccess.canUploadVoiceNote();
     if (!access.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'voice'
+          context: "voice"
         });
       }
-      input.value = '';
+      input.value = "";
       return;
     }
   }
-
   const file = input.files[0];
-  const errorEl = document.getElementById('voice-recorder-error');
-  if (errorEl) errorEl.classList.add('hidden');
-
+  const errorEl = document.getElementById("voice-recorder-error");
+  if (errorEl) errorEl.classList.add("hidden");
   if (file.size > 15 * 1024 * 1024) {
     if (errorEl) {
-      errorEl.textContent = 'Audio file exceeds 15MB. Please choose a smaller audio file.';
-      errorEl.classList.remove('hidden');
+      errorEl.textContent = "Audio file exceeds 15MB. Please choose a smaller audio file.";
+      errorEl.classList.remove("hidden");
     }
-    input.value = '';
+    input.value = "";
     return;
   }
-
   const reader = new FileReader();
   reader.onload = (e) => {
     currentCustomData.media.voiceNote = {
       enabled: true,
-      type: 'upload',
+      type: "upload",
       name: file.name,
       src: e.target.result,
-      duration: 'Attached Audio'
+      duration: "Attached Audio"
     };
-
     window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
     renderVoiceNotePlayer();
     triggerAutosave();
     syncDataToIframe();
-    showToast('🎙️ Audio note attached!');
+    showToast("\u{1F399}\uFE0F Audio note attached!");
   };
-
   reader.readAsDataURL(file);
-  input.value = '';
+  input.value = "";
 };
-
 window.removeVoiceNote = function() {
   currentCustomData.media.voiceNote = {
     enabled: false,
-    type: 'none',
-    name: '',
-    src: '',
+    type: "none",
+    name: "",
+    src: "",
     duration: 0
   };
-
   window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
   renderVoiceNotePlayer();
   triggerAutosave();
   syncDataToIframe();
-  showToast('Voice note removed');
+  showToast("Voice note removed");
 };
-
 function renderVoiceNotePlayer() {
-  const container = document.getElementById('voice-player-container');
-  const statusPill = document.getElementById('voice-status-pill');
+  const container = document.getElementById("voice-player-container");
+  const statusPill = document.getElementById("voice-status-pill");
   if (!container) return;
-
   const vn = currentCustomData.media ? currentCustomData.media.voiceNote : null;
-
   if (vn && vn.enabled && vn.src) {
-    container.classList.remove('hidden');
+    container.classList.remove("hidden");
     if (statusPill) {
-      statusPill.textContent = 'Active ✓';
-      statusPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300';
+      statusPill.textContent = "Active \u2713";
+      statusPill.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300";
     }
-
-    const durLabel = typeof vn.duration === 'number' ? `${vn.duration}s recording` : (vn.duration || 'Ready to play');
-
+    const durLabel = typeof vn.duration === "number" ? `${vn.duration}s recording` : vn.duration || "Ready to play";
     container.innerHTML = `
       <div class="p-3.5 rounded-2xl bg-purple-100/90 dark:bg-purple-900/50 border border-purple-200 dark:border-purple-800 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
         <div class="flex items-center gap-3 w-full sm:w-auto truncate">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center text-lg flex-shrink-0 shadow-md">
-            🎙️
+            \u{1F399}\uFE0F
           </div>
           <div class="truncate">
-            <h5 class="text-xs font-bold text-purple-950 dark:text-white truncate">${vn.name || 'Personal Spoken Note'}</h5>
+            <h5 class="text-xs font-bold text-purple-950 dark:text-white truncate">${vn.name || "Personal Spoken Note"}</h5>
             <p class="text-[11px] text-pink-600 dark:text-pink-300 font-mono">${durLabel}</p>
           </div>
         </div>
@@ -2939,136 +2541,108 @@ function renderVoiceNotePlayer() {
           </button>
 
           <button type="button" onclick="removeVoiceNote()" class="p-1.5 rounded-xl text-purple-700 hover:text-red-500 transition text-xs cursor-pointer" title="Remove voice note">
-            ✕
+            \u2715
           </button>
         </div>
       </div>
     `;
   } else {
-    container.classList.add('hidden');
-    container.innerHTML = '';
+    container.classList.add("hidden");
+    container.innerHTML = "";
     if (statusPill) {
-      statusPill.textContent = 'Optional';
-      statusPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300';
+      statusPill.textContent = "Optional";
+      statusPill.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300";
     }
   }
 }
-
-// -----------------------------------------------------------------------------
-// BACKGROUND MUSIC SOUNDSCAPE SYSTEM
-// -----------------------------------------------------------------------------
 window.handleMusicToggle = function(enabled) {
   if (!currentCustomData.media) currentCustomData.media = {};
   currentCustomData.media.music.enabled = enabled;
   currentCustomData.music.enabled = enabled;
-
-  const controls = document.getElementById('music-controls-container');
+  const controls = document.getElementById("music-controls-container");
   if (controls) {
     if (enabled) {
-      controls.classList.remove('opacity-40', 'pointer-events-none');
+      controls.classList.remove("opacity-40", "pointer-events-none");
     } else {
-      controls.classList.add('opacity-40', 'pointer-events-none');
+      controls.classList.add("opacity-40", "pointer-events-none");
       if (window.WishMediaSystem && window.WishMediaSystem.audioEngine) {
         window.WishMediaSystem.audioEngine.stopAll();
       }
       updateStudioPlayerUI();
     }
   }
-
   triggerAutosave();
   syncDataToIframe();
-  showToast(enabled ? '🎵 Background music enabled' : 'Music soundscape muted');
+  showToast(enabled ? "\u{1F3B5} Background music enabled" : "Music soundscape muted");
 };
-
 window.switchMusicMode = function(mode) {
-  // Part 11: Feature Access Check
-  if (mode === 'upload' && window.WishFeatureAccess) {
-    const access = window.WishFeatureAccess.canUseMusic('upload');
+  if (mode === "upload" && window.WishFeatureAccess) {
+    const access = window.WishFeatureAccess.canUseMusic("upload");
     if (!access.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'music_upload',
+          context: "music_upload",
           onUnlocked: () => {
-            window.switchMusicMode('upload');
+            window.switchMusicMode("upload");
           }
         });
       }
       return;
     }
   }
-
-  const tabCurated = document.getElementById('tab-music-curated');
-  const tabUpload = document.getElementById('tab-music-upload');
-  const viewCurated = document.getElementById('music-view-curated');
-  const viewUpload = document.getElementById('music-view-upload');
-
-  if (mode === 'curated') {
-    if (tabCurated) tabCurated.className = 'flex-1 py-1.5 px-3 rounded-xl bg-white dark:bg-purple-900 text-purple-950 dark:text-white font-bold text-xs shadow-xs transition cursor-pointer';
-    if (tabUpload) tabUpload.className = 'flex-1 py-1.5 px-3 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-bold text-xs transition cursor-pointer';
-    if (viewCurated) viewCurated.classList.remove('hidden');
-    if (viewUpload) viewUpload.classList.add('hidden');
+  const tabCurated = document.getElementById("tab-music-curated");
+  const tabUpload = document.getElementById("tab-music-upload");
+  const viewCurated = document.getElementById("music-view-curated");
+  const viewUpload = document.getElementById("music-view-upload");
+  if (mode === "curated") {
+    if (tabCurated) tabCurated.className = "flex-1 py-1.5 px-3 rounded-xl bg-white dark:bg-purple-900 text-purple-950 dark:text-white font-bold text-xs shadow-xs transition cursor-pointer";
+    if (tabUpload) tabUpload.className = "flex-1 py-1.5 px-3 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-bold text-xs transition cursor-pointer";
+    if (viewCurated) viewCurated.classList.remove("hidden");
+    if (viewUpload) viewUpload.classList.add("hidden");
   } else {
-    if (tabCurated) tabCurated.className = 'flex-1 py-1.5 px-3 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-bold text-xs transition cursor-pointer';
-    if (tabUpload) tabUpload.className = 'flex-1 py-1.5 px-3 rounded-xl bg-white dark:bg-purple-900 text-purple-950 dark:text-white font-bold text-xs shadow-xs transition cursor-pointer';
-    if (viewCurated) viewCurated.classList.add('hidden');
-    if (viewUpload) viewUpload.classList.remove('hidden');
+    if (tabCurated) tabCurated.className = "flex-1 py-1.5 px-3 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-bold text-xs transition cursor-pointer";
+    if (tabUpload) tabUpload.className = "flex-1 py-1.5 px-3 rounded-xl bg-white dark:bg-purple-900 text-purple-950 dark:text-white font-bold text-xs shadow-xs transition cursor-pointer";
+    if (viewCurated) viewCurated.classList.add("hidden");
+    if (viewUpload) viewUpload.classList.remove("hidden");
   }
 };
-
 function renderCuratedMusicLibrary() {
-  const container = document.getElementById('curated-tracks-list');
+  const container = document.getElementById("curated-tracks-list");
   if (!container || !window.WishMediaSystem) return;
-
   const tracks = window.WishMediaSystem.CURATED_TRACKS;
   const currentMusic = currentCustomData.media ? currentCustomData.media.music : {};
-  container.innerHTML = '';
-
-  tracks.forEach(track => {
-    const isSelected = currentMusic.trackId === track.id && currentMusic.type !== 'upload';
+  container.innerHTML = "";
+  tracks.forEach((track) => {
+    const isSelected = currentMusic.trackId === track.id && currentMusic.type !== "upload";
     const isPlayingThis = window.WishMediaSystem.audioEngine.activeTrackId === track.id;
-
-    const row = document.createElement('div');
-    row.className = `p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-      isSelected 
-        ? 'border-pink-500 bg-pink-500/10 shadow-sm' 
-        : 'border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-purple-400'
-    }`;
-
+    const row = document.createElement("div");
+    row.className = `p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${isSelected ? "border-pink-500 bg-pink-500/10 shadow-sm" : "border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-purple-400"}`;
     row.innerHTML = `
       <div class="flex items-center gap-2.5 truncate">
-        <button type="button" onclick="toggleTrackPreview('${track.id}')" class="w-8 h-8 rounded-full ${
-          isPlayingThis ? 'bg-pink-600 text-white' : 'bg-purple-100 dark:bg-purple-900 text-purple-950 dark:text-purple-200'
-        } flex items-center justify-center text-xs flex-shrink-0 hover:scale-105 transition cursor-pointer" title="Preview track audio">
-          ${isPlayingThis ? '■' : '▶'}
+        <button type="button" onclick="toggleTrackPreview('${track.id}')" class="w-8 h-8 rounded-full ${isPlayingThis ? "bg-pink-600 text-white" : "bg-purple-100 dark:bg-purple-900 text-purple-950 dark:text-purple-200"} flex items-center justify-center text-xs flex-shrink-0 hover:scale-105 transition cursor-pointer" title="Preview track audio">
+          ${isPlayingThis ? "\u25A0" : "\u25B6"}
         </button>
         <div class="truncate">
           <h5 class="text-xs font-bold text-purple-950 dark:text-white truncate">${track.title}</h5>
-          <p class="text-[10px] text-purple-700 dark:text-purple-300">${track.genre} • ${track.duration}</p>
+          <p class="text-[10px] text-purple-700 dark:text-purple-300">${track.genre} \u2022 ${track.duration}</p>
         </div>
       </div>
 
       <div>
-        <button type="button" onclick="selectCuratedTrack('${track.id}')" class="py-1 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
-          isSelected 
-            ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs' 
-            : 'bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 text-purple-950 dark:text-purple-200'
-        }">
-          ${isSelected ? 'Selected ✓' : 'Select'}
+        <button type="button" onclick="selectCuratedTrack('${track.id}')" class="py-1 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${isSelected ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs" : "bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 text-purple-950 dark:text-purple-200"}">
+          ${isSelected ? "Selected \u2713" : "Select"}
         </button>
       </div>
     `;
-
     container.appendChild(row);
   });
 }
-
 window.selectCuratedTrack = function(trackId) {
-  const track = window.WishMediaSystem.CURATED_TRACKS.find(t => t.id === trackId) || window.WishMediaSystem.CURATED_TRACKS[0];
-
+  const track = window.WishMediaSystem.CURATED_TRACKS.find((t) => t.id === trackId) || window.WishMediaSystem.CURATED_TRACKS[0];
   const audioSrc = track.src || `/audio/${track.id}.mp3`;
   currentCustomData.media.music = {
     enabled: true,
-    type: 'curated',
+    type: "curated",
     name: track.title,
     trackId: track.id,
     src: audioSrc,
@@ -3076,18 +2650,15 @@ window.selectCuratedTrack = function(trackId) {
     genre: track.genre,
     duration: track.duration
   };
-
-  const musicSwitch = document.getElementById('switch-enable-music');
+  const musicSwitch = document.getElementById("switch-enable-music");
   if (musicSwitch) musicSwitch.checked = true;
-
   window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
   renderCuratedMusicLibrary();
   updateStudioPlayerUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast(`🎵 Selected: ${track.title}`);
+  showToast(`\u{1F3B5} Selected: ${track.title}`);
 };
-
 window.toggleTrackPreview = function(trackId) {
   const engine = window.WishMediaSystem.audioEngine;
   if ((engine.isPlayingSynth || engine.htmlAudio) && engine.activeTrackId === trackId) {
@@ -3096,7 +2667,6 @@ window.toggleTrackPreview = function(trackId) {
     updateStudioPlayerUI();
     return;
   }
-
   engine.playCuratedTrack(
     trackId,
     // onTimeUpdate
@@ -3110,44 +2680,38 @@ window.toggleTrackPreview = function(trackId) {
     }
   );
 };
-
 window.handleCustomMusicUpload = function(input) {
   if (!input.files || input.files.length === 0) return;
-
-  // Part 11: Feature Access Check
   if (window.WishFeatureAccess) {
-    const access = window.WishFeatureAccess.canUseMusic('upload');
+    const access = window.WishFeatureAccess.canUseMusic("upload");
     if (!access.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'music_upload'
+          context: "music_upload"
         });
       }
-      input.value = '';
+      input.value = "";
       return;
     }
   }
-
   const file = input.files[0];
-
   if (file.size > 15 * 1024 * 1024) {
-    showToast('⚠️ Audio file is too large. Please upload an audio file under 15MB.');
-    input.value = '';
+    showToast("\u26A0\uFE0F Audio file is too large. Please upload an audio file under 15MB.");
+    input.value = "";
     return;
   }
-
   const reader = new FileReader();
   reader.onload = async (e) => {
     let audioUrl = e.target.result;
     try {
-      const upRes = await fetch('/api/media/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const upRes = await fetch("/api/media/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileData: audioUrl,
           filename: file.name,
-          type: 'audio',
-          title: file.name.replace(/\.[^/.]+$/, '')
+          type: "audio",
+          title: file.name.replace(/\.[^/.]+$/, "")
         })
       });
       const upJson = await upRes.json().catch(() => ({}));
@@ -3156,52 +2720,45 @@ window.handleCustomMusicUpload = function(input) {
       if (upRes.ok && b2Url) {
         audioUrl = b2Url;
       }
-    } catch (_) {}
-
+    } catch (_) {
+    }
     currentCustomData.media.music = {
       enabled: true,
-      type: 'upload',
-      name: file.name.replace(/\.[^/.]+$/, ''),
+      type: "upload",
+      name: file.name.replace(/\.[^/.]+$/, ""),
       filename: file.name,
-      trackId: 'custom_upload',
+      trackId: "custom_upload",
       src: audioUrl,
       url: audioUrl,
-      genre: 'Custom Audio',
-      duration: 'Attached'
+      genre: "Custom Audio",
+      duration: "Attached"
     };
-
     window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
-
-    const infoBox = document.getElementById('custom-music-file-info');
-    const nameEl = document.getElementById('custom-music-file-name');
+    const infoBox = document.getElementById("custom-music-file-info");
+    const nameEl = document.getElementById("custom-music-file-name");
     if (infoBox && nameEl) {
       nameEl.textContent = file.name;
-      infoBox.classList.remove('hidden');
+      infoBox.classList.remove("hidden");
     }
-
     renderCuratedMusicLibrary();
     updateStudioPlayerUI();
     triggerAutosave();
     syncDataToIframe();
-    showToast('🎵 Custom background music attached!');
+    showToast("\u{1F3B5} Custom background music attached!");
   };
-
   reader.readAsDataURL(file);
-  input.value = '';
+  input.value = "";
 };
-
 window.toggleStudioMusicPreview = function() {
   const engine = window.WishMediaSystem.audioEngine;
   const music = currentCustomData.media ? currentCustomData.media.music : {};
-
   if (engine.isPlayingSynth || engine.htmlAudio) {
     engine.stopAll();
     updateStudioPlayerUI();
     renderCuratedMusicLibrary();
     return;
   }
-
-  if (music.type === 'upload' && music.src) {
+  if (music.type === "upload" && music.src) {
     engine.playCustomAudio(
       music.src,
       (cur, total) => updatePlayerProgressUI(cur, total),
@@ -3211,7 +2768,7 @@ window.toggleStudioMusicPreview = function() {
       }
     );
   } else {
-    const trackId = music.trackId || 'celebration-strings';
+    const trackId = music.trackId || "celebration-strings";
     engine.playCuratedTrack(
       trackId,
       (cur, total) => updatePlayerProgressUI(cur, total),
@@ -3222,127 +2779,103 @@ window.toggleStudioMusicPreview = function() {
     );
   }
 };
-
 window.handlePlayerSeek = function(val) {
   const fraction = parseFloat(val) / 100;
   window.WishMediaSystem.audioEngine.seek(fraction);
 };
-
 window.handlePlayerVolume = function(val) {
   window.WishMediaSystem.audioEngine.setVolume(val);
 };
-
 window.removeMusicTrack = function() {
   window.WishMediaSystem.audioEngine.stopAll();
   currentCustomData.media.music = {
     enabled: false,
-    type: 'none',
-    name: 'Music Disabled',
-    trackId: 'none',
-    src: '',
-    genre: '',
-    duration: ''
+    type: "none",
+    name: "Music Disabled",
+    trackId: "none",
+    src: "",
+    genre: "",
+    duration: ""
   };
-
-  const musicSwitch = document.getElementById('switch-enable-music');
+  const musicSwitch = document.getElementById("switch-enable-music");
   if (musicSwitch) musicSwitch.checked = false;
-
   window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
   renderCuratedMusicLibrary();
   updateStudioPlayerUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast('Music disabled');
+  showToast("Music disabled");
 };
-
 function updateStudioPlayerUI() {
   const engine = window.WishMediaSystem ? window.WishMediaSystem.audioEngine : null;
-  const isPlaying = engine ? (engine.isPlayingSynth || (engine.htmlAudio && !engine.htmlAudio.paused)) : false;
-
-  const btnPlay = document.getElementById('btn-studio-play-pause');
+  const isPlaying = engine ? engine.isPlayingSynth || engine.htmlAudio && !engine.htmlAudio.paused : false;
+  const btnPlay = document.getElementById("btn-studio-play-pause");
   if (btnPlay) {
-    btnPlay.textContent = isPlaying ? '⏸️' : '▶';
-    btnPlay.title = isPlaying ? 'Pause Audio Preview' : 'Play Audio Preview';
+    btnPlay.textContent = isPlaying ? "\u23F8\uFE0F" : "\u25B6";
+    btnPlay.title = isPlaying ? "Pause Audio Preview" : "Play Audio Preview";
   }
-
-  const music = (currentCustomData.media && currentCustomData.media.music) ? currentCustomData.media.music : {};
-  const titleEl = document.getElementById('player-track-title');
-  const genreEl = document.getElementById('player-track-genre');
-  const totalTimeEl = document.getElementById('player-total-time');
-
-  if (titleEl) titleEl.textContent = music.name || 'Celebration Acoustic Strings';
-  if (genreEl) genreEl.textContent = music.genre || (music.type === 'upload' ? 'Custom Upload' : 'Indie Celebration');
-  if (totalTimeEl) totalTimeEl.textContent = music.duration || '2:40';
+  const music = currentCustomData.media && currentCustomData.media.music ? currentCustomData.media.music : {};
+  const titleEl = document.getElementById("player-track-title");
+  const genreEl = document.getElementById("player-track-genre");
+  const totalTimeEl = document.getElementById("player-total-time");
+  if (titleEl) titleEl.textContent = music.name || "Celebration Acoustic Strings";
+  if (genreEl) genreEl.textContent = music.genre || (music.type === "upload" ? "Custom Upload" : "Indie Celebration");
+  if (totalTimeEl) totalTimeEl.textContent = music.duration || "2:40";
 }
-
 function updatePlayerProgressUI(curSeconds, totalSeconds) {
-  const curTimeEl = document.getElementById('player-current-time');
-  const slider = document.getElementById('player-seek-slider');
-
+  const curTimeEl = document.getElementById("player-current-time");
+  const slider = document.getElementById("player-seek-slider");
   if (curTimeEl) {
     const m = Math.floor(curSeconds / 60);
-    const s = Math.floor(curSeconds % 60).toString().padStart(2, '0');
+    const s = Math.floor(curSeconds % 60).toString().padStart(2, "0");
     curTimeEl.textContent = `${m}:${s}`;
   }
-
   if (slider && totalSeconds > 0) {
-    slider.value = Math.min(100, (curSeconds / totalSeconds) * 100);
+    slider.value = Math.min(100, curSeconds / totalSeconds * 100);
   }
 }
-
-// -----------------------------------------------------------------------------
-// STEP 2: ADVANCED THEME ENGINE CONTROLLERS
-// -----------------------------------------------------------------------------
-
-// Active Theme Config Builder
 function getActiveThemeConfig() {
   const engine = window.WishThemeEngine;
-  const basePreset = (engine && engine.presets && engine.presets[currentCustomData.theme])
-    ? engine.presets[currentCustomData.theme]
-    : (THEME_PRESETS[currentCustomData.theme] || THEME_PRESETS.magical);
-
+  const basePreset = engine && engine.presets && engine.presets[currentCustomData.theme] ? engine.presets[currentCustomData.theme] : THEME_PRESETS[currentCustomData.theme] || THEME_PRESETS.magical;
   const themeConfig = {
-    preset: currentCustomData.theme || 'magical',
-    name: basePreset.name || 'Magical',
+    preset: currentCustomData.theme || "magical",
+    name: basePreset.name || "Magical",
     colors: {
-      primary: currentCustomData.colors.primary || basePreset.colors.primary || '#ec4899',
-      secondary: currentCustomData.colors.secondary || basePreset.colors.secondary || '#8b5cf6',
-      accent: currentCustomData.colors.accent || (basePreset.colors && basePreset.colors.accent) || '#fbbf24',
-      background: (currentCustomData.backgroundObj && currentCustomData.backgroundObj.value) || (basePreset.colors && basePreset.colors.background) || 'radial-gradient(circle at 50% 15%, #2a0845 0%, #17042b 55%, #0d0118 100%)',
-      surface: (currentCustomData.colors && currentCustomData.colors.surface) || (basePreset.colors && basePreset.colors.surface) || 'rgba(255, 255, 255, 0.12)',
-      text: (currentCustomData.colors && currentCustomData.colors.text) || (basePreset.colors && basePreset.colors.text) || '#ffffff',
-      mutedText: (currentCustomData.colors && currentCustomData.colors.mutedText) || (basePreset.colors && basePreset.colors.mutedText) || '#e9d5ff',
-      border: (basePreset.colors && basePreset.colors.border) || 'rgba(236, 72, 153, 0.35)',
-      glow: (basePreset.colors && basePreset.colors.glow) || 'rgba(236, 72, 153, 0.45)'
+      primary: currentCustomData.colors.primary || basePreset.colors.primary || "#ec4899",
+      secondary: currentCustomData.colors.secondary || basePreset.colors.secondary || "#8b5cf6",
+      accent: currentCustomData.colors.accent || basePreset.colors && basePreset.colors.accent || "#fbbf24",
+      background: currentCustomData.backgroundObj && currentCustomData.backgroundObj.value || basePreset.colors && basePreset.colors.background || "radial-gradient(circle at 50% 15%, #2a0845 0%, #17042b 55%, #0d0118 100%)",
+      surface: currentCustomData.colors && currentCustomData.colors.surface || basePreset.colors && basePreset.colors.surface || "rgba(255, 255, 255, 0.12)",
+      text: currentCustomData.colors && currentCustomData.colors.text || basePreset.colors && basePreset.colors.text || "#ffffff",
+      mutedText: currentCustomData.colors && currentCustomData.colors.mutedText || basePreset.colors && basePreset.colors.mutedText || "#e9d5ff",
+      border: basePreset.colors && basePreset.colors.border || "rgba(236, 72, 153, 0.35)",
+      glow: basePreset.colors && basePreset.colors.glow || "rgba(236, 72, 153, 0.45)"
     },
     typography: {
-      headingFont: (currentCustomData.typography && currentCustomData.typography.headingFont) || (basePreset.typography && basePreset.typography.headingFont) || 'Outfit, sans-serif',
-      bodyFont: (currentCustomData.typography && currentCustomData.typography.bodyFont) || (basePreset.typography && basePreset.typography.bodyFont) || 'Plus Jakarta Sans, sans-serif',
-      headingWeight: (currentCustomData.typography && currentCustomData.typography.headingWeight) || (basePreset.typography && basePreset.typography.headingWeight) || '800',
-      fontStyle: (currentCustomData.typography && currentCustomData.typography.fontStyle) || (basePreset.typography && basePreset.typography.fontStyle) || 'normal'
+      headingFont: currentCustomData.typography && currentCustomData.typography.headingFont || basePreset.typography && basePreset.typography.headingFont || "Outfit, sans-serif",
+      bodyFont: currentCustomData.typography && currentCustomData.typography.bodyFont || basePreset.typography && basePreset.typography.bodyFont || "Plus Jakarta Sans, sans-serif",
+      headingWeight: currentCustomData.typography && currentCustomData.typography.headingWeight || basePreset.typography && basePreset.typography.headingWeight || "800",
+      fontStyle: currentCustomData.typography && currentCustomData.typography.fontStyle || basePreset.typography && basePreset.typography.fontStyle || "normal"
     },
     background: {
-      type: currentCustomData.background || 'gradient',
-      value: (currentCustomData.backgroundObj && currentCustomData.backgroundObj.value) || (basePreset.background && basePreset.background.value) || 'radial-gradient(circle at 50% 15%, #2a0845 0%, #17042b 55%, #0d0118 100%)',
-      overlay: (basePreset.background && basePreset.background.overlay) || 'none'
+      type: currentCustomData.background || "gradient",
+      value: currentCustomData.backgroundObj && currentCustomData.backgroundObj.value || basePreset.background && basePreset.background.value || "radial-gradient(circle at 50% 15%, #2a0845 0%, #17042b 55%, #0d0118 100%)",
+      overlay: basePreset.background && basePreset.background.overlay || "none"
     },
-    surfaces: currentCustomData.surfaces || (basePreset.surfaces ? { ...basePreset.surfaces } : { style: 'glass', radius: 'rounded', radiusPx: '20px', blur: '20px' }),
-    buttons: currentCustomData.buttons || (basePreset.buttons ? { ...basePreset.buttons } : { style: 'gradient', radius: 'pill', radiusPx: '9999px' }),
-    effects: currentCustomData.effects || (basePreset.effects ? { ...basePreset.effects } : { master: true, particles: true, particleType: 'sparkles', intensity: 'soft', glow: true, confetti: true })
+    surfaces: currentCustomData.surfaces || (basePreset.surfaces ? { ...basePreset.surfaces } : { style: "glass", radius: "rounded", radiusPx: "20px", blur: "20px" }),
+    buttons: currentCustomData.buttons || (basePreset.buttons ? { ...basePreset.buttons } : { style: "gradient", radius: "pill", radiusPx: "9999px" }),
+    effects: currentCustomData.effects || (basePreset.effects ? { ...basePreset.effects } : { master: true, particles: true, particleType: "sparkles", intensity: "soft", glow: true, confetti: true })
   };
-
   currentCustomData.themeConfig = themeConfig;
   return themeConfig;
 }
-
 window.selectThemePreset = function(themeKey, sync = true) {
-  // Part 11: Feature Access Entitlement Check
   if (window.WishFeatureAccess) {
     const access = window.WishFeatureAccess.canUseTheme(themeKey);
     if (!access.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'theme',
+          context: "theme",
           key: themeKey,
           onUnlocked: () => {
             window.selectThemePreset(themeKey, true);
@@ -3352,89 +2885,68 @@ window.selectThemePreset = function(themeKey, sync = true) {
       return;
     }
   }
-
   const engine = window.WishThemeEngine;
-  const preset = (engine && engine.presets && engine.presets[themeKey])
-    ? engine.presets[themeKey]
-    : THEME_PRESETS[themeKey];
-
+  const preset = engine && engine.presets && engine.presets[themeKey] ? engine.presets[themeKey] : THEME_PRESETS[themeKey];
   if (!preset) return;
-
   currentCustomData.theme = themeKey;
-
-  // Hydrate all preset visual parameters
   if (preset.colors) {
     currentCustomData.colors.primary = preset.colors.primary;
     currentCustomData.colors.secondary = preset.colors.secondary;
-    currentCustomData.colors.accent = preset.colors.accent || '#fbbf24';
+    currentCustomData.colors.accent = preset.colors.accent || "#fbbf24";
     if (preset.colors.text) currentCustomData.colors.text = preset.colors.text;
     if (preset.colors.mutedText) currentCustomData.colors.mutedText = preset.colors.mutedText;
     if (preset.colors.surface) currentCustomData.colors.surface = preset.colors.surface;
   } else {
     currentCustomData.colors.primary = preset.primary;
     currentCustomData.colors.secondary = preset.secondary;
-    currentCustomData.colors.accent = '#fbbf24';
+    currentCustomData.colors.accent = "#fbbf24";
   }
-
   if (preset.typography) {
     currentCustomData.typography = { ...preset.typography };
-    currentCustomData.font = preset.id === 'romantic' ? 'romantic' : (preset.id === 'elegant' || preset.id === 'royal' ? 'elegant' : (preset.id === 'cute' || preset.id === 'pastel' ? 'playful' : 'modern'));
+    currentCustomData.font = preset.id === "romantic" ? "romantic" : preset.id === "elegant" || preset.id === "royal" ? "elegant" : preset.id === "cute" || preset.id === "pastel" ? "playful" : "modern";
   } else {
-    currentCustomData.font = preset.font || 'modern';
+    currentCustomData.font = preset.font || "modern";
   }
-
   if (preset.background) {
-    currentCustomData.background = preset.background.type || 'gradient';
+    currentCustomData.background = preset.background.type || "gradient";
     currentCustomData.backgroundObj = { ...preset.background };
   } else {
-    currentCustomData.background = preset.background || 'gradient';
+    currentCustomData.background = preset.background || "gradient";
   }
-
   if (preset.surfaces) {
     currentCustomData.surfaces = { ...preset.surfaces };
   }
-
   if (preset.buttons) {
     currentCustomData.buttons = { ...preset.buttons };
   }
-
   if (preset.effects) {
     currentCustomData.effects = { ...preset.effects };
   }
-
-  // Update Theme Preset UI Cards
-  document.querySelectorAll('.theme-preset-card').forEach(card => {
-    const isSelected = card.getAttribute('data-theme') === themeKey;
-    const checkBadge = card.querySelector('.theme-check-badge');
+  document.querySelectorAll(".theme-preset-card").forEach((card) => {
+    const isSelected = card.getAttribute("data-theme") === themeKey;
+    const checkBadge = card.querySelector(".theme-check-badge");
     if (isSelected) {
-      card.className = 'theme-preset-card p-3 rounded-2xl ring-2 ring-purple-600 bg-purple-100/90 dark:bg-purple-900/60 shadow-lg text-left transition flex flex-col justify-between h-28 relative group cursor-pointer';
-      if (checkBadge) checkBadge.classList.remove('hidden');
+      card.className = "theme-preset-card p-3 rounded-2xl ring-2 ring-purple-600 bg-purple-100/90 dark:bg-purple-900/60 shadow-lg text-left transition flex flex-col justify-between h-28 relative group cursor-pointer";
+      if (checkBadge) checkBadge.classList.remove("hidden");
     } else {
-      card.className = 'theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer';
-      if (checkBadge) checkBadge.classList.add('hidden');
+      card.className = "theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer";
+      if (checkBadge) checkBadge.classList.add("hidden");
     }
   });
-
-  // Update Color Pickers and Hex Labels
-  const colPrimary = document.getElementById('color-primary-input');
+  const colPrimary = document.getElementById("color-primary-input");
   if (colPrimary) colPrimary.value = currentCustomData.colors.primary;
-  const hexPrimary = document.getElementById('hex-primary-label');
+  const hexPrimary = document.getElementById("hex-primary-label");
   if (hexPrimary) hexPrimary.textContent = currentCustomData.colors.primary;
-
-  const colSecondary = document.getElementById('color-secondary-input');
+  const colSecondary = document.getElementById("color-secondary-input");
   if (colSecondary) colSecondary.value = currentCustomData.colors.secondary;
-  const hexSecondary = document.getElementById('hex-secondary-label');
+  const hexSecondary = document.getElementById("hex-secondary-label");
   if (hexSecondary) hexSecondary.textContent = currentCustomData.colors.secondary;
-
-  const colAccent = document.getElementById('color-accent-input');
+  const colAccent = document.getElementById("color-accent-input");
   if (colAccent) colAccent.value = currentCustomData.colors.accent;
-  const hexAccent = document.getElementById('hex-accent-label');
+  const hexAccent = document.getElementById("hex-accent-label");
   if (hexAccent) hexAccent.textContent = currentCustomData.colors.accent;
-
-  // Update Typography & Background buttons
   selectFont(currentCustomData.font, false);
   selectBackgroundStyle(currentCustomData.background, false);
-
   if (currentCustomData.surfaces && currentCustomData.surfaces.style) {
     selectCardStyle(currentCustomData.surfaces.style, false);
   }
@@ -3444,627 +2956,622 @@ window.selectThemePreset = function(themeKey, sync = true) {
   if (currentCustomData.effects && currentCustomData.effects.particleType) {
     selectParticleType(currentCustomData.effects.particleType, false);
   }
-
-  // Update Particle Density Selector
-  const intensitySel = document.getElementById('select-particle-intensity');
+  const intensitySel = document.getElementById("select-particle-intensity");
   if (intensitySel && currentCustomData.effects) {
-    intensitySel.value = currentCustomData.effects.intensity || 'soft';
+    intensitySel.value = currentCustomData.effects.intensity || "soft";
   }
-
-  // Update Checkboxes
-  const masterSwitch = document.getElementById('switch-master-fx');
+  const masterSwitch = document.getElementById("switch-master-fx");
   if (masterSwitch && currentCustomData.effects) {
     masterSwitch.checked = currentCustomData.effects.master !== false;
   }
-  const glowCheck = document.getElementById('check-glow-fx');
+  const glowCheck = document.getElementById("check-glow-fx");
   if (glowCheck && currentCustomData.effects) {
     glowCheck.checked = currentCustomData.effects.glow !== false;
   }
-  const confettiCheck = document.getElementById('check-confetti-fx');
+  const confettiCheck = document.getElementById("check-confetti-fx");
   if (confettiCheck && currentCustomData.effects) {
     confettiCheck.checked = currentCustomData.effects.confetti !== false;
   }
-
-  // Update Contrast Protection Badge
   updateContrastBadge();
-
   if (sync) {
     triggerAutosave();
     syncDataToIframe();
-    showToast(`✨ Switched to ${preset.name || themeKey} Theme`);
+    showToast(`\u2728 Switched to ${preset.name || themeKey} Theme`);
   }
 };
-
 window.handlePrimaryColorChange = function(color) {
   currentCustomData.colors.primary = color;
-  const hexLabel = document.getElementById('hex-primary-label');
+  const hexLabel = document.getElementById("hex-primary-label");
   if (hexLabel) hexLabel.textContent = color;
-
   updateContrastBadge();
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleSecondaryColorChange = function(color) {
   currentCustomData.colors.secondary = color;
-  const hexLabel = document.getElementById('hex-secondary-label');
+  const hexLabel = document.getElementById("hex-secondary-label");
   if (hexLabel) hexLabel.textContent = color;
-
   updateContrastBadge();
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleAccentColorChange = function(color) {
   currentCustomData.colors.accent = color;
-  const hexLabel = document.getElementById('hex-accent-label');
+  const hexLabel = document.getElementById("hex-accent-label");
   if (hexLabel) hexLabel.textContent = color;
-
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.selectFont = function(fontKey, sync = true) {
   currentCustomData.font = fontKey;
   const engine = window.WishThemeEngine;
   if (engine && engine.typography && engine.typography[fontKey]) {
     currentCustomData.typography = { ...engine.typography[fontKey] };
   }
-
-  document.querySelectorAll('.font-choice-btn').forEach(btn => {
-    if (btn.getAttribute('data-font') === fontKey) {
-      btn.className = 'font-choice-btn flex-1 p-3 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer';
+  document.querySelectorAll(".font-choice-btn").forEach((btn) => {
+    if (btn.getAttribute("data-font") === fontKey) {
+      btn.className = "font-choice-btn flex-1 p-3 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer";
     } else {
-      btn.className = 'font-choice-btn flex-1 p-3 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 text-xs text-center transition-all hover:border-purple-400 cursor-pointer';
+      btn.className = "font-choice-btn flex-1 p-3 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 text-xs text-center transition-all hover:border-purple-400 cursor-pointer";
     }
   });
-
   if (sync) {
     triggerAutosave();
     syncDataToIframe();
   }
 };
-
 window.selectBackgroundStyle = function(bgKey, sync = true) {
   currentCustomData.background = bgKey;
-
-  // Compute atmosphere value according to primary and secondary
-  const p = currentCustomData.colors.primary || '#ec4899';
-  const s = currentCustomData.colors.secondary || '#8b5cf6';
-
-  let bgVal = '';
-  if (bgKey === 'glow') {
+  const p = currentCustomData.colors.primary || "#ec4899";
+  const s = currentCustomData.colors.secondary || "#8b5cf6";
+  let bgVal = "";
+  if (bgKey === "glow") {
     bgVal = `radial-gradient(circle at 50% 20%, rgba(244, 63, 94, 0.4) 0%, #1a0410 50%, #070104 100%)`;
-  } else if (bgKey === 'cosmic') {
+  } else if (bgKey === "cosmic") {
     bgVal = `radial-gradient(circle at 50% 15%, #081e36 0%, #030a14 55%, #010307 100%)`;
-  } else if (bgKey === 'solid') {
+  } else if (bgKey === "solid") {
     bgVal = `#0c0214`;
   } else {
-    // Default gradient
     bgVal = `radial-gradient(circle at 50% 15%, #2a0845 0%, #17042b 55%, #0d0118 100%)`;
   }
-
   currentCustomData.backgroundObj = {
     type: bgKey,
     value: bgVal,
-    overlay: 'none'
+    overlay: "none"
   };
-
-  document.querySelectorAll('.bg-style-btn').forEach(btn => {
-    if (btn.getAttribute('data-bg') === bgKey) {
-      btn.className = 'bg-style-btn p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer';
+  document.querySelectorAll(".bg-style-btn").forEach((btn) => {
+    if (btn.getAttribute("data-bg") === bgKey) {
+      btn.className = "bg-style-btn p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer";
     } else {
-      btn.className = 'bg-style-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400';
+      btn.className = "bg-style-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400";
     }
   });
-
   if (sync) {
     triggerAutosave();
     syncDataToIframe();
   }
 };
-
 window.selectCardStyle = function(surfaceStyle, sync = true) {
   if (!currentCustomData.surfaces) currentCustomData.surfaces = {};
   currentCustomData.surfaces.style = surfaceStyle;
-
-  if (surfaceStyle === 'clean') {
-    currentCustomData.surfaces.blur = '0px';
-    currentCustomData.surfaces.radiusPx = '14px';
-    currentCustomData.surfaces.shadow = 'none';
-  } else if (surfaceStyle === 'frosted') {
-    currentCustomData.surfaces.blur = '28px';
-    currentCustomData.surfaces.radiusPx = '24px';
-    currentCustomData.surfaces.shadow = '0 20px 40px -10px rgba(0,0,0,0.4)';
-  } else if (surfaceStyle === 'elevated') {
-    currentCustomData.surfaces.blur = '24px';
-    currentCustomData.surfaces.radiusPx = '22px';
-    currentCustomData.surfaces.shadow = '0 25px 50px -12px rgba(124, 58, 237, 0.35)';
+  if (surfaceStyle === "clean") {
+    currentCustomData.surfaces.blur = "0px";
+    currentCustomData.surfaces.radiusPx = "14px";
+    currentCustomData.surfaces.shadow = "none";
+  } else if (surfaceStyle === "frosted") {
+    currentCustomData.surfaces.blur = "28px";
+    currentCustomData.surfaces.radiusPx = "24px";
+    currentCustomData.surfaces.shadow = "0 20px 40px -10px rgba(0,0,0,0.4)";
+  } else if (surfaceStyle === "elevated") {
+    currentCustomData.surfaces.blur = "24px";
+    currentCustomData.surfaces.radiusPx = "22px";
+    currentCustomData.surfaces.shadow = "0 25px 50px -12px rgba(124, 58, 237, 0.35)";
   } else {
-    currentCustomData.surfaces.blur = '18px';
-    currentCustomData.surfaces.radiusPx = '22px';
-    currentCustomData.surfaces.shadow = '0 16px 36px -8px rgba(0,0,0,0.25)';
+    currentCustomData.surfaces.blur = "18px";
+    currentCustomData.surfaces.radiusPx = "22px";
+    currentCustomData.surfaces.shadow = "0 16px 36px -8px rgba(0,0,0,0.25)";
   }
-
-  document.querySelectorAll('.surface-choice-btn').forEach(btn => {
-    if (btn.getAttribute('data-surface') === surfaceStyle) {
-      btn.className = 'surface-choice-btn p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer';
+  document.querySelectorAll(".surface-choice-btn").forEach((btn) => {
+    if (btn.getAttribute("data-surface") === surfaceStyle) {
+      btn.className = "surface-choice-btn p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer";
     } else {
-      btn.className = 'surface-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400';
+      btn.className = "surface-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400";
     }
   });
-
   if (sync) {
     triggerAutosave();
     syncDataToIframe();
   }
 };
-
 window.selectButtonStyle = function(btnStyle, sync = true) {
   if (!currentCustomData.buttons) currentCustomData.buttons = {};
   currentCustomData.buttons.style = btnStyle;
-
-  if (btnStyle === 'outline') {
-    currentCustomData.buttons.radiusPx = '9999px';
-    currentCustomData.buttons.shadow = 'none';
-  } else if (btnStyle === 'glass') {
-    currentCustomData.buttons.radiusPx = '16px';
-    currentCustomData.buttons.shadow = '0 8px 20px rgba(0,0,0,0.2)';
-  } else if (btnStyle === 'filled') {
-    currentCustomData.buttons.radiusPx = '14px';
-    currentCustomData.buttons.shadow = '0 10px 25px -5px rgba(0,0,0,0.3)';
+  if (btnStyle === "outline") {
+    currentCustomData.buttons.radiusPx = "9999px";
+    currentCustomData.buttons.shadow = "none";
+  } else if (btnStyle === "glass") {
+    currentCustomData.buttons.radiusPx = "16px";
+    currentCustomData.buttons.shadow = "0 8px 20px rgba(0,0,0,0.2)";
+  } else if (btnStyle === "filled") {
+    currentCustomData.buttons.radiusPx = "14px";
+    currentCustomData.buttons.shadow = "0 10px 25px -5px rgba(0,0,0,0.3)";
   } else {
-    currentCustomData.buttons.radiusPx = '9999px';
-    currentCustomData.buttons.shadow = '0 10px 25px -5px rgba(236, 72, 153, 0.4)';
+    currentCustomData.buttons.radiusPx = "9999px";
+    currentCustomData.buttons.shadow = "0 10px 25px -5px rgba(236, 72, 153, 0.4)";
   }
-
-  document.querySelectorAll('.btn-style-choice').forEach(btn => {
-    if (btn.getAttribute('data-btn-style') === btnStyle) {
-      btn.className = 'btn-style-choice p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer';
+  document.querySelectorAll(".btn-style-choice").forEach((btn) => {
+    if (btn.getAttribute("data-btn-style") === btnStyle) {
+      btn.className = "btn-style-choice p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer";
     } else {
-      btn.className = 'btn-style-choice p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400';
+      btn.className = "btn-style-choice p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400";
     }
   });
-
   if (sync) {
     triggerAutosave();
     syncDataToIframe();
   }
 };
-
 window.selectParticleType = function(particleType, sync = true) {
   if (!currentCustomData.effects) currentCustomData.effects = {};
   currentCustomData.effects.particleType = particleType;
-
-  document.querySelectorAll('.ptype-choice-btn').forEach(btn => {
-    if (btn.getAttribute('data-ptype') === particleType) {
-      btn.className = 'ptype-choice-btn p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer';
+  document.querySelectorAll(".ptype-choice-btn").forEach((btn) => {
+    if (btn.getAttribute("data-ptype") === particleType) {
+      btn.className = "ptype-choice-btn p-2.5 rounded-2xl border-2 border-purple-600 bg-purple-100/90 dark:bg-purple-900/60 text-purple-950 dark:text-white font-bold text-xs text-center transition-all shadow-sm cursor-pointer";
     } else {
-      btn.className = 'ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400';
+      btn.className = "ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer hover:border-purple-400";
     }
   });
-
   if (sync) {
     triggerAutosave();
     syncDataToIframe();
   }
 };
-
 window.handleParticleIntensity = function(level) {
   if (!currentCustomData.effects) currentCustomData.effects = {};
   currentCustomData.effects.intensity = level;
-  if (level === 'off') {
+  if (level === "off") {
     currentCustomData.effects.particles = false;
   } else {
     currentCustomData.effects.particles = true;
   }
-
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleEffectToggle = function(effectName, checked) {
   if (!currentCustomData.effects) currentCustomData.effects = {};
-
-  if (effectName === 'master') {
+  if (effectName === "master") {
     currentCustomData.effects.master = checked;
   } else {
     currentCustomData.effects[effectName] = checked;
   }
-
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleEntranceAnimation = function(val) {
   currentCustomData.entranceAnimation = val;
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleSectionTransition = function(val) {
   currentCustomData.sectionTransition = val;
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleTextReveal = function(val) {
   currentCustomData.textReveal = val;
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleImageReveal = function(val) {
   currentCustomData.imageReveal = val;
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.handleInteractiveBurstsToggle = function(checked) {
   currentCustomData.interactiveBursts = checked;
   triggerAutosave();
   syncDataToIframe();
 };
-
-// =============================================================================
-// SMART WISH LINK & CUSTOM SLUG SUGGESTIONS SYSTEM
-// =============================================================================
-
-let currentLinkStyle = 'magical';
+let currentLinkStyle = "magical";
 let currentPersonalizeWithName = true;
 let isChangeLinkModeActive = false;
 let isPersonalizedStudioOpen = false;
 let currentWishLinkSettings = {
   personalized: {
     enabled: true,
-    price: 59,
-    currency: 'INR',
-    displayName: 'Custom Link Only',
-    description: 'Create a memorable custom link (/w/your-name) for your wish.'
+    price: 19,
+    currency: "INR",
+    displayName: "Custom Link & 1-Year Validity",
+    description: "Pick your own /w/your-name link (₹19) or keep it active for 1 full year (₹149)."
   },
   addons: {
-    customLinkPrice: 59,
-    hdImageStylePrice: 59,
-    freeTemplateComboPrice: 99,
-    premiumComboAddonPrice: 70
+    customLinkPrice: 19,
+    hdPhotosPrice: 19,
+    hdImageStylePrice: 19,
+    yearlyCustomLinkPrice: 149
   },
   referral: {
     requiredReferrals: 7
   },
   random: {
     enabled: true,
-    prefix: 'wish-',
+    prefix: "wish-",
     length: 6,
-    allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
+    allowedCharacters: "abcdefghijklmnopqrstuvwxyz0123456789"
   }
 };
-let userAvailableReferralCredits = Number(localStorage.getItem('wm_free_custom_link_credits') || 0) || 0;
-let selectedCustomizerPack = 'combo'; // 'custom_link' | 'hd_style' | 'combo'
-
+let userAvailableReferralCredits = Number(localStorage.getItem("wm_free_custom_link_credits") || 0) || 0;
+let selectedLinkOption = "custom"; // 'custom' (₹19) | '1yr' (₹149)
+let selectedHdPhotosAddon = false; // ₹19 (only available when template supports photo uploads)
+let selectedRandomHdPhotos = false; // optional ₹19 HD Photos on Free Random card when template supports photos
+let selectedCustomizerPack = "custom";
 function getCurrencySymbol(curr) {
-  switch (String(curr || 'INR').toUpperCase()) {
-    case 'INR': return '₹';
-    case 'USD': return '$';
-    case 'EUR': return '€';
-    case 'GBP': return '£';
-    case 'CAD': return 'CA$';
-    case 'AUD': return 'AU$';
-    default: return curr + ' ';
+  switch (String(curr || "INR").toUpperCase()) {
+    case "INR":
+      return "\u20B9";
+    case "USD":
+      return "$";
+    case "EUR":
+      return "\u20AC";
+    case "GBP":
+      return "\xA3";
+    case "CAD":
+      return "CA$";
+    case "AUD":
+      return "AU$";
+    default:
+      return curr + " ";
   }
 }
-
+function getLiveAdditivePrices() {
+  const toNonNeg = (val, fallback) => {
+    if (val === void 0 || val === null || val === "" || typeof val === "boolean") return fallback;
+    const n = Number(val);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+  const a = currentWishLinkSettings.addons || {};
+  return {
+    sym: getCurrencySymbol(currentWishLinkSettings.personalized?.currency || "INR"),
+    clPrice: toNonNeg(a.customLinkPrice ?? currentWishLinkSettings.personalized?.price, 19),
+    hdPrice: toNonNeg(a.hdPhotosPrice ?? a.hdImageStylePrice, 19),
+    yrPrice: toNonNeg(a.yearlyCustomLinkPrice, 149)
+  };
+}
+function activeTemplateSupportsPhotos() {
+  if (activeTemplate && (activeTemplate.supportsPhotos === false || activeTemplate.supportsAnyPhoto === false)) {
+    return false;
+  }
+  if (window._customizerCapabilities && typeof window._customizerCapabilities.supportsAnyPhoto === "boolean") {
+    return window._customizerCapabilities.supportsAnyPhoto;
+  }
+  return true;
+}
 window.loadWishLinkStudioSettings = async function() {
   try {
-    const res = await fetch('/api/settings/wish-links', { credentials: 'include', cache: 'no-store' }).catch(() => null);
+    const res = await fetch("/api/settings/wish-links", { credentials: "include", cache: "no-store" }).catch(() => null);
     if (res) {
       const data = await res.json().catch(() => ({}));
-      const s = (data && data.data && data.data.settings) || (data && data.settings);
+      const s = data && data.data && data.data.settings || data && data.settings;
       if (data && data.success && s) {
         currentWishLinkSettings = {
           ...currentWishLinkSettings,
           ...s,
-          addons: { ...(currentWishLinkSettings.addons || {}), ...(s.addons || {}) },
-          referral: { ...(currentWishLinkSettings.referral || {}), ...(s.referral || {}) }
+          personalized: { ...currentWishLinkSettings.personalized || {}, ...s.personalized || {} },
+          addons: { ...currentWishLinkSettings.addons || {}, ...s.addons || {} },
+          referral: { ...currentWishLinkSettings.referral || {}, ...s.referral || {} }
         };
       }
     }
   } catch (e) {
-    console.warn('[Customizer] Using default wish link settings:', e);
+    console.warn("[Customizer] Using default wish link settings:", e);
   }
-
-  // Update Card 1: Personalized Link UI
-  const cardPersonalized = document.getElementById('card-personalized-option');
-  const priceLabel = document.getElementById('card-personalized-price');
-  const nameLabel = document.getElementById('card-personalized-name');
-  const descLabel = document.getElementById('card-personalized-desc');
-  const sym = getCurrencySymbol(currentWishLinkSettings.personalized.currency);
-
+  const { sym, clPrice, yrPrice } = getLiveAdditivePrices();
+  const cardPersonalized = document.getElementById("card-personalized-option");
+  const priceLabel = document.getElementById("card-personalized-price");
+  const nameLabel = document.getElementById("card-personalized-name");
+  const descLabel = document.getElementById("card-personalized-desc");
   if (priceLabel) {
-    priceLabel.textContent = `${sym}${currentWishLinkSettings.personalized.price}`;
+    priceLabel.textContent = `${sym}${clPrice} / ${sym}${yrPrice} (1 Yr)`;
   }
-  if (nameLabel && currentWishLinkSettings.personalized.displayName) {
-    nameLabel.textContent = currentWishLinkSettings.personalized.displayName;
+  if (nameLabel) {
+    nameLabel.textContent = "Custom Link & 1-Year Validity";
   }
-  if (descLabel && currentWishLinkSettings.personalized.description) {
-    descLabel.textContent = currentWishLinkSettings.personalized.description;
+  if (descLabel) {
+    descLabel.textContent = `Pick your own /w/your-name link (${sym}${clPrice}) or keep it active for 1 full year (${sym}${yrPrice}).`;
   }
   if (cardPersonalized) {
-    if (!currentWishLinkSettings.personalized.enabled) {
-      cardPersonalized.classList.add('opacity-40', 'pointer-events-none');
+    if (currentWishLinkSettings.personalized && currentWishLinkSettings.personalized.enabled === false) {
+      cardPersonalized.classList.add("opacity-40", "pointer-events-none");
     } else {
-      cardPersonalized.classList.remove('opacity-40', 'pointer-events-none');
+      cardPersonalized.classList.remove("opacity-40", "pointer-events-none");
     }
   }
-
-  // Update Card 2: Free Random Link UI
-  const cardRandom = document.getElementById('card-random-option');
-  const randomSample = document.getElementById('card-random-sample');
+  const cardRandom = document.getElementById("card-random-option");
+  const randomSample = document.getElementById("card-random-sample");
   if (randomSample && currentWishLinkSettings.random) {
     const sample = currentWishLinkSettings.random.sampleSlug || `${currentWishLinkSettings.random.prefix}7k4m9x`;
     randomSample.textContent = sample;
   }
   if (cardRandom) {
-    if (!currentWishLinkSettings.random.enabled) {
-      cardRandom.classList.add('opacity-40', 'pointer-events-none');
+    if (currentWishLinkSettings.random && currentWishLinkSettings.random.enabled === false) {
+      cardRandom.classList.add("opacity-40", "pointer-events-none");
     } else {
-      cardRandom.classList.remove('opacity-40', 'pointer-events-none');
+      cardRandom.classList.remove("opacity-40", "pointer-events-none");
     }
   }
-
+  // Honor ?pack= URL param on initial load
+  try {
+    const urlPack = new URLSearchParams(window.location.search || "").get("pack");
+    if (urlPack === "custom_link_1yr" || urlPack === "1yr") {
+      selectedLinkOption = "1yr";
+    } else if (urlPack === "hd_photos" || urlPack === "hd_style") {
+      if (activeTemplateSupportsPhotos()) selectedHdPhotosAddon = true;
+    }
+  } catch (_) {}
   window.renderPersonalizedPaymentCallout();
 };
-
+window.selectLinkDurationOption = function(mode) {
+  selectedLinkOption = mode === "1yr" || mode === "custom_link_1yr" ? "1yr" : "custom";
+  selectedCustomizerPack = selectedLinkOption;
+  window.renderPersonalizedPaymentCallout();
+};
+window.toggleHdPhotosAddon = function(checked) {
+  selectedHdPhotosAddon = activeTemplateSupportsPhotos() ? Boolean(checked) : false;
+  window.renderPersonalizedPaymentCallout();
+};
+window.toggleRandomCardHdPhotos = function(checked) {
+  selectedRandomHdPhotos = activeTemplateSupportsPhotos() ? Boolean(checked) : false;
+  window.renderPersonalizedPaymentCallout();
+};
 window.selectCustomizerPack = function(packType) {
-  selectedCustomizerPack = packType || 'combo';
+  if (packType === "1yr" || packType === "custom_link_1yr") {
+    selectedLinkOption = "1yr";
+  } else if (packType === "hd_photos" || packType === "hd_style") {
+    if (activeTemplateSupportsPhotos()) selectedHdPhotosAddon = !selectedHdPhotosAddon;
+  } else {
+    selectedLinkOption = "custom";
+  }
+  selectedCustomizerPack = selectedLinkOption;
   window.renderPersonalizedPaymentCallout();
 };
-
 window.renderPersonalizedPaymentCallout = function(overrideState = null) {
-  const container = document.getElementById('personalized-payment-callout');
-  if (!container) return;
-
-  const toNonNeg = (val, fallback) => {
-    if (val === undefined || val === null || val === '' || typeof val === 'boolean') return fallback;
-    const n = Number(val);
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-  };
-  const sym = getCurrencySymbol(currentWishLinkSettings.personalized.currency);
-  const a = currentWishLinkSettings.addons || {};
-  const clPrice = toNonNeg(a.customLinkPrice ?? currentWishLinkSettings.personalized.price, 59);
-  const hdPrice = toNonNeg(a.hdImageStylePrice, 59);
-  const freeComboPrice = toNonNeg(a.freeTemplateComboPrice, 99);
-  const premComboAddon = toNonNeg(a.premiumComboAddonPrice, 70);
-  const tplPrice = Math.max(0, Number((activeTemplate && activeTemplate.price) || 0));
-  const isPremTpl = tplPrice > 0;
-  const premComboTotal = tplPrice + premComboAddon;
-
-  const priceBadgeEl = document.getElementById('card-personalized-price');
-  if (priceBadgeEl) {
-    priceBadgeEl.textContent = isPremTpl ? `₹${clPrice} / +₹${premComboAddon} Combo` : `₹${clPrice} / ₹${freeComboPrice} Combo`;
+  const { sym, clPrice, hdPrice, yrPrice } = getLiveAdditivePrices();
+  const supportsPhotos = activeTemplateSupportsPhotos();
+  if (!supportsPhotos) {
+    selectedHdPhotosAddon = false;
+    selectedRandomHdPhotos = false;
   }
 
-  const chosenSlugForCallout = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById('wish-slug-input')?.value || '').toLowerCase().trim();
-  const hasVipPass = Boolean((window.WishEntitlement && window.WishEntitlement.isPremium()) || (window.WishAuth && window.WishAuth.getCurrentUser() && window.WishAuth.getCurrentUser().isPremium));
-  const hasTplEnt = !isPremTpl || hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === 'function' && window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id));
-  const hasLinkEnt = hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === 'function' && window.WishEntitlement.hasCustomLinkAccess(chosenSlugForCallout, activeTemplate && activeTemplate.id));
-  const isVipUser = hasTplEnt && hasLinkEnt;
+  const tplPrice = Math.max(0, Number(activeTemplate && activeTemplate.price || 0));
+  const isPaidTpl = tplPrice > 0;
+  const chosenSlugForCallout = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById("wish-slug-input")?.value || "").toLowerCase().trim();
+  const hasVipPass = Boolean(window.WishEntitlement && window.WishEntitlement.isPremium() || window.WishAuth && window.WishAuth.getCurrentUser() && window.WishAuth.getCurrentUser().isPremium);
+  const hasTplEnt = !isPaidTpl || hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === "function" && window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id));
+  const hasYearlyEnt = hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasYearlyLinkAccess === "function" && window.WishEntitlement.hasYearlyLinkAccess(chosenSlugForCallout, activeTemplate && activeTemplate.id));
+  const hasLinkEnt = hasYearlyEnt || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === "function" && window.WishEntitlement.hasCustomLinkAccess(chosenSlugForCallout, activeTemplate && activeTemplate.id));
+  const hasHdEnt = hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasHdPhotosAccess === "function" && window.WishEntitlement.hasHdPhotosAccess(activeTemplate && activeTemplate.id));
+  const needsTplUnlock = isPaidTpl && !hasTplEnt;
+
+  // Sync Card 1 & Card 2 badges + Random Card conditional HD Photos toggle
+  const priceBadgeEl = document.getElementById("card-personalized-price");
+  if (priceBadgeEl) {
+    priceBadgeEl.textContent = `${sym}${clPrice} / ${sym}${yrPrice} (1 Yr)`;
+  }
+  const randomHdWrap = document.getElementById("random-card-hd-wrap");
+  const randomHdChk = document.getElementById("random-card-hd-chk");
+  const randomHdPriceEl = document.getElementById("random-card-hd-price");
+  if (randomHdWrap) {
+    if (supportsPhotos && !hasHdEnt) {
+      randomHdWrap.classList.remove("hidden");
+      if (randomHdChk) randomHdChk.checked = selectedRandomHdPhotos;
+      if (randomHdPriceEl) randomHdPriceEl.textContent = `+${sym}${hdPrice}`;
+    } else {
+      randomHdWrap.classList.add("hidden");
+      if (randomHdChk) randomHdChk.checked = false;
+    }
+  }
+  const randomTotal = (needsTplUnlock ? tplPrice : 0) + (supportsPhotos && selectedRandomHdPhotos && !hasHdEnt ? hdPrice : 0);
+  const randomBadge = document.getElementById("card-random-price-badge");
+  const randomCta = document.getElementById("card-random-cta-text");
+  if (randomBadge) {
+    randomBadge.textContent = randomTotal > 0 ? `${sym}${randomTotal}` : "FREE";
+  }
+  if (randomCta) {
+    randomCta.textContent = randomTotal > 0 ? `Pay ${sym}${randomTotal} & Publish` : "Continue Free";
+  }
+
+  const container = document.getElementById("personalized-payment-callout");
+  if (!container) return;
 
   if (overrideState && overrideState.notConfigured) {
-    container.className = 'p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-2';
+    container.className = "p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-2";
     container.innerHTML = `
       <div class="flex items-start gap-2.5">
         <span class="material-symbols-outlined text-amber-500 text-lg shrink-0">info</span>
         <div>
-          <span class="font-bold block">Payment Gateway Currently Unavailable (NOT_CONFIGURED)</span>
+          <span class="font-bold block">Payment Gateway Currently Unavailable</span>
           <p class="text-[11px] text-amber-800/80 mt-0.5 leading-relaxed">
-            Live payment checkout (${sym}${overrideState.amount || clPrice}) is not configured yet. You can continue instantly with a Free Random Link!
+            Live payment checkout (${sym}${overrideState.amount || clPrice}) is not configured yet. ${isPaidTpl ? "Please contact admin to enable Razorpay." : "You can continue instantly with a Free Random Link!"}
           </p>
         </div>
       </div>
+      ${!isPaidTpl ? `
       <div class="pt-1 flex flex-wrap items-center justify-end gap-2">
         <button type="button" onclick="publishFreeRandomWish()" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer">
-          Continue with Free Random Link 🎲
+          Continue with Free Random Link \u{1F3B2}
         </button>
-      </div>
+      </div>` : ""}
     `;
     return;
   }
 
-  if (isVipUser) {
-    container.className = 'p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between gap-3';
-    container.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-emerald-500 text-lg">verified</span>
-        <div>
-          <span class="font-bold block">VIP Creator Entitled</span>
-          <span class="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">Custom Link, HD Images &amp; Style included at no extra charge.</span>
-        </div>
-      </div>
-      <button type="button" onclick="publishWishAndGetLink()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xs shadow-sm hover:brightness-110 transition cursor-pointer">
-        Publish Custom Link ✨
-      </button>
-    `;
-    return;
+  const needsLinkCost = selectedLinkOption === "1yr" ? (hasYearlyEnt ? 0 : yrPrice) : (hasLinkEnt ? 0 : clPrice);
+  const needsHdCost = supportsPhotos && selectedHdPhotosAddon && !hasHdEnt ? hdPrice : 0;
+  const tplCost = needsTplUnlock ? tplPrice : 0;
+  const totalPayable = tplCost + needsLinkCost + needsHdCost;
+
+  const breakdownRows = [];
+  if (isPaidTpl) {
+    breakdownRows.push(
+      `<div class="flex items-center justify-between"><span>Template Price</span><span class="font-bold">${hasTplEnt ? '<span class="text-emerald-600">Unlocked \u2713 (\u20B90)</span>' : sym + tplPrice}</span></div>`
+    );
+  } else {
+    breakdownRows.push(
+      `<div class="flex items-center justify-between"><span>Template Price</span><span class="font-bold text-emerald-600">Free (${sym}0)</span></div>`
+    );
+  }
+  if (selectedLinkOption === "1yr") {
+    breakdownRows.push(
+      `<div class="flex items-center justify-between"><span>1-Year Custom Link (365 Days)</span><span class="font-bold">${hasYearlyEnt ? '<span class="text-emerald-600">Unlocked \u2713 (\u20B90)</span>' : sym + yrPrice}</span></div>`
+    );
+  } else {
+    breakdownRows.push(
+      `<div class="flex items-center justify-between"><span>Custom Link (/w/your-name)</span><span class="font-bold">${hasLinkEnt ? '<span class="text-emerald-600">Unlocked \u2713 (\u20B90)</span>' : sym + clPrice}</span></div>`
+    );
+  }
+  if (supportsPhotos && selectedHdPhotosAddon) {
+    breakdownRows.push(
+      `<div class="flex items-center justify-between"><span>HD Photos Upload</span><span class="font-bold">${hasHdEnt ? '<span class="text-emerald-600">Unlocked \u2713 (\u20B90)</span>' : '+' + sym + hdPrice}</span></div>`
+    );
   }
 
-  const referralBannerHtml = '';
-
-  const opt1Price = isPremTpl ? (tplPrice + clPrice) : clPrice;
-  const opt2Price = isPremTpl ? (tplPrice + hdPrice) : hdPrice;
-  const optComboPrice = isPremTpl ? premComboTotal : freeComboPrice;
-  const optComboSavings = isPremTpl ? (clPrice + hdPrice - premComboAddon) : (clPrice + hdPrice - freeComboPrice);
-
-  let selectedAmount = optComboPrice;
-  let selectedLabel = isPremTpl
-    ? `Template (₹${tplPrice}) + Full Combo (+₹${premComboAddon}) = ₹${optComboPrice}`
-    : `All-in-One Combo (Custom Link + HD Images & Style) = ₹${optComboPrice}`;
-
-  const matchedCustomVipPlan = (Array.isArray(currentWishLinkSettings.vipPlans) ? currentWishLinkSettings.vipPlans : [])
-    .find(p => p && p.id === selectedCustomizerPack);
-  if (matchedCustomVipPlan) {
-    selectedAmount = Number(matchedCustomVipPlan.price ?? 49);
-    selectedLabel = `${matchedCustomVipPlan.name} = ₹${selectedAmount}`;
-  } else if (selectedCustomizerPack === 'custom_link') {
-    selectedAmount = opt1Price;
-    selectedLabel = isPremTpl ? `Template (₹${tplPrice}) + Custom Link (₹${clPrice}) = ₹${opt1Price}` : `Custom Link Only = ₹${opt1Price}`;
-  } else if (selectedCustomizerPack === 'hd_style') {
-    selectedAmount = opt2Price;
-    selectedLabel = isPremTpl ? `Template (₹${tplPrice}) + HD Images & Style (₹${hdPrice}) = ₹${opt2Price}` : `HD Images & Custom Style Only = ₹${opt2Price}`;
-  }
-
-  container.className = 'p-4 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/30 text-purple-950 dark:text-purple-100 text-xs space-y-3';
+  container.className = "p-4 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/30 text-purple-950 dark:text-purple-100 text-xs space-y-3";
   container.innerHTML = `
-    ${referralBannerHtml}
-    <div class="font-extrabold text-xs uppercase tracking-wider text-purple-800 dark:text-purple-200">
-      Select Your Upgrade / Combo Pack ${isPremTpl ? `(Template Base Price: ₹${tplPrice})` : '(Free Template: ₹0)'}:
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-extrabold text-xs uppercase tracking-wider text-purple-800 dark:text-purple-200">
+        Select Link Duration &amp; Add-Ons
+      </span>
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isPaidTpl ? "bg-purple-200/80 text-purple-900" : "bg-emerald-500/15 text-emerald-700"}">
+        ${needsTplUnlock ? `Template: ${sym}${tplPrice}` : isPaidTpl ? "Template Unlocked \u2713" : "Free Template"}
+      </span>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-      <!-- Option 1: Custom Link Only (₹59) -->
-      <div onclick="selectCustomizerPack('custom_link')" class="p-3 rounded-xl border-2 cursor-pointer transition ${selectedCustomizerPack === 'custom_link' ? 'border-pink-500 bg-pink-500/15' : 'border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50'}">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <!-- Option 1: Custom Link (₹19) -->
+      <div onclick="selectLinkDurationOption('custom')" class="p-3 rounded-xl border-2 cursor-pointer transition ${selectedLinkOption === "custom" ? "border-pink-500 bg-pink-500/15 shadow-xs" : "border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/50"}">
         <div class="flex items-center justify-between font-extrabold text-xs">
-          <span>🔗 Custom Link</span>
-          <span class="text-pink-600 dark:text-pink-400">${sym}${opt1Price}</span>
+          <span>\u{1F517} Custom Link</span>
+          <span class="text-pink-600 dark:text-pink-400">${hasLinkEnt ? "Unlocked" : sym + clPrice}</span>
         </div>
-        <div class="text-[10px] opacity-80 mt-1">${isPremTpl ? `₹${tplPrice} Template + ₹${clPrice} Link` : `Only Custom Link (₹${clPrice})`}</div>
+        <div class="text-[10px] opacity-80 mt-1">Personal /w/your-name link</div>
       </div>
 
-      <!-- Option 2: HD Images + Style (₹59) -->
-      <div onclick="selectCustomizerPack('hd_style')" class="p-3 rounded-xl border-2 cursor-pointer transition ${selectedCustomizerPack === 'hd_style' ? 'border-pink-500 bg-pink-500/15' : 'border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50'}">
+      <!-- Option 2: 1-Year Custom Link (₹149) -->
+      <div onclick="selectLinkDurationOption('1yr')" class="p-3 rounded-xl border-2 cursor-pointer transition relative ${selectedLinkOption === "1yr" ? "border-amber-400 bg-amber-400/15 shadow-sm" : "border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/50"}">
+        <span class="absolute -top-2 right-2 px-1.5 py-0.5 rounded bg-gradient-to-r from-pink-500 to-amber-500 text-white font-black text-[9px]">1 YEAR</span>
         <div class="flex items-center justify-between font-extrabold text-xs">
-          <span>🖼️ HD + Style</span>
-          <span class="text-purple-600 dark:text-purple-300">${sym}${opt2Price}</span>
+          <span>\u{1F4C5} 1-Year Custom Link</span>
+          <span class="text-amber-700 dark:text-amber-300">${hasYearlyEnt ? "Unlocked" : sym + yrPrice}</span>
         </div>
-        <div class="text-[10px] opacity-80 mt-1">${isPremTpl ? `₹${tplPrice} Template + ₹${hdPrice} HD/Style` : `HD Images & Style (₹${hdPrice})`}</div>
-      </div>
-
-      <!-- Option 3: Best Value Combo (₹99 on Free / Template + ₹70 on Premium) -->
-      <div onclick="selectCustomizerPack('combo')" class="p-3 rounded-xl border-2 cursor-pointer transition relative ${selectedCustomizerPack === 'combo' ? 'border-amber-400 bg-amber-400/15 shadow-md' : 'border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50'}">
-        <span class="absolute -top-2 right-2 px-1.5 py-0.2 rounded bg-gradient-to-r from-pink-500 to-amber-500 text-white font-black text-[9px]">SAVE ₹${optComboSavings}</span>
-        <div class="flex items-center justify-between font-extrabold text-xs">
-          <span>🔥 Full Combo</span>
-          <span class="text-amber-600 dark:text-amber-300">${sym}${optComboPrice}</span>
-        </div>
-        <div class="text-[10px] opacity-85 mt-1">${isPremTpl ? `₹${tplPrice} Template + ₹${premComboAddon} Combo` : `Custom Link + HD + Style (₹${freeComboPrice})`}</div>
+        <div class="text-[10px] opacity-85 mt-1">Custom link active for 365 days</div>
       </div>
     </div>
 
-    ${(() => {
-      const extraPlans = (Array.isArray(currentWishLinkSettings.vipPlans) ? currentWishLinkSettings.vipPlans : [])
-        .filter(p => p && p.isActive !== false && !["personalized_link", "hd_image_style_pack", "free_template_combo", "premium_template_combo"].includes(p.id));
-      if (extraPlans.length === 0) return "";
-      return `
-        <div class="pt-2 border-t border-purple-200/50 dark:border-purple-800/50 space-y-2">
-          <div class="text-[10px] font-extrabold uppercase tracking-wider text-pink-600 dark:text-pink-400">👑 Special VIP Passes &amp; Custom Plans:</div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            ${extraPlans.map(vp => {
-              const isSel = selectedCustomizerPack === vp.id;
-              const pk = vp.perks || {};
-              const tags = [];
-              if (pk.unlockVipTemplates) tags.push("VIP Templates");
-              if (pk.freeCustomLink) tags.push("Free Link");
-              if (pk.freeHdPhotos) tags.push("HD Photos");
-              if (pk.freeCustomStyle) tags.push("Custom Style");
-              return `
-                <div onclick="selectCustomizerPack('${vp.id}')" class="p-2.5 rounded-xl border-2 cursor-pointer transition ${isSel ? "border-pink-500 bg-pink-500/15 shadow-md" : "border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50"}">
-                  <div class="flex items-center justify-between font-extrabold text-xs">
-                    <span>👑 ${vp.name}</span>
-                    <span class="text-pink-600 dark:text-pink-400">${Number(vp.price) === 0 ? "FREE" : (sym + vp.price)}</span>
-                  </div>
-                  <div class="text-[10px] opacity-85 mt-0.5 truncate">${tags.length > 0 ? ("Includes: " + tags.join(" + ")) : (vp.description || "")}</div>
-                </div>
-              `;
-            }).join("")}
-          </div>
-        </div>
-      `;
-    })()}
+    ${supportsPhotos ? `
+      <label class="flex items-center justify-between gap-2.5 p-3 rounded-xl border cursor-pointer transition ${selectedHdPhotosAddon ? "border-purple-500 bg-purple-500/10" : "border-purple-200 bg-white/80"}">
+        <span class="flex items-center gap-2 font-bold text-xs text-purple-950">
+          <input type="checkbox" id="chk-customizer-hd-photos" ${selectedHdPhotosAddon ? "checked" : ""} onchange="toggleHdPhotosAddon(this.checked)" class="rounded text-pink-500 focus:ring-pink-500"/>
+          <span>\u{1F5BC}\uFE0F HD Photos Upload <span class="text-[10px] font-medium opacity-75">(Crystal-clear HD photos)</span></span>
+        </span>
+        <span class="font-extrabold text-purple-700">${hasHdEnt ? "Unlocked" : "+" + sym + hdPrice}</span>
+      </label>
+    ` : ""}
 
-    <button type="button" onclick="handlePersonalizedLinkCheckout('${selectedCustomizerPack}', ${selectedAmount})" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white font-extrabold text-xs shadow-lg hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer">
-      <span class="material-symbols-outlined text-sm">lock_open</span>
-      <span>Unlock ${selectedLabel} ✨</span>
-    </button>
+    <div class="p-3 rounded-xl bg-white/85 dark:bg-purple-950/60 border border-purple-200/80 space-y-1.5 text-[11px]">
+      ${breakdownRows.join("")}
+      <div class="flex items-center justify-between pt-1.5 mt-1 border-t border-purple-200/70 font-extrabold text-xs text-purple-950 dark:text-white">
+        <span>Total Payable</span>
+        <span class="text-sm text-pink-600 dark:text-pink-400">${sym}${totalPayable}</span>
+      </div>
+    </div>
+
+    ${totalPayable === 0 ? `
+      <button type="button" onclick="publishWishAndGetLink()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-xs shadow-lg hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer">
+        <span class="material-symbols-outlined text-sm">verified</span>
+        <span>Publish Custom Link (${selectedLinkOption === "1yr" ? "1 Year" : "Standard"}) \u2728</span>
+      </button>
+    ` : `
+      <button type="button" onclick="handlePersonalizedLinkCheckout()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white font-extrabold text-xs shadow-lg hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer">
+        <span class="material-symbols-outlined text-sm">lock_open</span>
+        <span>Pay ${sym}${totalPayable} &amp; Publish \u2728</span>
+      </button>
+    `}
   `;
 };
-
 window.selectPersonalizedOption = function() {
-  const panel = document.getElementById('personalized-selection-panel');
+  const panel = document.getElementById("personalized-selection-panel");
   if (panel) {
-    panel.classList.remove('hidden');
+    panel.classList.remove("hidden");
     isPersonalizedStudioOpen = true;
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
-  const input = document.getElementById('wish-slug-input');
+  const input = document.getElementById("wish-slug-input");
   if (input) input.focus();
   window.initSmartWishLinkUI();
 };
-
 window.closePersonalizedStudio = function() {
-  const panel = document.getElementById('personalized-selection-panel');
+  const panel = document.getElementById("personalized-selection-panel");
   if (panel) {
-    panel.classList.add('hidden');
-    isPersonalizedStudioOpen = false;
+    panel.classList.add("hidden");
+  }
+  isPersonalizedStudioOpen = false;
+  if (!currentEditingWishSlug) {
+    currentCustomData.linkType = "random";
+    currentCustomData.link_type = "random";
+    currentCustomData.customSlug = "";
+    currentCustomData.slug = "";
+    lastSlugCheckResult = null;
   }
 };
-
 window.setLinkStyle = function(style) {
-  currentLinkStyle = style || 'magical';
-  
-  // Update style pills UI
-  const pills = document.querySelectorAll('#style-selector-pills .style-pill');
-  pills.forEach(pill => {
-    const pStyle = pill.getAttribute('data-style');
+  currentLinkStyle = style || "magical";
+  const pills = document.querySelectorAll("#style-selector-pills .style-pill");
+  pills.forEach((pill) => {
+    const pStyle = pill.getAttribute("data-style");
     if (pStyle === currentLinkStyle) {
-      pill.className = 'style-pill active-style px-3 py-1.5 rounded-full text-xs font-bold border-2 border-pink-500 bg-pink-100/90 dark:bg-pink-950/80 text-pink-700 dark:text-pink-300 transition cursor-pointer ring-2 ring-pink-500/20';
+      pill.className = "style-pill active-style px-3 py-1.5 rounded-full text-xs font-bold border-2 border-pink-500 bg-pink-100/90 dark:bg-pink-950/80 text-pink-700 dark:text-pink-300 transition cursor-pointer ring-2 ring-pink-500/20";
     } else {
-      pill.className = 'style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer';
+      pill.className = "style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer";
     }
   });
-
-  const styleLabel = document.getElementById('active-style-label');
+  const styleLabel = document.getElementById("active-style-label");
   if (styleLabel) {
     const styleNames = {
-      romantic: '💖 Romantic',
-      magical: '✨ Magical',
-      cute: '🌸 Cute',
-      celebration: '🎉 Celebration',
-      simple: '🤍 Simple',
-      elegant: '👑 Elegant'
+      romantic: "\u{1F496} Romantic",
+      magical: "\u2728 Magical",
+      cute: "\u{1F338} Cute",
+      celebration: "\u{1F389} Celebration",
+      simple: "\u{1F90D} Simple",
+      elegant: "\u{1F451} Elegant"
     };
-    styleLabel.textContent = styleNames[currentLinkStyle] || '✨ Magical';
+    styleLabel.textContent = styleNames[currentLinkStyle] || "\u2728 Magical";
   }
-
-  // Regenerate suggestions ranked by the new style
   window.initSmartWishLinkUI();
 };
-
 window.handlePersonalizeNameToggle = function(checked) {
   currentPersonalizeWithName = Boolean(checked);
   window.initSmartWishLinkUI();
 };
-
 window.toggleChangeLinkMode = function() {
   isChangeLinkModeActive = !isChangeLinkModeActive;
-  const btn = document.getElementById('btn-change-link-toggle');
-  const panel = document.getElementById('personalized-selection-panel');
-  const cards = document.getElementById('link-options-cards-container');
-
+  const btn = document.getElementById("btn-change-link-toggle");
+  const panel = document.getElementById("personalized-selection-panel");
+  const cards = document.getElementById("link-options-cards-container");
   if (isChangeLinkModeActive) {
-    if (btn) btn.textContent = 'Keep Current Link';
-    if (panel) panel.classList.remove('hidden');
-    if (cards) cards.classList.remove('hidden');
+    if (btn) btn.textContent = "Keep Current Link";
+    if (panel) panel.classList.remove("hidden");
+    if (cards) cards.classList.remove("hidden");
   } else {
-    if (btn) btn.textContent = 'Change Link';
-    if (panel) panel.classList.add('hidden');
+    if (btn) btn.textContent = "Change Link";
+    if (panel) panel.classList.add("hidden");
     if (currentEditingWishSlug) {
       currentCustomData.customSlug = currentEditingWishSlug;
       currentCustomData.slug = currentEditingWishSlug;
-      const input = document.getElementById('wish-slug-input');
+      const input = document.getElementById("wish-slug-input");
       if (input) input.value = currentEditingWishSlug;
     }
   }
 };
-
 window.publishFreeRandomWish = async function() {
   if (isPublishingInProgress) return;
   if (!validateStep1()) {
@@ -4072,229 +3579,252 @@ window.publishFreeRandomWish = async function() {
     return;
   }
   if (!activeTemplate) {
-    showToast('Please select a template');
+    showToast("Please select a template");
     return;
   }
-  if (window.WishFeatureAccess) {
-    const tplAccess = window.WishFeatureAccess.canUseTemplate(activeTemplate);
-    if (!tplAccess.allowed) {
-      if (window.WishPremiumLock) {
-        window.WishPremiumLock.open({
-          context: 'template',
-          template: activeTemplate,
-          onUnlocked: async () => {
-            await window.publishFreeRandomWish();
-          }
-        });
-      } else {
-        showToast('⚠️ Please unlock this premium template before publishing.');
-      }
-      return;
-    }
+  if (window.WishAuth && typeof window.WishAuth.waitForAuthReady === "function") {
+    await window.WishAuth.waitForAuthReady(2500);
   }
   const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
   if (!currentUser) {
-    if (typeof window.openAuthModal === 'function') {
-      window.openAuthModal('signin', 'Please sign in or create an account to publish your wish website.');
+    if (typeof window.openAuthModal === "function") {
+      window.openAuthModal("signin", "Please sign in or create an account to publish your wish website.");
     } else {
-      alert('Please sign in to publish your wish.');
+      showToast("\u26A0\uFE0F Please sign in to publish your wish.");
     }
     return;
+  }
+  const supportsPhotos = activeTemplateSupportsPhotos();
+  const tplPrice = Math.max(0, Number(activeTemplate && activeTemplate.price || 0));
+  const { hdPrice } = getLiveAdditivePrices();
+  const hasVipPass = Boolean(window.WishEntitlement && window.WishEntitlement.isPremium() || currentUser && currentUser.isPremium);
+  const hasTplEnt = tplPrice <= 0 || hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === "function" && window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id));
+  const hasHdEnt = hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasHdPhotosAccess === "function" && window.WishEntitlement.hasHdPhotosAccess(activeTemplate && activeTemplate.id));
+  const needsTplUnlock = tplPrice > 0 && !hasTplEnt;
+  const needsHdUnlock = supportsPhotos && selectedRandomHdPhotos && !hasHdEnt;
+
+  if (needsTplUnlock || needsHdUnlock) {
+    if (!window.WishPaymentService || typeof window.WishPaymentService.createCheckout !== "function") {
+      showToast("\u26A0\uFE0F Payment service is still loading. Please try again in a moment.");
+      return;
+    }
+    const checkoutRes = await window.WishPaymentService.createCheckout("wish_bundle", {
+      templateId: activeTemplate.id,
+      includeTemplate: needsTplUnlock,
+      includeCustomLink: false,
+      includeYearlyLink: false,
+      includeHdPhotos: needsHdUnlock,
+      linkDuration: "standard",
+      templateSupportsPhotos: supportsPhotos,
+      wishId: currentEditingWishId || null
+    });
+    if (!checkoutRes || !checkoutRes.success || checkoutRes.verified !== true) {
+      if (checkoutRes && checkoutRes.status === "cancelled") {
+        showToast("\u26A0\uFE0F Payment was cancelled.");
+      } else if (checkoutRes && checkoutRes.status === "provider_not_configured") {
+        showToast("\u26A0\uFE0F Payment gateway (Razorpay) is not configured yet.");
+      } else {
+        showToast("\u26A0\uFE0F " + (checkoutRes && checkoutRes.error || "Payment was not completed."));
+      }
+      return;
+    }
+    currentCustomData.verifiedOrderId = checkoutRes.orderId || (checkoutRes.order && checkoutRes.order.id) || null;
+    currentCustomData.verifiedTransactionId = (checkoutRes.order && checkoutRes.order.transactionId) || null;
+    if (needsHdUnlock) currentCustomData.hdPhotosEnabled = true;
+    if (window.WishEntitlement && typeof window.WishEntitlement.refresh === "function") {
+      try { await window.WishEntitlement.refresh(); } catch (_) {}
+    }
   }
 
   isPublishingInProgress = true;
   try {
-    showToast('🎲 Generating unique free random link...');
-    let randomSlug = '';
+    showToast("\u{1F3B2} Generating unique random link...");
+    let randomSlug = "";
     try {
-      const res = await fetch('/api/wishes/generate-random-slug', { credentials: 'include' });
+      const res = await fetch("/api/wishes/generate-random-slug", { credentials: "include" });
       const data = await res.json();
-      if (data && data.success && data.slug) {
-        randomSlug = data.slug;
+      const resolvedSlug = data && (data.slug || (data.data && data.data.slug));
+      if (data && data.success && resolvedSlug) {
+        randomSlug = resolvedSlug;
       }
     } catch (e) {
-      console.warn('Random slug API call failed:', e);
+      console.warn("Random slug API call failed:", e);
     }
-
     if (!randomSlug) {
-      const prefix = (currentWishLinkSettings && currentWishLinkSettings.random && currentWishLinkSettings.random.prefix) || 'wish-';
+      const prefix = currentWishLinkSettings && currentWishLinkSettings.random && currentWishLinkSettings.random.prefix || "wish-";
       randomSlug = `${prefix}${Math.random().toString(36).substring(2, 8)}`;
     }
-
     currentCustomData.customSlug = randomSlug;
     currentCustomData.slug = randomSlug;
-    currentCustomData.linkType = 'random';
-    currentCustomData.link_type = 'random';
+    currentCustomData.linkType = "random";
+    currentCustomData.link_type = "random";
+    currentCustomData.linkDuration = "standard";
     currentCustomData.isDraft = false;
-    currentCustomData.status = 'published';
-
+    currentCustomData.status = "published";
+    const totalPaid = (tplPrice > 0 ? tplPrice : 0) + (supportsPhotos && selectedRandomHdPhotos ? hdPrice : 0);
     await executeWishCreation({
       slug: randomSlug,
-      linkType: 'random',
-      tier: 'free',
-      price: 0,
-      status: 'published',
+      linkType: "random",
+      linkDuration: "standard",
+      tier: totalPaid > 0 ? "vip" : "free",
+      price: totalPaid,
+      orderId: currentCustomData.verifiedOrderId || null,
+      status: "published",
       isDraft: false,
       customData: {
         ...currentCustomData,
         customSlug: randomSlug,
         slug: randomSlug,
-        linkType: 'random',
-        link_type: 'random',
+        linkType: "random",
+        link_type: "random",
+        linkDuration: "standard",
+        hdPhotosEnabled: Boolean(supportsPhotos && (selectedRandomHdPhotos || hasHdEnt)),
         isDraft: false,
-        status: 'published'
+        status: "published"
       }
     });
   } catch (err) {
-    showToast('⚠️ Error publishing random link wish: ' + err.message);
+    showToast("\u26A0\uFE0F Error publishing random link wish: " + err.message);
   } finally {
     isPublishingInProgress = false;
   }
 };
-
-window.handlePersonalizedLinkCheckout = async function(packType = null, amountOverride = null) {
-  const activePack = packType || selectedCustomizerPack || 'combo';
-  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById('wish-slug-input')?.value || '').toLowerCase().trim();
-  if (activePack !== 'hd_style' && !chosenSlug) {
-    showToast('⚠️ Please choose or enter a personalized link first');
-    const input = document.getElementById('wish-slug-input');
+window.handlePersonalizedLinkCheckout = async function() {
+  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById("wish-slug-input")?.value || "").toLowerCase().trim();
+  if (!chosenSlug) {
+    showToast("\u26A0\uFE0F Please choose or enter a custom link first");
+    const input = document.getElementById("wish-slug-input");
     if (input) input.focus();
     return;
   }
-
   const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
   if (!currentUser) {
-    if (typeof window.openAuthModal === 'function') {
-      window.openAuthModal('signin', 'Please sign in or create an account to unlock this feature.');
+    if (typeof window.openAuthModal === "function") {
+      window.openAuthModal("signin", "Please sign in or create an account to continue.");
     } else {
-      showToast('⚠️ Please sign in first.');
+      showToast("\u26A0\uFE0F Please sign in first.");
     }
     return;
   }
-
-  if (activePack !== 'hd_style' && lastSlugCheckResult && lastSlugCheckResult.available === false && !lastSlugCheckResult.isCurrent) {
-    showToast('⚠️ Please choose an available link first');
+  if (lastSlugCheckResult && lastSlugCheckResult.available === false && !lastSlugCheckResult.isCurrent) {
+    showToast("\u26A0\uFE0F Please choose an available custom link first");
     return;
   }
-
   try {
-    const tplPrice = Math.max(0, Number((activeTemplate && activeTemplate.price) || 0));
-    const isCustomVipPlan = (Array.isArray(currentWishLinkSettings.vipPlans) ? currentWishLinkSettings.vipPlans : [])
-      .some(p => p && p.id === activePack);
-    const resolvedPlanId = isCustomVipPlan
-      ? activePack
-      : (activePack === 'combo'
-        ? (tplPrice > 0 ? 'premium_template_combo' : 'free_template_combo')
-        : (activePack === 'hd_style' ? 'hd_image_style_pack' : 'personalized_link'));
+    const supportsPhotos = activeTemplateSupportsPhotos();
+    const { clPrice, hdPrice, yrPrice } = getLiveAdditivePrices();
+    const tplPrice = Math.max(0, Number(activeTemplate && activeTemplate.price || 0));
+    const hasVipPass = Boolean(window.WishEntitlement && window.WishEntitlement.isPremium() || currentUser && currentUser.isPremium);
+    const hasTplEnt = tplPrice <= 0 || hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === "function" && window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id));
+    const hasYearlyEnt = hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasYearlyLinkAccess === "function" && window.WishEntitlement.hasYearlyLinkAccess(chosenSlug, activeTemplate && activeTemplate.id));
+    const hasLinkEnt = hasYearlyEnt || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === "function" && window.WishEntitlement.hasCustomLinkAccess(chosenSlug, activeTemplate && activeTemplate.id));
+    const hasHdEnt = hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasHdPhotosAccess === "function" && window.WishEntitlement.hasHdPhotosAccess(activeTemplate && activeTemplate.id));
+
+    const includeTemplate = tplPrice > 0 && !hasTplEnt;
+    const includeYearlyLink = selectedLinkOption === "1yr" && !hasYearlyEnt;
+    const includeCustomLink = selectedLinkOption === "custom" && !hasLinkEnt;
+    const includeHdPhotos = supportsPhotos && selectedHdPhotosAddon && !hasHdEnt;
+    const estimatedTotal = (includeTemplate ? tplPrice : 0) + (includeYearlyLink ? yrPrice : includeCustomLink ? clPrice : 0) + (includeHdPhotos ? hdPrice : 0);
+
+    if (estimatedTotal <= 0) {
+      currentCustomData.linkType = "personalized";
+      currentCustomData.link_type = "personalized";
+      currentCustomData.linkDuration = selectedLinkOption === "1yr" ? "1_year" : "standard";
+      await window.publishWishAndGetLink();
+      return;
+    }
 
     try {
-      localStorage.setItem('wm_checkout_cart', JSON.stringify({
-        planId: resolvedPlanId,
-        packType: activePack,
+      localStorage.setItem("wm_checkout_cart", JSON.stringify({
+        productId: "wish_bundle",
         templateId: activeTemplate ? activeTemplate.id : null,
-        templateName: activeTemplate ? activeTemplate.name : 'Celebration Template',
+        templateName: activeTemplate ? activeTemplate.name : "Celebration Template",
         templatePrice: tplPrice,
+        linkOption: selectedLinkOption,
+        includeHdPhotos,
         slug: chosenSlug,
         wishId: currentEditingWishId || null,
-        amount: amountOverride || 99
+        amount: estimatedTotal
       }));
     } catch (_) {}
 
-    if (!window.WishPaymentService || typeof window.WishPaymentService.createCheckout !== 'function') {
-      showToast('⚠️ Payment service is still loading. Please try again in a moment.');
+    if (!window.WishPaymentService || typeof window.WishPaymentService.createCheckout !== "function") {
+      showToast("\u26A0\uFE0F Payment service is still loading. Please try again in a moment.");
       return;
     }
-
-    const result = await window.WishPaymentService.createCheckout(resolvedPlanId, {
-      planId: resolvedPlanId,
+    const result = await window.WishPaymentService.createCheckout("wish_bundle", {
       templateId: activeTemplate ? activeTemplate.id : null,
-      templatePrice: tplPrice,
-      slug: chosenSlug || null,
-      requestedSlug: chosenSlug || null,
+      includeTemplate,
+      includeCustomLink,
+      includeYearlyLink,
+      includeHdPhotos,
+      linkDuration: selectedLinkOption === "1yr" ? "1_year" : "standard",
+      templateSupportsPhotos: supportsPhotos,
+      slug: chosenSlug,
+      requestedSlug: chosenSlug,
       wishId: currentEditingWishId || null
     });
-
-    if (result && result.status === 'provider_not_configured') {
+    if (result && result.status === "provider_not_configured") {
       renderPersonalizedPaymentCallout({
         notConfigured: true,
-        message: result.message || 'Payment currently unavailable / NOT_CONFIGURED. Gateway is not configured in environment variables.',
-        amount: result.amount || amountOverride || currentWishLinkSettings.personalized.price,
+        message: result.message || "Payment currently unavailable. Razorpay is not configured.",
+        amount: result.amount || estimatedTotal,
         currency: result.currency || currentWishLinkSettings.personalized.currency
       });
-      showToast('⚠️ Payment currently unavailable. You can publish using Free Random Link.');
+      showToast("\u26A0\uFE0F Payment gateway not configured. You can publish with a Free Random Link.");
       return;
     }
-
-    // Strict Payment Guard: Never grant access or publish if payment was cancelled, failed, or unverified
     if (!result || !result.success || result.verified !== true) {
-      if (result && result.status === 'cancelled') {
-        showToast('⚠️ Payment was cancelled. Your feature was not unlocked.');
+      if (result && result.status === "cancelled") {
+        showToast("\u26A0\uFE0F Payment was cancelled. Your feature was not unlocked.");
       } else {
-        showToast('⚠️ ' + ((result && result.error) || 'Payment was not completed. Access was not granted.'));
+        showToast("\u26A0\uFE0F " + (result && result.error || "Payment was not completed. Access was not granted."));
       }
       return;
     }
-
-    // Payment is cryptographically verified on the server and saved with user_id
     currentCustomData.verifiedOrderId = result.orderId || (result.order && result.order.id) || null;
     currentCustomData.verifiedTransactionId = (result.order && result.order.transactionId) || null;
+    currentCustomData.linkType = "personalized";
+    currentCustomData.link_type = "personalized";
+    currentCustomData.linkDuration = selectedLinkOption === "1yr" ? "1_year" : "standard";
+    if (includeHdPhotos) currentCustomData.hdPhotosEnabled = true;
 
-    if (window.WishEntitlement && typeof window.WishEntitlement.refresh === 'function') {
+    if (window.WishEntitlement && typeof window.WishEntitlement.refresh === "function") {
       try {
         await window.WishEntitlement.refresh();
       } catch (_) {}
     }
-
     window.renderPersonalizedPaymentCallout();
-
-    if (activePack === 'hd_style' && !chosenSlug) {
-      showToast('✅ HD Images & Custom Style unlocked for your account!');
-      return;
-    }
-
-    if (activePack !== 'hd_style') {
-      currentCustomData.linkType = 'personalized';
-      currentCustomData.link_type = 'personalized';
-    }
     await window.publishWishAndGetLink();
   } catch (err) {
-    showToast('⚠️ Could not complete checkout: ' + err.message);
+    showToast("\u26A0\uFE0F Could not complete checkout: " + err.message);
   }
 };
-
 window.initSmartWishLinkUI = function() {
-  const originLabel = document.getElementById('slug-origin-label');
-  const domainPrefix = document.getElementById('slug-domain-prefix');
-  const hostDomain = (window.location && window.location.host) || 'wishmagic.live';
-  
+  const originLabel = document.getElementById("slug-origin-label");
+  const domainPrefix = document.getElementById("slug-domain-prefix");
+  const hostDomain = window.location && window.location.host || "wishmagic.live";
   if (originLabel) originLabel.textContent = `${hostDomain}/w/`;
   if (domainPrefix) domainPrefix.textContent = `/w/`;
-
-  // Check if editing an existing published wish
-  const editingBanner = document.getElementById('editing-wish-link-banner');
-  const currentSlugLabel = document.getElementById('current-published-slug-label');
+  const editingBanner = document.getElementById("editing-wish-link-banner");
+  const currentSlugLabel = document.getElementById("current-published-slug-label");
   if (currentEditingWishSlug) {
-    if (editingBanner) editingBanner.classList.remove('hidden');
+    if (editingBanner) editingBanner.classList.remove("hidden");
     if (currentSlugLabel) currentSlugLabel.textContent = `/w/${currentEditingWishSlug}`;
     if (!isChangeLinkModeActive) {
       currentCustomData.customSlug = currentEditingWishSlug;
       currentCustomData.slug = currentEditingWishSlug;
     }
   } else {
-    if (editingBanner) editingBanner.classList.add('hidden');
+    if (editingBanner) editingBanner.classList.add("hidden");
   }
-
-  // Load and apply server settings
   window.loadWishLinkStudioSettings();
-
-  // 1. Generate Contextual Suggestions using selected Style and Personalize Name toggle
-  const occasion = currentCustomData.occasion || (activeTemplate && activeTemplate.category) || 'birthday';
-  const relationship = currentCustomData.relationship || '';
-  const recipientName = currentCustomData.recipient_name || '';
-  const senderName = currentCustomData.sender_name || '';
-  const category = (activeTemplate && activeTemplate.category) || '';
-
-  if (window.WishLinkSuggestions && typeof window.WishLinkSuggestions.generateSuggestions === 'function') {
+  const occasion = currentCustomData.occasion || activeTemplate && activeTemplate.category || "birthday";
+  const relationship = currentCustomData.relationship || "";
+  const recipientName = currentCustomData.recipient_name || "";
+  const senderName = currentCustomData.sender_name || "";
+  const category = activeTemplate && activeTemplate.category || "";
+  if (window.WishLinkSuggestions && typeof window.WishLinkSuggestions.generateSuggestions === "function") {
     currentSlugSuggestions = window.WishLinkSuggestions.generateSuggestions({
       occasion,
       relationship,
@@ -4305,342 +3835,275 @@ window.initSmartWishLinkUI = function() {
       personalizeWithName: currentPersonalizeWithName
     });
   } else {
-    const norm = currentPersonalizeWithName ? (recipientName || 'celebration').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') : 'celebration';
-    currentSlugSuggestions = [`happy-birthday-${norm}`, `just-for-you-${norm}`, `special-wish-${norm}`, `celebrate-${norm}`, 'a-special-wish'];
+    const norm = currentPersonalizeWithName ? (recipientName || "celebration").toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "") : "celebration";
+    currentSlugSuggestions = [`happy-birthday-${norm}`, `just-for-you-${norm}`, `special-wish-${norm}`, `celebrate-${norm}`, "a-special-wish"];
   }
-
-  // Update sample personalized slug on Card 1
-  const cardPersonalizedSample = document.getElementById('card-personalized-sample');
+  const cardPersonalizedSample = document.getElementById("card-personalized-sample");
   if (cardPersonalizedSample && currentSlugSuggestions.length > 0) {
     cardPersonalizedSample.textContent = currentSlugSuggestions[0];
   }
-
-  // Update context label
-  const contextPill = document.getElementById('suggestions-context-pill');
+  const contextPill = document.getElementById("suggestions-context-pill");
   if (contextPill) {
     const parts = [];
     if (recipientName && currentPersonalizeWithName) parts.push(recipientName);
-    if (occasion) parts.push(occasion.replace(/_/g, ' '));
-    if (relationship) parts.push(relationship.replace(/_/g, ' '));
-    contextPill.textContent = parts.length > 0 ? `Ranked by ${currentLinkStyle} • ${parts.join(' • ')}` : `Ranked by ${currentLinkStyle} style`;
+    if (occasion) parts.push(occasion.replace(/_/g, " "));
+    if (relationship) parts.push(relationship.replace(/_/g, " "));
+    contextPill.textContent = parts.length > 0 ? `Ranked by ${currentLinkStyle} \u2022 ${parts.join(" \u2022 ")}` : `Ranked by ${currentLinkStyle} style`;
   }
-
-  // 2. Select initial slug if not set or if using empty state
-  const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
-  const previewSlug = currentSlugSuggestions.length > 0 ? currentSlugSuggestions[0] : '';
-
+  const input = document.getElementById("wish-slug-input") || document.getElementById("custom-slug-input");
+  const previewSlug = currentSlugSuggestions.length > 0 ? currentSlugSuggestions[0] : "";
   if (currentEditingWishSlug && !isChangeLinkModeActive) {
     currentCustomData.customSlug = currentEditingWishSlug;
-  } else if ((isPersonalizedStudioOpen || currentCustomData.linkType === 'personalized') && !currentCustomData.customSlug && previewSlug) {
+  } else if ((isPersonalizedStudioOpen || currentCustomData.linkType === "personalized") && !currentCustomData.customSlug && previewSlug) {
     currentCustomData.customSlug = previewSlug;
   }
-
   if (input) {
-    input.value = currentCustomData.customSlug || previewSlug || '';
+    input.value = currentCustomData.customSlug || previewSlug || "";
   }
-
-  // 3. Render suggestions
   window.renderSlugSuggestionChips();
-
-  // 4. Initial live availability check
   const slugToCheck = currentCustomData.customSlug || previewSlug;
   if (slugToCheck) {
     window.checkSlugAvailability(slugToCheck, true);
   }
 };
-
 window.renderSlugSuggestionChips = function() {
-  const container = document.getElementById('slug-suggestions-chips');
-  const showMoreContainer = document.getElementById('slug-show-more-container');
-  const showMoreText = document.getElementById('show-more-slugs-text');
-  const showMoreIcon = document.getElementById('show-more-slugs-icon');
+  const container = document.getElementById("slug-suggestions-chips");
+  const showMoreContainer = document.getElementById("slug-show-more-container");
+  const showMoreText = document.getElementById("show-more-slugs-text");
+  const showMoreIcon = document.getElementById("show-more-slugs-icon");
   if (!container) return;
-
-  container.innerHTML = '';
-
+  container.innerHTML = "";
   const total = currentSlugSuggestions.length;
   const initialLimit = 6;
   const visibleSuggestions = isShowingAllSlugSuggestions ? currentSlugSuggestions : currentSlugSuggestions.slice(0, initialLimit);
-
-  visibleSuggestions.forEach(slug => {
+  visibleSuggestions.forEach((slug) => {
     const isSelected = currentCustomData.customSlug === slug;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.setAttribute('data-slug', slug);
-    btn.className = isSelected
-      ? 'px-3 py-1.5 rounded-full text-xs font-bold border-2 border-pink-500 bg-pink-100/90 dark:bg-pink-950/80 text-pink-700 dark:text-pink-300 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer ring-2 ring-pink-500/20'
-      : 'px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200/90 dark:border-purple-800/60 bg-white/80 dark:bg-purple-950/50 text-purple-950 dark:text-purple-200 hover:border-pink-400 hover:bg-pink-50/70 dark:hover:bg-purple-900/40 transition-all cursor-pointer';
-
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("data-slug", slug);
+    btn.className = isSelected ? "px-3 py-1.5 rounded-full text-xs font-bold border-2 border-pink-500 bg-pink-100/90 dark:bg-pink-950/80 text-pink-700 dark:text-pink-300 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer ring-2 ring-pink-500/20" : "px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200/90 dark:border-purple-800/60 bg-white/80 dark:bg-purple-950/50 text-purple-950 dark:text-purple-200 hover:border-pink-400 hover:bg-pink-50/70 dark:hover:bg-purple-900/40 transition-all cursor-pointer";
     btn.innerHTML = `
-      ${isSelected ? '<span class="text-pink-600 dark:text-pink-400 text-[12px] font-black">✓</span>' : '<span class="text-purple-400 dark:text-purple-500 text-[11px]">✦</span>'}
+      ${isSelected ? '<span class="text-pink-600 dark:text-pink-400 text-[12px] font-black">\u2713</span>' : '<span class="text-purple-400 dark:text-purple-500 text-[11px]">\u2726</span>'}
       <span class="font-mono">${escapeHtml(slug)}</span>
     `;
-
     btn.onclick = () => window.selectSuggestedSlug(slug);
     container.appendChild(btn);
   });
-
   if (showMoreContainer) {
     if (total > initialLimit) {
-      showMoreContainer.classList.remove('hidden');
+      showMoreContainer.classList.remove("hidden");
       if (showMoreText) {
-        showMoreText.textContent = isShowingAllSlugSuggestions ? 'Show Fewer Suggestions' : `Show More (${total - initialLimit} more)`;
+        showMoreText.textContent = isShowingAllSlugSuggestions ? "Show Fewer Suggestions" : `Show More (${total - initialLimit} more)`;
       }
       if (showMoreIcon) {
-        showMoreIcon.textContent = isShowingAllSlugSuggestions ? 'expand_less' : 'expand_more';
+        showMoreIcon.textContent = isShowingAllSlugSuggestions ? "expand_less" : "expand_more";
       }
     } else {
-      showMoreContainer.classList.add('hidden');
+      showMoreContainer.classList.add("hidden");
     }
   }
 };
-
 window.toggleShowMoreSuggestions = function() {
   isShowingAllSlugSuggestions = !isShowingAllSlugSuggestions;
   window.renderSlugSuggestionChips();
 };
-
 window.selectSuggestedSlug = function(slug) {
   currentCustomData.customSlug = slug;
   currentCustomData.slug = slug;
-  const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
+  const input = document.getElementById("wish-slug-input") || document.getElementById("custom-slug-input");
   if (input) {
     input.value = slug;
   }
-
-  // Re-render chips to update active highlight
   window.renderSlugSuggestionChips();
-
-  // Hide collision alternatives when picking a suggestion
-  const altContainer = document.getElementById('slug-collision-alternatives');
-  if (altContainer) altContainer.classList.add('hidden');
-
-  // Trigger immediate availability check
+  const altContainer = document.getElementById("slug-collision-alternatives");
+  if (altContainer) altContainer.classList.add("hidden");
   window.checkSlugAvailability(slug, true);
   triggerAutosave();
 };
-
 window.handleSlugInputChange = function(val) {
-  // Normalize while typing: only safe chars
-  const raw = String(val || '').toLowerCase();
-  const clean = raw.replace(/[^a-z0-9-]/g, '');
+  const raw = String(val || "").toLowerCase();
+  const clean = raw.replace(/[^a-z0-9-]/g, "");
   currentCustomData.customSlug = clean;
   currentCustomData.slug = clean;
-
-  const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
+  const input = document.getElementById("wish-slug-input") || document.getElementById("custom-slug-input");
   if (input && input.value !== clean) {
     input.value = clean;
   }
-
-  // Update chip active states
   window.renderSlugSuggestionChips();
-
-  // Hide collision alternatives while user types
-  const altContainer = document.getElementById('slug-collision-alternatives');
-  if (altContainer) altContainer.classList.add('hidden');
-
-  // Debounced check (350ms)
+  const altContainer = document.getElementById("slug-collision-alternatives");
+  if (altContainer) altContainer.classList.add("hidden");
   if (slugCheckDebounceTimer) {
     clearTimeout(slugCheckDebounceTimer);
   }
-
-  // Show spinner immediately
-  const spinner = document.getElementById('slug-input-spinner');
-  if (spinner) spinner.classList.remove('hidden');
-
+  const spinner = document.getElementById("slug-input-spinner");
+  if (spinner) spinner.classList.remove("hidden");
   slugCheckDebounceTimer = setTimeout(() => {
     window.checkSlugAvailability(clean, false);
   }, 350);
-
   triggerAutosave();
 };
-
 window.checkSlugAvailability = async function(slug, immediate = false) {
-  const badge = document.getElementById('slug-availability-badge');
-  const spinner = document.getElementById('slug-input-spinner');
-  const inputWrapper = document.getElementById('slug-input-wrapper');
-  const altContainer = document.getElementById('slug-collision-alternatives');
-  const altList = document.getElementById('slug-alternatives-list');
-
-  const normalized = (slug || '').toLowerCase().trim().replace(/^-+|-+$/g, '');
-
-  if (spinner) spinner.classList.remove('hidden');
-
+  const badge = document.getElementById("slug-availability-badge");
+  const spinner = document.getElementById("slug-input-spinner");
+  const inputWrapper = document.getElementById("slug-input-wrapper");
+  const altContainer = document.getElementById("slug-collision-alternatives");
+  const altList = document.getElementById("slug-alternatives-list");
+  const normalized = (slug || "").toLowerCase().trim().replace(/^-+|-+$/g, "");
+  if (spinner) spinner.classList.remove("hidden");
   function setWrapperState(state) {
     if (!inputWrapper) return;
-    inputWrapper.classList.remove('border-emerald-500', 'border-rose-500', 'border-amber-500', 'ring-2', 'ring-emerald-500/20', 'ring-rose-500/20');
-    if (state === 'valid') {
-      inputWrapper.classList.add('border-emerald-500', 'ring-2', 'ring-emerald-500/20');
-    } else if (state === 'error') {
-      inputWrapper.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/20');
-    } else if (state === 'warning') {
-      inputWrapper.classList.add('border-amber-500');
+    inputWrapper.classList.remove("border-emerald-500", "border-rose-500", "border-amber-500", "ring-2", "ring-emerald-500/20", "ring-rose-500/20");
+    if (state === "valid") {
+      inputWrapper.classList.add("border-emerald-500", "ring-2", "ring-emerald-500/20");
+    } else if (state === "error") {
+      inputWrapper.classList.add("border-rose-500", "ring-2", "ring-rose-500/20");
+    } else if (state === "warning") {
+      inputWrapper.classList.add("border-amber-500");
     }
   }
-
   if (!normalized) {
-    if (spinner) spinner.classList.add('hidden');
+    if (spinner) spinner.classList.add("hidden");
     if (badge) {
       badge.innerHTML = '<span class="text-purple-600/80 dark:text-purple-400/80 font-normal">Choose a link above or type your own custom link</span>';
     }
-    setWrapperState('normal');
-    lastSlugCheckResult = { available: false, reason: 'empty' };
+    setWrapperState("normal");
+    lastSlugCheckResult = { available: false, reason: "empty" };
     return;
   }
-
-  // Local client check first
-  const isValid = window.WishLinkSuggestions
-    ? window.WishLinkSuggestions.isValidSlug(normalized)
-    : /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,78}[a-z0-9]$/.test(normalized);
-
-  const isReserved = window.WishLinkSuggestions
-    ? window.WishLinkSuggestions.isReservedSlug(normalized)
-    : false;
-
+  const isValid = window.WishLinkSuggestions ? window.WishLinkSuggestions.isValidSlug(normalized) : /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,78}[a-z0-9]$/.test(normalized);
+  const isReserved = window.WishLinkSuggestions ? window.WishLinkSuggestions.isReservedSlug(normalized) : false;
   if (isReserved) {
-    if (spinner) spinner.classList.add('hidden');
+    if (spinner) spinner.classList.add("hidden");
     if (badge) {
       badge.innerHTML = '<span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px]">block</span> This link is reserved for system use. Please choose another.</span>';
     }
-    setWrapperState('error');
-    lastSlugCheckResult = { available: false, reason: 'reserved' };
+    setWrapperState("error");
+    lastSlugCheckResult = { available: false, reason: "reserved" };
     return;
   }
-
   if (!isValid) {
-    if (spinner) spinner.classList.add('hidden');
+    if (spinner) spinner.classList.add("hidden");
     if (badge) {
-      badge.innerHTML = '<span class="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px]">info</span> Use only lowercase letters, numbers, and single hyphens (3–80 characters).</span>';
+      badge.innerHTML = '<span class="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px]">info</span> Use only lowercase letters, numbers, and single hyphens (3\u201380 characters).</span>';
     }
-    setWrapperState('warning');
-    lastSlugCheckResult = { available: false, reason: 'invalid' };
+    setWrapperState("warning");
+    lastSlugCheckResult = { available: false, reason: "invalid" };
     return;
   }
-
   if (badge) {
     badge.innerHTML = '<span class="text-purple-500 font-normal flex items-center gap-1.5"><span class="w-2.5 h-2.5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></span> Checking availability...</span>';
   }
-
   lastCheckedSlug = normalized;
-
   try {
-    const excludeParam = currentEditingWishId ? `&wishId=${encodeURIComponent(currentEditingWishId)}` : '';
+    const excludeParam = currentEditingWishId ? `&wishId=${encodeURIComponent(currentEditingWishId)}` : "";
     const res = await fetch(`/api/wishes/slug-availability?slug=${encodeURIComponent(normalized)}${excludeParam}`, {
-      credentials: 'include'
+      credentials: "include"
     });
-    const data = await res.json();
-
-    if (spinner) spinner.classList.add('hidden');
-
+    const rawData = await res.json();
+    const data = rawData && rawData.data && typeof rawData.data === "object"
+      ? {
+          ...rawData.data,
+          ...rawData,
+          available: rawData.available !== undefined ? rawData.available : rawData.data.available,
+          slug: rawData.slug || rawData.data.slug || normalized,
+          reason: rawData.reason || rawData.data.reason,
+          alternatives: rawData.alternatives || rawData.data.alternatives,
+          isCurrent: rawData.isCurrent !== undefined ? rawData.isCurrent : rawData.data.isCurrent,
+          message: rawData.message || rawData.data.message
+        }
+      : { ...rawData, slug: (rawData && rawData.slug) || normalized };
+    if (spinner) spinner.classList.add("hidden");
     if (lastCheckedSlug !== normalized) return;
-
     lastSlugCheckResult = data;
-
     if (data.success && data.available) {
-      setWrapperState('valid');
-      if (altContainer) altContainer.classList.add('hidden');
+      setWrapperState("valid");
+      if (altContainer) altContainer.classList.add("hidden");
       if (badge) {
         if (data.isCurrent) {
-          badge.innerHTML = '<span class="text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-purple-600">check_circle</span> This is your wish\'s current link (preserved)</span>';
+          badge.innerHTML = `<span class="text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-purple-600">check_circle</span> This is your wish's current link (preserved)</span>`;
         } else {
-          badge.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span> ✓ Available! Your celebration will live here.</span>';
+          badge.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span> \u2713 Available! Your celebration will live here.</span>';
         }
       }
     } else {
-      setWrapperState('error');
-      const reason = data.reason || 'taken';
+      setWrapperState("error");
+      const reason = data.reason || "taken";
       if (badge) {
-        if (reason === 'taken') {
+        if (reason === "taken") {
           badge.innerHTML = '<span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-rose-500">cancel</span> That link is already taken. Try another or pick a variation below:</span>';
-        } else if (reason === 'reserved') {
+        } else if (reason === "reserved") {
           badge.innerHTML = '<span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-rose-500">block</span> Reserved platform route. Please pick another.</span>';
         } else {
-          badge.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">info</span> ${escapeHtml(data.message || 'Link is unavailable')}</span>`;
+          badge.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">info</span> ${escapeHtml(data.message || "Link is unavailable")}</span>`;
         }
       }
-
       if (data.alternatives && data.alternatives.length > 0 && altContainer && altList) {
-        altList.innerHTML = '';
-        data.alternatives.forEach(alt => {
-          const pill = document.createElement('button');
-          pill.type = 'button';
-          pill.className = 'px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100 hover:bg-amber-300 dark:hover:bg-amber-800 transition cursor-pointer flex items-center gap-1';
+        altList.innerHTML = "";
+        data.alternatives.forEach((alt) => {
+          const pill = document.createElement("button");
+          pill.type = "button";
+          pill.className = "px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100 hover:bg-amber-300 dark:hover:bg-amber-800 transition cursor-pointer flex items-center gap-1";
           pill.innerHTML = `<span>+ ${escapeHtml(alt)}</span>`;
           pill.onclick = () => window.selectSuggestedSlug(alt);
           altList.appendChild(pill);
         });
-        altContainer.classList.remove('hidden');
+        altContainer.classList.remove("hidden");
       } else if (altContainer) {
-        altContainer.classList.add('hidden');
+        altContainer.classList.add("hidden");
       }
     }
   } catch (err) {
-    if (spinner) spinner.classList.add('hidden');
+    if (spinner) spinner.classList.add("hidden");
     if (badge) {
       badge.innerHTML = '<span class="text-purple-600/70 text-[11px]">Could not verify link right now; server will validate at publish time.</span>';
     }
   }
 };
-
 window.handleUnlistedToggle = function(checked) {
   currentCustomData.isPrivate = checked;
   currentCustomData.unlisted = checked;
   triggerAutosave();
   if (checked) {
-    showToast('🔒 Link marked as unlisted (noindex)');
+    showToast("\u{1F512} Link marked as unlisted (noindex)");
   } else {
-    showToast('🌐 Link discoverability enabled');
+    showToast("\u{1F310} Link discoverability enabled");
   }
 };
-
 window.updateContrastBadge = function() {
-  const badge = document.getElementById('theme-contrast-badge');
-  const badgeText = document.getElementById('contrast-badge-text');
+  const badge = document.getElementById("theme-contrast-badge");
+  const badgeText = document.getElementById("contrast-badge-text");
   if (!badge || !badgeText) return;
-
-  const bgHex = (currentCustomData.colors && currentCustomData.colors.primary) || '#2a0845';
-  const textHex = (currentCustomData.colors && currentCustomData.colors.text) || '#ffffff';
-
+  const bgHex = currentCustomData.colors && currentCustomData.colors.primary || "#2a0845";
+  const textHex = currentCustomData.colors && currentCustomData.colors.text || "#ffffff";
   const engine = window.WishThemeEngine;
-  let evalResult = { ratio: 12.5, status: 'pass', label: 'Optimal Contrast (AAA)', isAccessible: true };
-
-  if (engine && typeof engine.evaluateColorContrast === 'function') {
+  let evalResult = { ratio: 12.5, status: "pass", label: "Optimal Contrast (AAA)", isAccessible: true };
+  if (engine && typeof engine.evaluateColorContrast === "function") {
     evalResult = engine.evaluateColorContrast(bgHex, textHex);
   }
-
   badgeText.textContent = evalResult.label;
-
-  if (evalResult.status === 'pass') {
-    badge.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5';
-  } else if (evalResult.status === 'warning') {
-    badge.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 flex items-center gap-1.5';
+  if (evalResult.status === "pass") {
+    badge.className = "px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5";
+  } else if (evalResult.status === "warning") {
+    badge.className = "px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 flex items-center gap-1.5";
   } else {
-    badge.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-300 flex items-center gap-1.5';
+    badge.className = "px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-300 flex items-center gap-1.5";
   }
 };
-
-// -----------------------------------------------------------------------------
-// STEP 3: SECTIONS & MODULAR LAYOUT (Part 12 Dynamic Section & Content System)
-// -----------------------------------------------------------------------------
 let activeExpandedSectionId = null;
-
 window.toggleSection = function(sectionId, enabled) {
-  const sec = (currentCustomData.sections || []).find(s => s.id === sectionId);
+  const sec = (currentCustomData.sections || []).find((s) => s.id === sectionId);
   if (!sec) return;
-
   if (sec.required && !enabled) {
-    showToast('⚠️ This core section is required by the template and cannot be disabled.');
+    showToast("\u26A0\uFE0F This core section is required by the template and cannot be disabled.");
     renderSectionsUI();
     return;
   }
-
-  // Part 11: Feature Access Entitlement Check
   if (enabled && window.WishFeatureAccess) {
     const access = window.WishFeatureAccess.canUseSection(sectionId);
     if (!access.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'section',
+          context: "section",
           key: sectionId,
           onUnlocked: () => {
             window.toggleSection(sectionId, true);
@@ -4651,11 +4114,8 @@ window.toggleSection = function(sectionId, enabled) {
       return;
     }
   }
-
   if (sec.required && !enabled) return;
-
   sec.enabled = enabled;
-
   if (!currentCustomData.sectionsMap) currentCustomData.sectionsMap = {};
   currentCustomData.sectionsMap[sectionId] = {
     enabled: Boolean(enabled),
@@ -4665,105 +4125,81 @@ window.toggleSection = function(sectionId, enabled) {
   if (!enabled) {
     if (!currentCustomData._hiddenSections.includes(sectionId)) currentCustomData._hiddenSections.push(sectionId);
   } else {
-    currentCustomData._hiddenSections = currentCustomData._hiddenSections.filter(id => id !== sectionId);
+    currentCustomData._hiddenSections = currentCustomData._hiddenSections.filter((id) => id !== sectionId);
   }
   currentCustomData.hiddenSections = [...currentCustomData._hiddenSections];
   if (typeof updateGallerySectionQuickButtonUI === "function") updateGallerySectionQuickButtonUI();
-
-  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSection === 'function') {
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSection === "function") {
     window.WishMagicRuntimeBridge.updateSection(sectionId, enabled);
   }
-
   renderSectionsUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast(`${sec.name || sec.label || sectionId} ${enabled ? 'Enabled 🟢' : 'Disabled ⚪'}`);
+  showToast(`${sec.name || sec.label || sectionId} ${enabled ? "Enabled \u{1F7E2}" : "Disabled \u26AA"}`);
 };
-
 window.moveSectionUp = function(sectionId) {
   const sections = currentCustomData.sections || [];
-  const idx = sections.findIndex(s => s.id === sectionId);
+  const idx = sections.findIndex((s) => s.id === sectionId);
   if (idx <= 0) return;
-
   const temp = sections[idx];
   sections[idx] = sections[idx - 1];
   sections[idx - 1] = temp;
-
-  // re-assign orders
   sections.forEach((s, i) => s.order = i + 1);
-  currentCustomData.sectionOrder = sections.map(s => s.id);
-
-  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionOrder === 'function') {
+  currentCustomData.sectionOrder = sections.map((s) => s.id);
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionOrder === "function") {
     window.WishMagicRuntimeBridge.updateSectionOrder(currentCustomData.sectionOrder);
   }
-
   renderSectionsUI();
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.moveSectionDown = function(sectionId) {
   const sections = currentCustomData.sections || [];
-  const idx = sections.findIndex(s => s.id === sectionId);
+  const idx = sections.findIndex((s) => s.id === sectionId);
   if (idx === -1 || idx >= sections.length - 1) return;
-
   const temp = sections[idx];
   sections[idx] = sections[idx + 1];
   sections[idx + 1] = temp;
-
-  // re-assign orders
   sections.forEach((s, i) => s.order = i + 1);
-  currentCustomData.sectionOrder = sections.map(s => s.id);
-
-  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionOrder === 'function') {
+  currentCustomData.sectionOrder = sections.map((s) => s.id);
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionOrder === "function") {
     window.WishMagicRuntimeBridge.updateSectionOrder(currentCustomData.sectionOrder);
   }
-
   renderSectionsUI();
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.toggleSectionAccordion = function(sectionId) {
   activeExpandedSectionId = activeExpandedSectionId === sectionId ? null : sectionId;
   renderSectionsUI();
 };
-
-// Section Sub-Editors: Gallery Layout
 window.setSectionGalleryLayout = function(layout) {
   currentCustomData.gallery_layout = layout;
   if (!currentCustomData.media) currentCustomData.media = {};
   currentCustomData.media.galleryLayout = layout;
-
-  const sec = (currentCustomData.sections || []).find(s => s.id === 'gallery' || s.type === 'photo_gallery');
+  const sec = (currentCustomData.sections || []).find((s) => s.id === "gallery" || s.type === "photo_gallery");
   if (sec) sec.layout = layout;
-
-  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionLayout === 'function') {
-    window.WishMagicRuntimeBridge.updateSectionLayout('gallery', layout);
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionLayout === "function") {
+    window.WishMagicRuntimeBridge.updateSectionLayout("gallery", layout);
   }
-
   renderSectionsUI();
   triggerAutosave();
   syncDataToIframe();
-  showToast(`🖼️ Gallery layout switched to ${layout.toUpperCase()}`);
+  showToast(`\u{1F5BC}\uFE0F Gallery layout switched to ${layout.toUpperCase()}`);
 };
-
-// Section Sub-Editors: Timeline Milestones
 window.addTimelineMilestone = function() {
   if (!currentCustomData.timeline) currentCustomData.timeline = [];
-  const newId = 'm_' + Date.now().toString(36);
+  const newId = "m_" + Date.now().toString(36);
   currentCustomData.timeline.push({
     id: newId,
-    date: 'New Milestone',
-    title: 'A Treasured Moment',
-    description: 'Describe this meaningful second shared together.'
+    date: "New Milestone",
+    title: "A Treasured Moment",
+    description: "Describe this meaningful second shared together."
   });
-
   renderSectionsUI();
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.updateTimelineMilestone = function(idx, field, value) {
   if (currentCustomData.timeline && currentCustomData.timeline[idx]) {
     currentCustomData.timeline[idx][field] = value;
@@ -4771,7 +4207,6 @@ window.updateTimelineMilestone = function(idx, field, value) {
     syncDataToIframe();
   }
 };
-
 window.removeTimelineMilestone = function(idx) {
   if (currentCustomData.timeline && currentCustomData.timeline.length > 1) {
     currentCustomData.timeline.splice(idx, 1);
@@ -4779,28 +4214,24 @@ window.removeTimelineMilestone = function(idx) {
     triggerAutosave();
     syncDataToIframe();
   } else {
-    showToast('Timeline must have at least 1 milestone');
+    showToast("Timeline must have at least 1 milestone");
   }
 };
-
-// Section Sub-Editors: Open When Surprise Envelopes
 window.addOpenWhenCard = function() {
   if (!currentCustomData.open_when_cards) currentCustomData.open_when_cards = [];
   const count = currentCustomData.open_when_cards.length + 1;
-  const colors = ['#ec4899', '#8b5cf6', '#f59e0b', '#06b6d4', '#10b981'];
+  const colors = ["#ec4899", "#8b5cf6", "#f59e0b", "#06b6d4", "#10b981"];
   currentCustomData.open_when_cards.push({
-    id: 'ow_' + Date.now().toString(36),
-    title: `Open when you need love #${count} 💖`,
-    icon: 'favorite',
+    id: "ow_" + Date.now().toString(36),
+    title: `Open when you need love #${count} \u{1F496}`,
+    icon: "favorite",
     color: colors[count % colors.length],
-    message: 'A warm surprise letter written with love for you!'
+    message: "A warm surprise letter written with love for you!"
   });
-
   renderSectionsUI();
   triggerAutosave();
   syncDataToIframe();
 };
-
 window.updateOpenWhenCard = function(idx, field, value) {
   if (currentCustomData.open_when_cards && currentCustomData.open_when_cards[idx]) {
     currentCustomData.open_when_cards[idx][field] = value;
@@ -4808,7 +4239,6 @@ window.updateOpenWhenCard = function(idx, field, value) {
     syncDataToIframe();
   }
 };
-
 window.removeOpenWhenCard = function(idx) {
   if (currentCustomData.open_when_cards && currentCustomData.open_when_cards.length > 1) {
     currentCustomData.open_when_cards.splice(idx, 1);
@@ -4816,148 +4246,128 @@ window.removeOpenWhenCard = function(idx) {
     triggerAutosave();
     syncDataToIframe();
   } else {
-    showToast('Keep at least 1 Open When envelope');
+    showToast("Keep at least 1 Open When envelope");
   }
 };
-
-// Section Sub-Editors: Secret Message
 window.updateSecretMessageConfig = function(field, value) {
   if (!currentCustomData.secret_message) {
     currentCustomData.secret_message = {
-      title: 'A Secret Surprise Just For You 🤫',
-      secretText: '',
-      hint: 'Tap the wax seal to reveal!',
-      revealType: 'scratch'
+      title: "A Secret Surprise Just For You \u{1F92B}",
+      secretText: "",
+      hint: "Tap the wax seal to reveal!",
+      revealType: "scratch"
     };
   }
   currentCustomData.secret_message[field] = value;
   triggerAutosave();
   syncDataToIframe();
 };
-
-// Section Sub-Editors: Grand Finale
 window.updateFinaleConfig = function(field, value) {
   if (!currentCustomData.finale) {
     currentCustomData.finale = {
-      title: 'May All Your Wishes Come True! 🌟',
-      message: '',
-      buttonText: 'Celebrate Again 🎊',
-      explosionType: 'confetti'
+      title: "May All Your Wishes Come True! \u{1F31F}",
+      message: "",
+      buttonText: "Celebrate Again \u{1F38A}",
+      explosionType: "confetti"
     };
   }
   currentCustomData.finale[field] = value;
   triggerAutosave();
   syncDataToIframe();
 };
-
 function renderSectionsUI() {
-  const container = document.getElementById('sections-manager-list');
+  const container = document.getElementById("sections-manager-list");
   if (!container) return;
-
-  container.innerHTML = '';
-
-  // Get template-specific supported sections (Part 12 Section 8)
+  container.innerHTML = "";
   let supportedDefs = [];
   if (window.WishTemplateDefinitionService && activeTemplate) {
     supportedDefs = window.WishTemplateDefinitionService.getTemplateSections(activeTemplate);
   }
-
-  // Normalize sections from customData & strictly exclude admin-disabled sections (UTP v1.2.0)
   const adminDisabledIds = new Set(Array.isArray(activeTemplate?.disabledIds) ? activeTemplate.disabledIds : []);
-  if (activeTemplate?.visibilityMap && typeof activeTemplate.visibilityMap === 'object') {
-    Object.entries(activeTemplate.visibilityMap).forEach(([k, v]) => { if (v === false) adminDisabledIds.add(k); });
+  if (activeTemplate?.visibilityMap && typeof activeTemplate.visibilityMap === "object") {
+    Object.entries(activeTemplate.visibilityMap).forEach(([k, v]) => {
+      if (v === false) adminDisabledIds.add(k);
+    });
   }
-  let sections = (currentCustomData.sections || []).filter(s => s && !adminDisabledIds.has(s.id) && !adminDisabledIds.has(s.type));
+  let sections = (currentCustomData.sections || []).filter((s) => s && !adminDisabledIds.has(s.id) && !adminDisabledIds.has(s.type));
   if (supportedDefs.length > 0) {
-    // Only display sections supported by this template!
-    const supportedIds = new Set(supportedDefs.map(d => d.id));
-    sections = sections.filter(s => supportedIds.has(s.id) || supportedIds.has(s.type));
+    const supportedIds = new Set(supportedDefs.map((d) => d.id));
+    sections = sections.filter((s) => supportedIds.has(s.id) || supportedIds.has(s.type));
   }
-
   const isPrem = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
-
   sections.forEach((sec, idx) => {
-    const isVipSec = ['countdown', 'timeline', 'voice', 'secret_message', 'open_when'].includes(sec.id) || Boolean(sec.isPremium);
+    const isVipSec = ["countdown", "timeline", "voice", "secret_message", "open_when"].includes(sec.id) || Boolean(sec.isPremium);
     const isLocked = isVipSec && !isPrem;
     const isExpanded = activeExpandedSectionId === sec.id;
-    const isRequired = Boolean(sec.required || sec.id === 'hero' || sec.id === 'message');
-
-    const card = document.createElement('div');
-    card.className = `rounded-2xl border transition-all overflow-hidden ${
-      sec.enabled
-        ? 'bg-white/85 dark:bg-purple-950/60 border-purple-200/90 dark:border-purple-800/70 shadow-sm'
-        : 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/40 opacity-70'
-    }`;
-
-    // Header Row
+    const isRequired = Boolean(sec.required || sec.id === "hero" || sec.id === "message");
+    const card = document.createElement("div");
+    card.className = `rounded-2xl border transition-all overflow-hidden ${sec.enabled ? "bg-white/85 dark:bg-purple-950/60 border-purple-200/90 dark:border-purple-800/70 shadow-sm" : "bg-purple-50/40 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/40 opacity-70"}`;
     const headerRow = `
       <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3">
         <div class="flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0">
           <!-- Accessible Reorder Buttons -->
           <div class="flex flex-col gap-0.5 shrink-0">
-            <button onclick="moveSectionUp('${sec.id}')" ${idx === 0 ? 'disabled class="opacity-25"' : ''} class="w-5 h-5 rounded hover:bg-purple-200 dark:hover:bg-purple-800 text-[10px] flex items-center justify-center font-bold text-purple-800 dark:text-purple-200 cursor-pointer" title="Move Section Up">▲</button>
-            <button onclick="moveSectionDown('${sec.id}')" ${idx === sections.length - 1 ? 'disabled class="opacity-25"' : ''} class="w-5 h-5 rounded hover:bg-purple-200 dark:hover:bg-purple-800 text-[10px] flex items-center justify-center font-bold text-purple-800 dark:text-purple-200 cursor-pointer" title="Move Section Down">▼</button>
+            <button onclick="moveSectionUp('${sec.id}')" ${idx === 0 ? 'disabled class="opacity-25"' : ""} class="w-5 h-5 rounded hover:bg-purple-200 dark:hover:bg-purple-800 text-[10px] flex items-center justify-center font-bold text-purple-800 dark:text-purple-200 cursor-pointer" title="Move Section Up">\u25B2</button>
+            <button onclick="moveSectionDown('${sec.id}')" ${idx === sections.length - 1 ? 'disabled class="opacity-25"' : ""} class="w-5 h-5 rounded hover:bg-purple-200 dark:hover:bg-purple-800 text-[10px] flex items-center justify-center font-bold text-purple-800 dark:text-purple-200 cursor-pointer" title="Move Section Down">\u25BC</button>
           </div>
 
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-xs font-mono font-bold text-purple-500">0${idx + 1}.</span>
               <h5 class="text-xs sm:text-sm font-bold text-purple-950 dark:text-white truncate">${sec.name || sec.label || sec.id}</h5>
-              ${isRequired ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-purple-200 dark:bg-purple-800 text-purple-900 dark:text-purple-100">Required</span>` : ''}
-              ${isVipSec ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-xs">VIP</span>` : ''}
-              ${isLocked ? `<span class="text-xs" title="Requires VIP Pass">🔒</span>` : ''}
+              ${isRequired ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-purple-200 dark:bg-purple-800 text-purple-900 dark:text-purple-100">Required</span>` : ""}
+              ${isVipSec ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-xs">VIP</span>` : ""}
+              ${isLocked ? `<span class="text-xs" title="Requires VIP Pass">\u{1F512}</span>` : ""}
             </div>
             <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 font-medium truncate mt-0.5">
-              ${sec.description || (sec.enabled ? '🟢 Active in celebration' : '⚪ Hidden from recipient')}
+              ${sec.description || (sec.enabled ? "\u{1F7E2} Active in celebration" : "\u26AA Hidden from recipient")}
             </p>
           </div>
         </div>
 
         <!-- Controls: Config Accordion Trigger + Toggle Switch -->
         <div class="flex items-center gap-2 shrink-0">
-          ${['gallery', 'timeline', 'open_when', 'secret_message', 'finale'].includes(sec.id) ? `
+          ${["gallery", "timeline", "open_when", "secret_message", "finale"].includes(sec.id) ? `
             <button type="button" onclick="toggleSectionAccordion('${sec.id}')" class="p-1.5 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-800/60 text-purple-700 dark:text-purple-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Configure section details">
-              <span class="material-symbols-outlined text-[16px]">${isExpanded ? 'expand_less' : 'tune'}</span>
-              <span class="text-[10px] hidden sm:inline">${isExpanded ? 'Hide' : 'Edit'}</span>
+              <span class="material-symbols-outlined text-[16px]">${isExpanded ? "expand_less" : "tune"}</span>
+              <span class="text-[10px] hidden sm:inline">${isExpanded ? "Hide" : "Edit"}</span>
             </button>
-          ` : ''}
+          ` : ""}
 
-          <label class="relative inline-flex items-center ${isRequired ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}">
-            <input type="checkbox" ${sec.enabled ? 'checked' : ''} ${isRequired ? 'disabled' : ''} onchange="toggleSection('${sec.id}', this.checked)" class="sr-only peer"/>
+          <label class="relative inline-flex items-center ${isRequired ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}">
+            <input type="checkbox" ${sec.enabled ? "checked" : ""} ${isRequired ? "disabled" : ""} onchange="toggleSection('${sec.id}', this.checked)" class="sr-only peer"/>
             <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
           </label>
         </div>
       </div>
     `;
-
-    // Dynamic Section Sub-Editors (Accordion Body)
-    let bodyContent = '';
+    let bodyContent = "";
     if (isExpanded && sec.enabled) {
-      if (sec.id === 'gallery') {
-        const curLayout = currentCustomData.gallery_layout || currentCustomData.media?.galleryLayout || 'polaroid';
+      if (sec.id === "gallery") {
+        const curLayout = currentCustomData.gallery_layout || currentCustomData.media?.galleryLayout || "polaroid";
         bodyContent = `
           <div class="p-4 pt-0 border-t border-purple-200/50 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-950/30 text-xs space-y-3">
             <label class="block font-bold text-purple-950 dark:text-white">Photo Keepsakes Display Layout</label>
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <button type="button" onclick="setSectionGalleryLayout('polaroid')" class="p-2.5 rounded-xl border ${curLayout === 'polaroid' ? 'border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300' : 'border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200'} text-xs text-center transition cursor-pointer">
-                📷 Polaroid
+              <button type="button" onclick="setSectionGalleryLayout('polaroid')" class="p-2.5 rounded-xl border ${curLayout === "polaroid" ? "border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300" : "border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200"} text-xs text-center transition cursor-pointer">
+                \u{1F4F7} Polaroid
               </button>
-              <button type="button" onclick="setSectionGalleryLayout('masonry')" class="p-2.5 rounded-xl border ${curLayout === 'masonry' ? 'border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300' : 'border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200'} text-xs text-center transition cursor-pointer">
-                🧱 Masonry
+              <button type="button" onclick="setSectionGalleryLayout('masonry')" class="p-2.5 rounded-xl border ${curLayout === "masonry" ? "border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300" : "border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200"} text-xs text-center transition cursor-pointer">
+                \u{1F9F1} Masonry
               </button>
-              <button type="button" onclick="setSectionGalleryLayout('grid')" class="p-2.5 rounded-xl border ${curLayout === 'grid' ? 'border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300' : 'border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200'} text-xs text-center transition cursor-pointer">
-                ▦ Grid
+              <button type="button" onclick="setSectionGalleryLayout('grid')" class="p-2.5 rounded-xl border ${curLayout === "grid" ? "border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300" : "border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200"} text-xs text-center transition cursor-pointer">
+                \u25A6 Grid
               </button>
-              <button type="button" onclick="setSectionGalleryLayout('filmstrip')" class="p-2.5 rounded-xl border ${curLayout === 'filmstrip' ? 'border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300' : 'border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200'} text-xs text-center transition cursor-pointer">
-                🎞️ Filmstrip
+              <button type="button" onclick="setSectionGalleryLayout('filmstrip')" class="p-2.5 rounded-xl border ${curLayout === "filmstrip" ? "border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300" : "border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200"} text-xs text-center transition cursor-pointer">
+                \u{1F39E}\uFE0F Filmstrip
               </button>
-              <button type="button" onclick="setSectionGalleryLayout('carousel')" class="p-2.5 rounded-xl border ${curLayout === 'carousel' ? 'border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300' : 'border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200'} text-xs text-center transition cursor-pointer">
-                🎠 3D Carousel
+              <button type="button" onclick="setSectionGalleryLayout('carousel')" class="p-2.5 rounded-xl border ${curLayout === "carousel" ? "border-pink-500 bg-pink-500/15 font-bold text-pink-600 dark:text-pink-300" : "border-purple-200/60 bg-white/70 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200"} text-xs text-center transition cursor-pointer">
+                \u{1F3A0} 3D Carousel
               </button>
             </div>
           </div>
         `;
-      } else if (sec.id === 'timeline') {
+      } else if (sec.id === "timeline") {
         const milestones = currentCustomData.timeline || [];
         bodyContent = `
           <div class="p-4 pt-0 border-t border-purple-200/50 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-950/30 text-xs space-y-3">
@@ -4971,17 +4381,17 @@ function renderSectionsUI() {
               ${milestones.map((m, mIdx) => `
                 <div class="p-3 rounded-xl bg-white dark:bg-purple-900/40 border border-purple-200/60 dark:border-purple-800/40 space-y-2">
                   <div class="flex items-center justify-between gap-2">
-                    <input type="text" value="${escapeHtml(m.date || '')}" oninput="updateTimelineMilestone(${mIdx}, 'date', this.value)" placeholder="e.g. June 2024 / First Road Trip" class="w-1/2 p-1.5 rounded-lg border border-purple-200/60 text-xs font-bold text-purple-900 dark:text-white bg-transparent"/>
-                    <button type="button" onclick="removeTimelineMilestone(${mIdx})" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1" title="Delete Milestone">✕</button>
+                    <input type="text" value="${escapeHtml(m.date || "")}" oninput="updateTimelineMilestone(${mIdx}, 'date', this.value)" placeholder="e.g. June 2024 / First Road Trip" class="w-1/2 p-1.5 rounded-lg border border-purple-200/60 text-xs font-bold text-purple-900 dark:text-white bg-transparent"/>
+                    <button type="button" onclick="removeTimelineMilestone(${mIdx})" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1" title="Delete Milestone">\u2715</button>
                   </div>
-                  <input type="text" value="${escapeHtml(m.title || '')}" oninput="updateTimelineMilestone(${mIdx}, 'title', this.value)" placeholder="Milestone Title" class="w-full p-1.5 rounded-lg border border-purple-200/60 text-xs font-semibold text-purple-900 dark:text-white bg-transparent"/>
-                  <textarea oninput="updateTimelineMilestone(${mIdx}, 'description', this.value)" placeholder="Memorable details..." rows="2" class="w-full p-1.5 rounded-lg border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-transparent">${escapeHtml(m.description || '')}</textarea>
+                  <input type="text" value="${escapeHtml(m.title || "")}" oninput="updateTimelineMilestone(${mIdx}, 'title', this.value)" placeholder="Milestone Title" class="w-full p-1.5 rounded-lg border border-purple-200/60 text-xs font-semibold text-purple-900 dark:text-white bg-transparent"/>
+                  <textarea oninput="updateTimelineMilestone(${mIdx}, 'description', this.value)" placeholder="Memorable details..." rows="2" class="w-full p-1.5 rounded-lg border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-transparent">${escapeHtml(m.description || "")}</textarea>
                 </div>
-              `).join('')}
+              `).join("")}
             </div>
           </div>
         `;
-      } else if (sec.id === 'open_when') {
+      } else if (sec.id === "open_when") {
         const cards = currentCustomData.open_when_cards || [];
         bodyContent = `
           <div class="p-4 pt-0 border-t border-purple-200/50 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-950/30 text-xs space-y-3">
@@ -4995,135 +4405,105 @@ function renderSectionsUI() {
               ${cards.map((c, cIdx) => `
                 <div class="p-3 rounded-xl bg-white dark:bg-purple-900/40 border border-purple-200/60 dark:border-purple-800/40 space-y-2">
                   <div class="flex items-center justify-between gap-2">
-                    <input type="text" value="${escapeHtml(c.title || '')}" oninput="updateOpenWhenCard(${cIdx}, 'title', this.value)" placeholder="e.g. Open when you need a smile 😊" class="flex-1 p-1.5 rounded-lg border border-purple-200/60 text-xs font-bold text-purple-900 dark:text-white bg-transparent"/>
-                    <input type="color" value="${c.color || '#ec4899'}" onchange="updateOpenWhenCard(${cIdx}, 'color', this.value)" class="w-7 h-7 rounded-lg border-0 cursor-pointer shrink-0" title="Envelope Accent Color"/>
-                    <button type="button" onclick="removeOpenWhenCard(${cIdx})" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1" title="Delete Envelope">✕</button>
+                    <input type="text" value="${escapeHtml(c.title || "")}" oninput="updateOpenWhenCard(${cIdx}, 'title', this.value)" placeholder="e.g. Open when you need a smile \u{1F60A}" class="flex-1 p-1.5 rounded-lg border border-purple-200/60 text-xs font-bold text-purple-900 dark:text-white bg-transparent"/>
+                    <input type="color" value="${c.color || "#ec4899"}" onchange="updateOpenWhenCard(${cIdx}, 'color', this.value)" class="w-7 h-7 rounded-lg border-0 cursor-pointer shrink-0" title="Envelope Accent Color"/>
+                    <button type="button" onclick="removeOpenWhenCard(${cIdx})" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1" title="Delete Envelope">\u2715</button>
                   </div>
-                  <textarea oninput="updateOpenWhenCard(${cIdx}, 'message', this.value)" placeholder="Secret letter inside this envelope..." rows="2" class="w-full p-1.5 rounded-lg border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-transparent">${escapeHtml(c.message || '')}</textarea>
+                  <textarea oninput="updateOpenWhenCard(${cIdx}, 'message', this.value)" placeholder="Secret letter inside this envelope..." rows="2" class="w-full p-1.5 rounded-lg border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-transparent">${escapeHtml(c.message || "")}</textarea>
                 </div>
-              `).join('')}
+              `).join("")}
             </div>
           </div>
         `;
-      } else if (sec.id === 'secret_message') {
+      } else if (sec.id === "secret_message") {
         const secMsg = currentCustomData.secret_message || {};
         bodyContent = `
           <div class="p-4 pt-0 border-t border-purple-200/50 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-950/30 text-xs space-y-3">
             <label class="block font-bold text-purple-950 dark:text-white">Secret Message Configuration</label>
             <div class="space-y-2">
-              <input type="text" value="${escapeHtml(secMsg.title || 'A Secret Surprise Just For You 🤫')}" oninput="updateSecretMessageConfig('title', this.value)" placeholder="Secret Card Title" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs font-semibold text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40"/>
-              <textarea oninput="updateSecretMessageConfig('secretText', this.value)" placeholder="Write your hidden confidential message here..." rows="3" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40 font-serif italic">${escapeHtml(secMsg.secretText || '')}</textarea>
-              <input type="text" value="${escapeHtml(secMsg.hint || 'Tap the glowing wax seal to break and reveal ✨')}" oninput="updateSecretMessageConfig('hint', this.value)" placeholder="Unlock instruction / hint" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-700 dark:text-purple-300 bg-white/80 dark:bg-purple-900/40"/>
+              <input type="text" value="${escapeHtml(secMsg.title || "A Secret Surprise Just For You \u{1F92B}")}" oninput="updateSecretMessageConfig('title', this.value)" placeholder="Secret Card Title" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs font-semibold text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40"/>
+              <textarea oninput="updateSecretMessageConfig('secretText', this.value)" placeholder="Write your hidden confidential message here..." rows="3" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40 font-serif italic">${escapeHtml(secMsg.secretText || "")}</textarea>
+              <input type="text" value="${escapeHtml(secMsg.hint || "Tap the glowing wax seal to break and reveal \u2728")}" oninput="updateSecretMessageConfig('hint', this.value)" placeholder="Unlock instruction / hint" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-700 dark:text-purple-300 bg-white/80 dark:bg-purple-900/40"/>
             </div>
           </div>
         `;
-      } else if (sec.id === 'finale') {
+      } else if (sec.id === "finale") {
         const finale = currentCustomData.finale || {};
         bodyContent = `
           <div class="p-4 pt-0 border-t border-purple-200/50 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-950/30 text-xs space-y-3">
             <label class="block font-bold text-purple-950 dark:text-white">Celebration Finale Customization</label>
             <div class="space-y-2">
-              <input type="text" value="${escapeHtml(finale.title || 'May All Your Wishes Come True! 🌟')}" oninput="updateFinaleConfig('title', this.value)" placeholder="Finale Headline" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs font-bold text-purple-950 dark:text-white bg-white/80 dark:bg-purple-900/40"/>
-              <textarea oninput="updateFinaleConfig('message', this.value)" placeholder="Closing heartfelt celebration cheer..." rows="2" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40">${escapeHtml(finale.message || '')}</textarea>
-              <input type="text" value="${escapeHtml(finale.buttonText || 'Celebrate Again 🎊')}" oninput="updateFinaleConfig('buttonText', this.value)" placeholder="Replay Celebration Button Text" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40"/>
+              <input type="text" value="${escapeHtml(finale.title || "May All Your Wishes Come True! \u{1F31F}")}" oninput="updateFinaleConfig('title', this.value)" placeholder="Finale Headline" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs font-bold text-purple-950 dark:text-white bg-white/80 dark:bg-purple-900/40"/>
+              <textarea oninput="updateFinaleConfig('message', this.value)" placeholder="Closing heartfelt celebration cheer..." rows="2" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40">${escapeHtml(finale.message || "")}</textarea>
+              <input type="text" value="${escapeHtml(finale.buttonText || "Celebrate Again \u{1F38A}")}" oninput="updateFinaleConfig('buttonText', this.value)" placeholder="Replay Celebration Button Text" class="w-full p-2 rounded-xl border border-purple-200/60 text-xs text-purple-900 dark:text-white bg-white/80 dark:bg-purple-900/40"/>
             </div>
           </div>
         `;
       }
     }
-
     card.innerHTML = headerRow + bodyContent;
     container.appendChild(card);
   });
 }
-
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  if (!str) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-
-// -----------------------------------------------------------------------------
-// STEP 4: PREVIEW & REVIEW SUMMARY
-// -----------------------------------------------------------------------------
 function renderStep4Summary() {
-  const nameEl = document.getElementById('summary-recipient-name');
-  if (nameEl) nameEl.textContent = currentCustomData.recipient_name || 'Someone Special';
-
-  const senderEl = document.getElementById('summary-sender-name');
-  if (senderEl) senderEl.textContent = currentCustomData.sender_name || 'From Someone Who Cares';
-
-  const dateEl = document.getElementById('summary-event-date');
-  if (dateEl) dateEl.textContent = currentCustomData.event_date || 'Special Occasion';
-
-  const photoCountEl = document.getElementById('summary-photos-count');
+  const nameEl = document.getElementById("summary-recipient-name");
+  if (nameEl) nameEl.textContent = currentCustomData.recipient_name || "Someone Special";
+  const senderEl = document.getElementById("summary-sender-name");
+  if (senderEl) senderEl.textContent = currentCustomData.sender_name || "From Someone Who Cares";
+  const dateEl = document.getElementById("summary-event-date");
+  if (dateEl) dateEl.textContent = currentCustomData.event_date || "Special Occasion";
+  const photoCountEl = document.getElementById("summary-photos-count");
   if (photoCountEl) photoCountEl.textContent = `${(currentCustomData.photos || []).length} photos attached`;
-
-  const voiceEl = document.getElementById('summary-voice-status');
+  const voiceEl = document.getElementById("summary-voice-status");
   if (voiceEl) {
     if (currentCustomData.voice_note && currentCustomData.voice_note.enabled && currentCustomData.voice_note.url) {
-      voiceEl.textContent = `Attached (${currentCustomData.voice_note.duration || 'Audio Note'})`;
-      voiceEl.className = 'font-bold text-pink-600 dark:text-pink-400';
+      voiceEl.textContent = `Attached (${currentCustomData.voice_note.duration || "Audio Note"})`;
+      voiceEl.className = "font-bold text-pink-600 dark:text-pink-400";
     } else {
-      voiceEl.textContent = 'None attached (Optional)';
-      voiceEl.className = 'font-bold text-purple-950 dark:text-white';
+      voiceEl.textContent = "None attached (Optional)";
+      voiceEl.className = "font-bold text-purple-950 dark:text-white";
     }
   }
-
-  const themeIcon = document.getElementById('summary-theme-icon');
-  const themeName = document.getElementById('summary-theme-name');
+  const themeIcon = document.getElementById("summary-theme-icon");
+  const themeName = document.getElementById("summary-theme-name");
   const engine = window.WishThemeEngine;
-  const preset = (engine && engine.presets && engine.presets[currentCustomData.theme])
-    ? engine.presets[currentCustomData.theme]
-    : (THEME_PRESETS[currentCustomData.theme] || { name: 'Magical', icon: '🪄' });
-
-  if (themeIcon) themeIcon.textContent = preset.icon || '🪄';
+  const preset = engine && engine.presets && engine.presets[currentCustomData.theme] ? engine.presets[currentCustomData.theme] : THEME_PRESETS[currentCustomData.theme] || { name: "Magical", icon: "\u{1FA84}" };
+  if (themeIcon) themeIcon.textContent = preset.icon || "\u{1FA84}";
   if (themeName) themeName.textContent = `${preset.name} Theme`;
-
-  const musicEl = document.getElementById('summary-music-status');
-  if (musicEl) musicEl.textContent = currentCustomData.music.enabled !== false ? currentCustomData.music.title : 'No background music';
-
-  const activeSecCount = (currentCustomData.sections || []).filter(s => s.enabled).length;
-  const sectionsEl = document.getElementById('summary-sections-count');
+  const musicEl = document.getElementById("summary-music-status");
+  if (musicEl) musicEl.textContent = currentCustomData.music.enabled !== false ? currentCustomData.music.title : "No background music";
+  const activeSecCount = (currentCustomData.sections || []).filter((s) => s.enabled).length;
+  const sectionsEl = document.getElementById("summary-sections-count");
   if (sectionsEl) sectionsEl.textContent = `${activeSecCount} interactive sections active`;
-
-  // Update VIP Perks status in Step 4
-  const vipPill = document.getElementById('vip-pass-status-pill');
+  const vipPill = document.getElementById("vip-pass-status-pill");
   const isPrem = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
   if (vipPill) {
     if (isPrem) {
-      vipPill.textContent = '👑 VIP PASS ACTIVE';
-      vipPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm';
+      vipPill.textContent = "\u{1F451} VIP PASS ACTIVE";
+      vipPill.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm";
     } else {
-      vipPill.textContent = 'FREE PLAN';
-      vipPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-900/70 text-purple-800 dark:text-purple-200';
+      vipPill.textContent = "FREE PLAN";
+      vipPill.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-900/70 text-purple-800 dark:text-purple-200";
     }
   }
-
-  const preserveToggle = document.getElementById('toggle-lifetime-preservation');
+  const preserveToggle = document.getElementById("toggle-lifetime-preservation");
   if (preserveToggle) {
     preserveToggle.checked = Boolean(currentCustomData.lifetimePreservation);
   }
-
-  const watermarkToggle = document.getElementById('toggle-remove-watermark');
+  const watermarkToggle = document.getElementById("toggle-remove-watermark");
   if (watermarkToggle) {
     watermarkToggle.checked = Boolean(currentCustomData.watermarkRemoved);
   }
-
-  // Initialize Smart Wish Link & Custom Slug Suggestions in Step 4
-  if (typeof window.initSmartWishLinkUI === 'function') {
+  if (typeof window.initSmartWishLinkUI === "function") {
     window.initSmartWishLinkUI();
   }
 }
-
-// -----------------------------------------------------------------------------
-// PART 11: PRESERVATION & WATERMARK CONTROLLERS
-// -----------------------------------------------------------------------------
 window.handlePreservationToggle = function(checked) {
-  const toggle = document.getElementById('toggle-lifetime-preservation');
+  const toggle = document.getElementById("toggle-lifetime-preservation");
   if (checked) {
     if (window.WishFeatureAccess) {
       const allowed = window.WishFeatureAccess.canKeepMemoryForever();
@@ -5132,13 +4512,13 @@ window.handlePreservationToggle = function(checked) {
         currentCustomData.lifetimePreservation = false;
         if (window.WishPremiumLock) {
           window.WishPremiumLock.open({
-            context: 'preservation',
+            context: "preservation",
             onUnlocked: () => {
               if (toggle) toggle.checked = true;
               currentCustomData.lifetimePreservation = true;
               renderStep4Summary();
               triggerAutosave();
-              showToast('♾️ Lifetime preservation enabled!');
+              showToast("\u267E\uFE0F Lifetime preservation enabled!");
             }
           });
         }
@@ -5146,16 +4526,15 @@ window.handlePreservationToggle = function(checked) {
       }
     }
     currentCustomData.lifetimePreservation = true;
-    showToast('♾️ Lifetime preservation enabled!');
+    showToast("\u267E\uFE0F Lifetime preservation enabled!");
   } else {
     currentCustomData.lifetimePreservation = false;
-    showToast('Lifetime preservation disabled');
+    showToast("Lifetime preservation disabled");
   }
   triggerAutosave();
 };
-
 window.handleWatermarkRemovalToggle = function(checked) {
-  const toggle = document.getElementById('toggle-remove-watermark');
+  const toggle = document.getElementById("toggle-remove-watermark");
   if (checked) {
     if (window.WishFeatureAccess) {
       const allowed = window.WishFeatureAccess.canRemoveWatermark();
@@ -5164,13 +4543,13 @@ window.handleWatermarkRemovalToggle = function(checked) {
         currentCustomData.watermarkRemoved = false;
         if (window.WishPremiumLock) {
           window.WishPremiumLock.open({
-            context: 'watermark',
+            context: "watermark",
             onUnlocked: () => {
               if (toggle) toggle.checked = true;
               currentCustomData.watermarkRemoved = true;
               renderStep4Summary();
               triggerAutosave();
-              showToast('✨ White-label enabled (Watermark removed)!');
+              showToast("\u2728 White-label enabled (Watermark removed)!");
             }
           });
         }
@@ -5178,89 +4557,75 @@ window.handleWatermarkRemovalToggle = function(checked) {
       }
     }
     currentCustomData.watermarkRemoved = true;
-    showToast('✨ White-label enabled (Watermark removed)!');
+    showToast("\u2728 White-label enabled (Watermark removed)!");
   } else {
     currentCustomData.watermarkRemoved = false;
-    showToast('Platform watermark restored');
+    showToast("Platform watermark restored");
   }
   triggerAutosave();
 };
-
-// -----------------------------------------------------------------------------
-// REAL-TIME SANDBOX HYDRATION & DOM INJECTION
-// -----------------------------------------------------------------------------
 const CUSTOMIZE_TEMPLATE_FOLDER_MAP = {
-  'tpl_glitter_birthday': 'tpl_glitter_birthday',
-  'glitter-birthday-blast': 'tpl_glitter_birthday',
-  'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
-  'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
-  'romantic-starlight': 'tpl_romantic_scrapbook',
-  'romantic-starlight-serenade': 'tpl_romantic_scrapbook',
-  'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
-  'starlit-romance-love-letter': 'tpl_romantic_scrapbook',
-  'tpl_golden_elegance': 'tpl_golden_anniversary',
-  'golden-elegance-anniversary': 'tpl_golden_anniversary',
-  'tpl_golden_anniversary': 'tpl_golden_anniversary',
-  'golden-memories-keepsake': 'tpl_golden_anniversary',
-  'tpl_neon_party': 'tpl_cosmic_aurora',
-  'neon-night-celebration': 'tpl_cosmic_aurora',
-  'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
-  'tpl_parents_tribute': 'tpl_parents_tribute',
-  'dearest-parents-tribute': 'tpl_parents_tribute',
-  'tpl_midnight_countdown': 'tpl_midnight_countdown',
-  'midnight-celebration-countdown': 'tpl_midnight_countdown',
-  'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
-  'forever-friends-funhouse': 'tpl_friendship_chronicles',
-  'tpl_festive_lights': 'tpl_golden_anniversary',
-  'royal-festival-celebration': 'tpl_golden_anniversary',
-  'tpl_test_full_sections': 'tpl_test_full_sections',
-  'tpl_test_minimal_sections': 'tpl_test_minimal_sections'
+  "tpl_glitter_birthday": "tpl_glitter_birthday",
+  "glitter-birthday-blast": "tpl_glitter_birthday",
+  "glitter-birthday-bash-3d": "tpl_glitter_birthday",
+  "tpl_romantic_starlight": "tpl_romantic_scrapbook",
+  "romantic-starlight": "tpl_romantic_scrapbook",
+  "romantic-starlight-serenade": "tpl_romantic_scrapbook",
+  "tpl_romantic_scrapbook": "tpl_romantic_scrapbook",
+  "starlit-romance-love-letter": "tpl_romantic_scrapbook",
+  "tpl_golden_elegance": "tpl_golden_anniversary",
+  "golden-elegance-anniversary": "tpl_golden_anniversary",
+  "tpl_golden_anniversary": "tpl_golden_anniversary",
+  "golden-memories-keepsake": "tpl_golden_anniversary",
+  "tpl_neon_party": "tpl_cosmic_aurora",
+  "neon-night-celebration": "tpl_cosmic_aurora",
+  "tpl_cosmic_aurora": "tpl_cosmic_aurora",
+  "tpl_parents_tribute": "tpl_parents_tribute",
+  "dearest-parents-tribute": "tpl_parents_tribute",
+  "tpl_midnight_countdown": "tpl_midnight_countdown",
+  "midnight-celebration-countdown": "tpl_midnight_countdown",
+  "tpl_friendship_chronicles": "tpl_friendship_chronicles",
+  "forever-friends-funhouse": "tpl_friendship_chronicles",
+  "tpl_festive_lights": "tpl_golden_anniversary",
+  "royal-festival-celebration": "tpl_golden_anniversary",
+  "tpl_test_full_sections": "tpl_test_full_sections",
+  "tpl_test_minimal_sections": "tpl_test_minimal_sections"
 };
-
 function resolveCanonicalCustomizeFolder(tpl) {
-  if (!tpl) return 'tpl_glitter_birthday';
-  const candidates = [tpl.id, tpl.slug, tpl.folder]
-    .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
-    .filter(Boolean);
+  if (!tpl) return "tpl_glitter_birthday";
+  const candidates = [tpl.id, tpl.slug, tpl.folder].map((v) => String(v || "").trim().replace(/^\/+/, "").replace(/^(?:templates-store|templates)\/+/, "").replace(/\/+$/, "")).filter(Boolean);
   for (const c of candidates) {
     const low = c.toLowerCase();
     if (CUSTOMIZE_TEMPLATE_FOLDER_MAP[low]) return CUSTOMIZE_TEMPLATE_FOLDER_MAP[low];
-    const prefixed = 'tpl_' + low.replace(/-/g, '_');
+    const prefixed = "tpl_" + low.replace(/-/g, "_");
     if (CUSTOMIZE_TEMPLATE_FOLDER_MAP[prefixed]) return CUSTOMIZE_TEMPLATE_FOLDER_MAP[prefixed];
   }
-  return candidates[0] || 'tpl_glitter_birthday';
+  return candidates[0] || "tpl_glitter_birthday";
 }
-
 function loadTemplateInSandbox() {
   if (!activeTemplate) return;
-
-  const container = document.getElementById('sandbox-iframe-container');
+  const container = document.getElementById("sandbox-iframe-container");
   if (!container) return;
-
   const cleanFolder = resolveCanonicalCustomizeFolder(activeTemplate);
   const selVar = activeTemplate.selectedVariant || null;
-  const entryFile = (selVar && selVar.entryFile) || activeTemplate.entryFile || activeTemplate.entry_file || 'index.html';
-  let templateEntryUrl = (activeTemplate.previewUrl && String(activeTemplate.previewUrl).includes('/versions/ver_'))
-    ? String(activeTemplate.previewUrl)
-    : `/templates-store/${cleanFolder}/${entryFile}`;
-
-  if (selVar && selVar.entryFile && templateEntryUrl.includes('/versions/ver_')) {
-    templateEntryUrl = templateEntryUrl.replace(/\/[^/?#]+(\?.*)?$/, '/' + selVar.entryFile);
+  const entryFile = selVar && selVar.entryFile || activeTemplate.entryFile || activeTemplate.entry_file || "index.html";
+  let templateEntryUrl = activeTemplate.previewUrl && String(activeTemplate.previewUrl).includes("/versions/ver_") ? String(activeTemplate.previewUrl) : `/templates-store/${cleanFolder}/${entryFile}`;
+  if (selVar && selVar.entryFile && templateEntryUrl.includes("/versions/ver_")) {
+    templateEntryUrl = templateEntryUrl.replace(/\/[^/?#]+(\?.*)?$/, "/" + selVar.entryFile);
   }
-  const relSlug = (selVar && (selVar.relationshipSlug || selVar.relationship)) || currentCustomData.relationship || '';
-  const declaredVarId = (selVar && (selVar.declaredId || selVar.declaredVariantId || (!String(selVar.id || '').startsWith('trv_') ? selVar.id : '') || selVar.slug)) || currentCustomData.declaredVariantId || currentCustomData.variantSlug || '';
+  const relSlug = selVar && (selVar.relationshipSlug || selVar.relationship) || currentCustomData.relationship || "";
+  const declaredVarId = selVar && (selVar.declaredId || selVar.declaredVariantId || (!String(selVar.id || "").startsWith("trv_") ? selVar.id : "") || selVar.slug) || currentCustomData.declaredVariantId || currentCustomData.variantSlug || "";
   if (relSlug || declaredVarId) {
     try {
       const u = new URL(templateEntryUrl, window.location.origin);
-      if (declaredVarId || relSlug) u.searchParams.set('variant', declaredVarId || relSlug);
-      if (relSlug) u.searchParams.set('rel', relSlug);
+      if (declaredVarId || relSlug) u.searchParams.set("variant", declaredVarId || relSlug);
+      if (relSlug) u.searchParams.set("rel", relSlug);
       templateEntryUrl = u.pathname + u.search;
     } catch (_) {
-      const cleanBase = templateEntryUrl.split('?')[0];
+      const cleanBase = templateEntryUrl.split("?")[0];
       templateEntryUrl = `${cleanBase}?variant=${encodeURIComponent(declaredVarId || relSlug)}&rel=${encodeURIComponent(relSlug)}`;
     }
   }
-
   container.innerHTML = `
     <div id="sandbox-loading-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-purple-950/80 backdrop-blur-sm text-white rounded-2xl transition-opacity duration-200 pointer-events-none" aria-live="polite">
       <div class="w-8 h-8 rounded-full border-2 border-pink-400 border-t-transparent animate-spin mb-2"></div>
@@ -5276,115 +4641,107 @@ function loadTemplateInSandbox() {
     </div>
     <iframe id="live-custom-iframe" src="${templateEntryUrl}" class="w-full h-full border-0 rounded-2xl flex-grow bg-white" title="Live Template Sandbox" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
   `;
-
-  const iframe = document.getElementById('live-custom-iframe');
-  const loadingOverlay = document.getElementById('sandbox-loading-overlay');
-  const errorOverlay = document.getElementById('sandbox-error-overlay');
-
-  if (typeof window.setDeviceViewport === 'function') {
-    window.setDeviceViewport(window._customizerViewportMode || (window.innerWidth >= 1024 ? 'desktop' : 'mobile'));
+  const iframe = document.getElementById("live-custom-iframe");
+  const loadingOverlay = document.getElementById("sandbox-loading-overlay");
+  const errorOverlay = document.getElementById("sandbox-error-overlay");
+  if (typeof window.setDeviceViewport === "function") {
+    window.setDeviceViewport(window._customizerViewportMode || (window.innerWidth >= 1024 ? "desktop" : "mobile"));
   }
-
   let loadResolved = false;
   const fallbackTimer = setTimeout(() => {
     if (!loadResolved && loadingOverlay) {
-      loadingOverlay.classList.add('opacity-0', 'hidden');
+      loadingOverlay.classList.add("opacity-0", "hidden");
     }
-  }, 6000);
-
+  }, 6e3);
   if (iframe) {
     iframe.onload = () => {
       loadResolved = true;
       clearTimeout(fallbackTimer);
-      if (loadingOverlay) loadingOverlay.classList.add('opacity-0', 'hidden');
-      if (errorOverlay) errorOverlay.classList.add('hidden');
+      if (loadingOverlay) loadingOverlay.classList.add("opacity-0", "hidden");
+      if (errorOverlay) errorOverlay.classList.add("hidden");
       syncDataToIframe();
     };
     iframe.onerror = () => {
       loadResolved = true;
       clearTimeout(fallbackTimer);
-      if (loadingOverlay) loadingOverlay.classList.add('opacity-0', 'hidden');
-      if (errorOverlay) errorOverlay.classList.remove('hidden');
+      if (loadingOverlay) loadingOverlay.classList.add("opacity-0", "hidden");
+      if (errorOverlay) errorOverlay.classList.remove("hidden");
     };
   }
 }
-
 function syncDataToIframe() {
-  const iframe = document.getElementById('live-custom-iframe');
+  const iframe = document.getElementById("live-custom-iframe");
   if (!iframe) return;
-
-  // 1. PostMessage Event Dispatch (including UTP v1.2.0 visibilityMap, disabledIds, and actions)
   const explicitHiddenSecs = Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : [];
   currentCustomData._hiddenSections = explicitHiddenSecs;
   currentCustomData.hiddenSections = explicitHiddenSecs;
-  const customerHiddenSecsList = Array.from(new Set([
+  const customerHiddenSecsList = Array.from(/* @__PURE__ */ new Set([
     ...explicitHiddenSecs,
-    ...((currentCustomData.sections || []).filter(s => s && s.id && s.enabled === false && s.id !== 'voice').map(s => s.id))
+    ...(currentCustomData.sections || []).filter((s) => s && s.id && s.enabled === false && s.id !== "voice").map((s) => s.id)
   ]));
   const customerHiddenFieldsList = Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : [];
   currentCustomData._hiddenFields = customerHiddenFieldsList;
   currentCustomData.hiddenFields = customerHiddenFieldsList;
-
-  const selVar = (activeTemplate && activeTemplate.selectedVariant) || null;
-  const declaredVarId = (selVar && (selVar.declaredId || selVar.declaredVariantId || (!String(selVar.id || '').startsWith('trv_') ? selVar.id : '') || selVar.slug)) || currentCustomData.declaredVariantId || currentCustomData.variantSlug || '';
-  const activeRelSlug = String(currentCustomData.relationship || (selVar && selVar.relationshipSlug) || '').toLowerCase().replace(/[\s-]+/g, '_');
-
+  const selVar = activeTemplate && activeTemplate.selectedVariant || null;
+  const declaredVarId = selVar && (selVar.declaredId || selVar.declaredVariantId || (!String(selVar.id || "").startsWith("trv_") ? selVar.id : "") || selVar.slug) || currentCustomData.declaredVariantId || currentCustomData.variantSlug || "";
+  const activeRelSlug = String(currentCustomData.relationship || selVar && selVar.relationshipSlug || "").toLowerCase().replace(/[\s-]+/g, "_");
   const livePayload = {
     ...currentCustomData,
     variant: declaredVarId || activeRelSlug,
     variantId: declaredVarId || currentCustomData.variantId || activeRelSlug,
     declaredVariantId: declaredVarId || activeRelSlug,
-    variantSlug: (selVar && selVar.slug) || currentCustomData.variantSlug || declaredVarId || activeRelSlug,
+    variantSlug: selVar && selVar.slug || currentCustomData.variantSlug || declaredVarId || activeRelSlug,
     relationship: activeRelSlug,
     relationshipSlug: activeRelSlug,
-    messages: (selVar && selVar.messages && typeof selVar.messages === 'object') ? selVar.messages : {},
-    assets: (selVar && selVar.assets && typeof selVar.assets === 'object') ? selVar.assets : {},
+    messages: selVar && selVar.messages && typeof selVar.messages === "object" ? selVar.messages : {},
+    assets: selVar && selVar.assets && typeof selVar.assets === "object" ? selVar.assets : {},
     _isLiveCustomizerPreview: true,
     _hiddenSections: customerHiddenSecsList,
     hiddenSections: customerHiddenSecsList,
     _hiddenFields: customerHiddenFieldsList,
     hiddenFields: customerHiddenFieldsList,
     templateId: activeTemplate ? activeTemplate.id : currentCustomData.templateId,
-    templateSlug: activeTemplate ? (activeTemplate.slug || activeTemplate.id) : currentCustomData.templateId,
-    visibilityMap: (activeTemplate && activeTemplate.visibilityMap) || {},
-    disabledIds: (activeTemplate && Array.isArray(activeTemplate.disabledIds)) ? activeTemplate.disabledIds : [],
-    actions: (selVar && Array.isArray(selVar.actions))
-      ? selVar.actions
-      : ((activeTemplate && Array.isArray(activeTemplate.actions)) ? activeTemplate.actions : [])
+    templateSlug: activeTemplate ? activeTemplate.slug || activeTemplate.id : currentCustomData.templateId,
+    visibilityMap: activeTemplate && activeTemplate.visibilityMap || {},
+    disabledIds: activeTemplate && Array.isArray(activeTemplate.disabledIds) ? activeTemplate.disabledIds : [],
+    actions: selVar && Array.isArray(selVar.actions) ? selVar.actions : activeTemplate && Array.isArray(activeTemplate.actions) ? activeTemplate.actions : []
   };
   if (iframe.contentWindow) {
     iframe.contentWindow.postMessage({
-      type: 'WISHMAGIC_LIVE_UPDATE',
+      type: "WISHMAGIC_LIVE_UPDATE",
       payload: livePayload
-    }, '*');
+    }, "*");
     iframe.contentWindow.postMessage({
-      type: 'WISHMAGIC_INIT',
+      type: "WISHMAGIC_INIT",
       payload: livePayload
-    }, '*');
+    }, "*");
   }
-
-  // 2. Direct DOM Hydration & CSS Variable Injection
   try {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     if (!doc) return;
-
-    const activeVarSlug = String(declaredVarId || currentCustomData.variantSlug || activeRelSlug || '');
+    const activeVarSlug = String(declaredVarId || currentCustomData.variantSlug || activeRelSlug || "");
     if (doc.documentElement) {
-      if (activeRelSlug) doc.documentElement.setAttribute('data-wm-relationship', activeRelSlug);
-      if (activeVarSlug) doc.documentElement.setAttribute('data-wm-variant', activeVarSlug);
+      if (activeRelSlug) doc.documentElement.setAttribute("data-wm-relationship", activeRelSlug);
+      if (activeVarSlug) doc.documentElement.setAttribute("data-wm-variant", activeVarSlug);
     }
     if (doc.body) {
-      if (activeRelSlug) doc.body.setAttribute('data-wm-relationship', activeRelSlug);
-      if (activeVarSlug) doc.body.setAttribute('data-wm-variant', activeVarSlug);
+      if (activeRelSlug) doc.body.setAttribute("data-wm-relationship", activeRelSlug);
+      if (activeVarSlug) doc.body.setAttribute("data-wm-variant", activeVarSlug);
     }
     if (iframe.contentWindow) {
-      if (iframe.contentWindow.WishMagicRuntime && typeof iframe.contentWindow.WishMagicRuntime.applyThemeVariant === 'function' && (activeVarSlug || activeRelSlug)) {
-        try { iframe.contentWindow.WishMagicRuntime.applyThemeVariant(activeVarSlug || activeRelSlug); } catch (_) {}
+      if (iframe.contentWindow.WishMagicRuntime && typeof iframe.contentWindow.WishMagicRuntime.applyThemeVariant === "function" && (activeVarSlug || activeRelSlug)) {
+        try {
+          iframe.contentWindow.WishMagicRuntime.applyThemeVariant(activeVarSlug || activeRelSlug);
+        } catch (_) {
+        }
         if (activeRelSlug && activeRelSlug !== activeVarSlug) {
-          try { iframe.contentWindow.WishMagicRuntime.applyThemeVariant(activeRelSlug); } catch (_) {}
+          try {
+            iframe.contentWindow.WishMagicRuntime.applyThemeVariant(activeRelSlug);
+          } catch (_) {
+          }
         }
       }
-      if (iframe.contentWindow.BroCodeTemplate && typeof iframe.contentWindow.BroCodeTemplate.applyData === 'function') {
+      if (iframe.contentWindow.BroCodeTemplate && typeof iframe.contentWindow.BroCodeTemplate.applyData === "function") {
         try {
           iframe.contentWindow.BroCodeTemplate.applyData({
             relationship: activeRelSlug,
@@ -5394,194 +4751,175 @@ function syncDataToIframe() {
             visibility: livePayload.visibilityMap,
             actions: livePayload.actions
           });
-        } catch (_) {}
+        } catch (_) {
+        }
       }
       if (activeRelSlug || activeVarSlug) {
-        const hookNames = ['setRelationship', 'setRelation', 'applyVariant', 'switchVariant', 'selectRelation', 'changeRelation', 'onRelationshipChange'];
+        const hookNames = ["setRelationship", "setRelation", "applyVariant", "switchVariant", "selectRelation", "changeRelation", "onRelationshipChange"];
         for (const fnName of hookNames) {
-          if (typeof iframe.contentWindow[fnName] === 'function') {
-            try { iframe.contentWindow[fnName](activeRelSlug || activeVarSlug, livePayload); } catch (_) {}
+          if (typeof iframe.contentWindow[fnName] === "function") {
+            try {
+              iframe.contentWindow[fnName](activeRelSlug || activeVarSlug, livePayload);
+            } catch (_) {
+            }
           }
         }
       }
     }
-
     const captureAndGetOrigText = (el, key) => {
-      if (!el.hasAttribute('data-wm-original-text')) {
-        el.setAttribute('data-wm-original-text', el.textContent || '');
+      if (!el.hasAttribute("data-wm-original-text")) {
+        el.setAttribute("data-wm-original-text", el.textContent || "");
       }
-      return templateDefaultValues[key] || el.getAttribute('data-wm-default') || el.getAttribute('data-wm-original-text') || '';
+      return templateDefaultValues[key] || el.getAttribute("data-wm-default") || el.getAttribute("data-wm-original-text") || "";
     };
-
-    // Recipient Name
-    doc.querySelectorAll('[data-wm="recipient_name"], [data-wm-field="recipient_name"]').forEach(el => {
-      const defText = captureAndGetOrigText(el, 'recipient_name');
-      const recVal = (currentCustomData.recipient_name || '').trim();
-      const relLabel = currentCustomData.relationshipLabel || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipLabel) || '';
-      el.textContent = recVal || templateDefaultValues.recipient_placeholder || (relLabel ? `My Dear ${relLabel}` : '') || defText || 'Someone Special';
+    doc.querySelectorAll('[data-wm="recipient_name"], [data-wm-field="recipient_name"]').forEach((el) => {
+      const defText = captureAndGetOrigText(el, "recipient_name");
+      const recVal = (currentCustomData.recipient_name || "").trim();
+      const relLabel = currentCustomData.relationshipLabel || activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipLabel || "";
+      el.textContent = recVal || templateDefaultValues.recipient_placeholder || (relLabel ? `My Dear ${relLabel}` : "") || defText || "Someone Special";
     });
-
-    // Sender Name
-    doc.querySelectorAll('[data-wm="sender_name"], [data-wm-field="sender_name"]').forEach(el => {
-      const defText = captureAndGetOrigText(el, 'sender_name');
-      const sndVal = (currentCustomData.sender_name || '').trim();
+    doc.querySelectorAll('[data-wm="sender_name"], [data-wm-field="sender_name"]').forEach((el) => {
+      const defText = captureAndGetOrigText(el, "sender_name");
+      const sndVal = (currentCustomData.sender_name || "").trim();
       if (sndVal) {
-        const origHasDash = (el.getAttribute('data-wm-original-text') || '').trim().startsWith('—');
-        el.textContent = origHasDash && !sndVal.startsWith('—') ? `— ${sndVal}` : sndVal;
+        const origHasDash = (el.getAttribute("data-wm-original-text") || "").trim().startsWith("\u2014");
+        el.textContent = origHasDash && !sndVal.startsWith("\u2014") ? `\u2014 ${sndVal}` : sndVal;
       } else {
-        el.textContent = templateDefaultValues.sender_placeholder || defText || '— Someone Special';
+        el.textContent = templateDefaultValues.sender_placeholder || defText || "\u2014 Someone Special";
       }
     });
-
-    // Event Date / DOB
-    doc.querySelectorAll('[data-wm="event_date"], [data-wm-field="event_date"], [data-wm="dob"], [data-wm-field="dob"], [data-wm="birth_date"], [data-wm-field="birth_date"]').forEach(el => {
-      const defText = captureAndGetOrigText(el, 'event_date');
-      const dtVal = (currentCustomData.event_date || '').trim();
-      el.textContent = dtVal || defText || 'Today';
+    doc.querySelectorAll('[data-wm="event_date"], [data-wm-field="event_date"], [data-wm="dob"], [data-wm-field="dob"], [data-wm="birth_date"], [data-wm-field="birth_date"]').forEach((el) => {
+      const defText = captureAndGetOrigText(el, "event_date");
+      const dtVal = (currentCustomData.event_date || "").trim();
+      el.textContent = dtVal || defText || "Today";
     });
-
-    // Custom Message (including data-wm-alias="custom_message")
-    doc.querySelectorAll('[data-wm="custom_message"], [data-wm-field="custom_message"], [data-wm-alias="custom_message"], [data-wm-alias~="custom_message"]').forEach(el => {
-      const fKeyAttr = el.getAttribute('data-wm-field') || 'custom_message';
+    doc.querySelectorAll('[data-wm="custom_message"], [data-wm-field="custom_message"], [data-wm-alias="custom_message"], [data-wm-alias~="custom_message"]').forEach((el) => {
+      const fKeyAttr = el.getAttribute("data-wm-field") || "custom_message";
       const defText = captureAndGetOrigText(el, fKeyAttr);
-      const msgVal = (currentCustomData.custom_message || currentCustomData[fKeyAttr] || '').trim();
-      el.textContent = msgVal || defText || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!';
+      const msgVal = (currentCustomData.custom_message || currentCustomData[fKeyAttr] || "").trim();
+      el.textContent = msgVal || defText || "May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!";
     });
-
-    // Variant headline / subtitle / section headings
-    ['hero_title', 'title', 'subtitle', 'hero_subtitle', 'main_message', 'gallery_heading', 'memory_heading', 'final_message', 'surprise_text'].forEach(vk => {
-      const vVal = (currentCustomData[vk] || templateDefaultValues[vk] || '').toString().trim();
+    ["hero_title", "title", "subtitle", "hero_subtitle", "main_message", "gallery_heading", "memory_heading", "final_message", "surprise_text"].forEach((vk) => {
+      const vVal = (currentCustomData[vk] || templateDefaultValues[vk] || "").toString().trim();
       if (vVal) {
-        doc.querySelectorAll(`[data-wm="${vk}"], [data-wm-field="${vk}"]`).forEach(el => {
-          if (!['IMG', 'INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) {
+        doc.querySelectorAll(`[data-wm="${vk}"], [data-wm-field="${vk}"]`).forEach((el) => {
+          if (!["IMG", "INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) {
             el.textContent = vVal;
           }
         });
       }
     });
-
     if (activeTemplate && activeTemplate.selectedVariant) {
-      const relLbl = activeTemplate.selectedVariant.relationshipLabel || activeTemplate.selectedVariant.label || '';
-      const relIco = activeTemplate.selectedVariant.icon || '✨';
+      const relLbl = activeTemplate.selectedVariant.relationshipLabel || activeTemplate.selectedVariant.label || "";
+      const relIco = activeTemplate.selectedVariant.icon || "\u2728";
       const badgeEl = doc.querySelector('.top-badge:not([data-wm-field]), [data-wm-role="relation-badge"]:not([data-wm-field])');
       if (badgeEl && relLbl) {
-        badgeEl.textContent = `${relIco} ${currentCustomData.subtitle || templateDefaultValues.subtitle || (relLbl + ' Special Edition')}`;
+        badgeEl.textContent = `${relIco} ${currentCustomData.subtitle || templateDefaultValues.subtitle || relLbl + " Special Edition"}`;
       }
     }
-
-    // Cover Photo & Photos (ImgBB links)
     const photos = currentCustomData.photos || [];
-    const activeCover = currentCustomData.cover_photo || (photos.length > 0 ? (photos[0].displayUrl || photos[0].url || photos[0].src) : '');
+    const activeCover = currentCustomData.cover_photo || (photos.length > 0 ? photos[0].displayUrl || photos[0].url || photos[0].src : "");
     if (activeCover) {
-      doc.querySelectorAll('[data-wm="photo_1"], [data-wm-field="photo_1"], [data-wm="cover_photo"], [data-wm-field="cover_photo"]').forEach(el => {
-        if (el.tagName === 'IMG') el.src = activeCover;
+      doc.querySelectorAll('[data-wm="photo_1"], [data-wm-field="photo_1"], [data-wm="cover_photo"], [data-wm-field="cover_photo"]').forEach((el) => {
+        if (el.tagName === "IMG") el.src = activeCover;
         else el.style.backgroundImage = `url("${activeCover}")`;
       });
     }
     photos.forEach((ph, idx) => {
       const photoUrl = ph && (ph.displayUrl || ph.url || ph.src);
       if (photoUrl) {
-        doc.querySelectorAll(`[data-wm="photo_${idx + 1}"], [data-wm-field="photo_${idx + 1}"]`).forEach(el => {
-          if (el.tagName === 'IMG') el.src = photoUrl;
+        doc.querySelectorAll(`[data-wm="photo_${idx + 1}"], [data-wm-field="photo_${idx + 1}"]`).forEach((el) => {
+          if (el.tagName === "IMG") el.src = photoUrl;
           else el.style.backgroundImage = `url("${photoUrl}")`;
         });
       }
     });
-
-    // Sync custom music / audio if updated
-    const activeMusicSrc = currentCustomData.background_music || (currentCustomData.media && currentCustomData.media.music && currentCustomData.media.music.src);
+    const activeMusicSrc = currentCustomData.background_music || currentCustomData.media && currentCustomData.media.music && currentCustomData.media.music.src;
     if (activeMusicSrc) {
-      doc.querySelectorAll('[data-wm="background_music"], [data-wm-field="background_music"]').forEach(el => {
-        if (el.tagName === 'AUDIO' && el.src !== activeMusicSrc) {
+      doc.querySelectorAll('[data-wm="background_music"], [data-wm-field="background_music"]').forEach((el) => {
+        if (el.tagName === "AUDIO" && el.src !== activeMusicSrc) {
           el.src = activeMusicSrc;
         }
       });
     }
-
-    // Detected & manifest custom fields sync (supports IMG, AUDIO, VIDEO, CSS variables, custom selectors, and text)
     const allTemplateFields = [
-      ...((activeTemplate && activeTemplate.manifest && Array.isArray(activeTemplate.manifest.fields)) ? activeTemplate.manifest.fields : []),
-      ...((activeTemplate && Array.isArray(activeTemplate.detectedFields)) ? activeTemplate.detectedFields : [])
+      ...activeTemplate && activeTemplate.manifest && Array.isArray(activeTemplate.manifest.fields) ? activeTemplate.manifest.fields : [],
+      ...activeTemplate && Array.isArray(activeTemplate.detectedFields) ? activeTemplate.detectedFields : []
     ];
     if (allTemplateFields.length > 0) {
-      allTemplateFields.forEach(f => {
+      allTemplateFields.forEach((f) => {
         const fKey = f.key || f.id;
         if (!fKey) return;
         f.key = fKey;
         const val = currentCustomData[f.key];
-        const fallbackDef = (templateDefaultValues[f.key] !== undefined && templateDefaultValues[f.key] !== null && String(templateDefaultValues[f.key]) !== '')
-          ? templateDefaultValues[f.key]
-          : ((f.defaultValue !== undefined && f.defaultValue !== null) ? f.defaultValue : '');
-        const effectiveVal = (val !== undefined && val !== null && String(val).trim() !== '') ? val : fallbackDef;
-        if (effectiveVal !== undefined && effectiveVal !== null && String(effectiveVal) !== '') {
-          const fTypeLower = String(f.type || 'text').toLowerCase();
-          if (fTypeLower === 'repeater' || fTypeLower === 'media_list' || Array.isArray(effectiveVal) || (typeof effectiveVal === 'object' && !effectiveVal.url && !effectiveVal.displayUrl && !effectiveVal.src)) {
-            if (iframe.contentWindow && iframe.contentWindow.WishMagicRuntime && typeof iframe.contentWindow.WishMagicRuntime.applyFieldUpdate === 'function') {
-              try { iframe.contentWindow.WishMagicRuntime.applyFieldUpdate(f.key, effectiveVal); } catch (_) {}
+        const fallbackDef = templateDefaultValues[f.key] !== void 0 && templateDefaultValues[f.key] !== null && String(templateDefaultValues[f.key]) !== "" ? templateDefaultValues[f.key] : f.defaultValue !== void 0 && f.defaultValue !== null ? f.defaultValue : "";
+        const effectiveVal = val !== void 0 && val !== null && String(val).trim() !== "" ? val : fallbackDef;
+        if (effectiveVal !== void 0 && effectiveVal !== null && String(effectiveVal) !== "") {
+          const fTypeLower = String(f.type || "text").toLowerCase();
+          if (fTypeLower === "repeater" || fTypeLower === "media_list" || Array.isArray(effectiveVal) || typeof effectiveVal === "object" && !effectiveVal.url && !effectiveVal.displayUrl && !effectiveVal.src) {
+            if (iframe.contentWindow && iframe.contentWindow.WishMagicRuntime && typeof iframe.contentWindow.WishMagicRuntime.applyFieldUpdate === "function") {
+              try {
+                iframe.contentWindow.WishMagicRuntime.applyFieldUpdate(f.key, effectiveVal);
+              } catch (_) {
+              }
             }
             return;
           }
-          doc.querySelectorAll(`[data-wm="${f.key}"], [data-wm-field="${f.key}"], [data-wm-alias="${f.key}"]`).forEach(el => {
-            if (!el.hasAttribute('data-wm-original-text') && !['IMG', 'AUDIO', 'VIDEO', 'INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName)) {
-              el.setAttribute('data-wm-original-text', el.textContent || '');
+          doc.querySelectorAll(`[data-wm="${f.key}"], [data-wm-field="${f.key}"], [data-wm-alias="${f.key}"]`).forEach((el) => {
+            if (!el.hasAttribute("data-wm-original-text") && !["IMG", "AUDIO", "VIDEO", "INPUT", "SELECT", "TEXTAREA"].includes(el.tagName)) {
+              el.setAttribute("data-wm-original-text", el.textContent || "");
             }
-            if (el.tagName === 'IMG') {
+            if (el.tagName === "IMG") {
               el.src = effectiveVal;
-            } else if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
+            } else if (el.tagName === "AUDIO" || el.tagName === "VIDEO") {
               if (el.src !== effectiveVal) {
                 el.src = effectiveVal;
-                const srcChild = el.querySelector('source');
+                const srcChild = el.querySelector("source");
                 if (srcChild) srcChild.src = effectiveVal;
-                try { el.load(); } catch (_) {}
+                try {
+                  el.load();
+                } catch (_) {
+                }
               }
-            } else if (el.tagName === 'INPUT') {
-              if (el.type === 'checkbox') el.checked = Boolean(effectiveVal && effectiveVal !== 'false');
-              else if (el.type !== 'file') el.value = String(effectiveVal);
-            } else if (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+            } else if (el.tagName === "INPUT") {
+              if (el.type === "checkbox") el.checked = Boolean(effectiveVal && effectiveVal !== "false");
+              else if (el.type !== "file") el.value = String(effectiveVal);
+            } else if (el.tagName === "SELECT" || el.tagName === "TEXTAREA") {
               el.value = String(effectiveVal);
-            } else if (f.key === 'sender_name') {
-              const origHasDash = (el.getAttribute('data-wm-original-text') || '').trim().startsWith('—');
-              el.textContent = origHasDash && !String(effectiveVal).startsWith('—') ? `— ${effectiveVal}` : effectiveVal;
+            } else if (f.key === "sender_name") {
+              const origHasDash = (el.getAttribute("data-wm-original-text") || "").trim().startsWith("\u2014");
+              el.textContent = origHasDash && !String(effectiveVal).startsWith("\u2014") ? `\u2014 ${effectiveVal}` : effectiveVal;
             } else {
               el.textContent = effectiveVal;
             }
           });
           if (iframe.contentWindow && iframe.contentWindow.WishMagicRuntime) {
             try {
-              if (f.key === 'theme_variant' && typeof iframe.contentWindow.WishMagicRuntime.applyThemeVariant === 'function') {
+              if (f.key === "theme_variant" && typeof iframe.contentWindow.WishMagicRuntime.applyThemeVariant === "function") {
                 iframe.contentWindow.WishMagicRuntime.applyThemeVariant(String(effectiveVal));
-              } else if (typeof iframe.contentWindow.WishMagicRuntime.applyFieldUpdate === 'function') {
+              } else if (typeof iframe.contentWindow.WishMagicRuntime.applyFieldUpdate === "function") {
                 iframe.contentWindow.WishMagicRuntime.applyFieldUpdate(f.key, effectiveVal);
               }
-            } catch (_) {}
+            } catch (_) {
+            }
           }
         }
       });
     }
-
-    // Hydrate Part 5 Media System (Gallery Layout, Voice Note Dedication widget, Music Indicator)
     if (window.WishMediaSystem) {
       const normalizedMedia = window.WishMediaSystem.normalizeMediaState(currentCustomData);
       window.WishMediaSystem.hydrateTemplateMedia(doc, normalizedMedia);
     }
-
-    // Inject Theme Engine CSS Tokens, Typography, Buttons, Cards, Atmosphere & Particles
     if (window.WishThemeEngine) {
       const activeTheme = getActiveThemeConfig();
       window.WishThemeEngine.applyThemeToDocument(doc, activeTheme);
     }
-
-    // Physically remove admin-disabled sections/subsections and apply actions in iframe DOM (UTP v1.2.0)
-    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.removeDisabledContentFromDom === 'function') {
+    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.removeDisabledContentFromDom === "function") {
       window.WishMagicTemplate.removeDisabledContentFromDom(doc, livePayload);
     }
-    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === 'function') {
+    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === "function") {
       window.WishMagicTemplate.applyActionsToDom(doc, livePayload.actions, livePayload);
     }
-
-    // Customer-toggled sections, subsections, and photo slots are handled with full restore support by WishMagicTemplate.removeDisabledContentFromDom above
-
-    // Dispatch wishmagic:data-updated custom event inside iframe so countdowns/galleries react live
     try {
       if (iframe.contentWindow) {
         iframe.contentWindow.WishMagicData = currentCustomData;
@@ -5589,74 +4927,68 @@ function syncDataToIframe() {
         iframe.contentWindow.dispatchEvent(liveEvt);
         doc.dispatchEvent(liveEvt);
       }
-    } catch (_) {}
-
-    // Inject Dynamic Styles for Themes, Colors, Fonts, & Section Visibility
+    } catch (_) {
+    }
     injectCustomStylesToIframe(doc);
-
-    // Part 13: Live Animation & Particle Engine Sync inside Preview Document
-    if (window.WishAnimationEngine && typeof window.WishAnimationEngine.init === 'function') {
+    if (window.WishAnimationEngine && typeof window.WishAnimationEngine.init === "function") {
       const activeTheme = getActiveThemeConfig();
       const animConfig = {
-        entrance: currentCustomData.entranceAnimation || (activeTheme.effects && activeTheme.effects.entrance) || 'fade-up',
-        sectionTransition: currentCustomData.sectionTransition || (activeTheme.effects && activeTheme.effects.sectionTransition) || 'slide',
-        textReveal: currentCustomData.textReveal || (activeTheme.effects && activeTheme.effects.textReveal) || 'fade',
-        imageReveal: currentCustomData.imageReveal || (activeTheme.effects && activeTheme.effects.imageReveal) || 'fade',
-        particleType: (currentCustomData.effects && currentCustomData.effects.particleType) || 'sparkles',
-        intensity: (currentCustomData.effects && currentCustomData.effects.intensity) || 'soft',
-        primaryColor: currentCustomData.colors.primary || '#ec4899',
-        accentColor: currentCustomData.colors.accent || '#fbbf24',
-        secondaryColor: currentCustomData.colors.secondary || '#8b5cf6',
+        entrance: currentCustomData.entranceAnimation || activeTheme.effects && activeTheme.effects.entrance || "fade-up",
+        sectionTransition: currentCustomData.sectionTransition || activeTheme.effects && activeTheme.effects.sectionTransition || "slide",
+        textReveal: currentCustomData.textReveal || activeTheme.effects && activeTheme.effects.textReveal || "fade",
+        imageReveal: currentCustomData.imageReveal || activeTheme.effects && activeTheme.effects.imageReveal || "fade",
+        particleType: currentCustomData.effects && currentCustomData.effects.particleType || "sparkles",
+        intensity: currentCustomData.effects && currentCustomData.effects.intensity || "soft",
+        primaryColor: currentCustomData.colors.primary || "#ec4899",
+        accentColor: currentCustomData.colors.accent || "#fbbf24",
+        secondaryColor: currentCustomData.colors.secondary || "#8b5cf6",
         interactiveBursts: currentCustomData.interactiveBursts !== false
       };
       window.WishAnimationEngine.init(doc, animConfig);
     }
-
   } catch (e) {
-    // Cross-origin fallback handled by postMessage
   }
 }
-
 function injectCustomStylesToIframe(doc) {
-  let styleEl = doc.getElementById('wishmagic-injected-style');
+  let styleEl = doc.getElementById("wishmagic-injected-style");
   if (!styleEl) {
-    styleEl = doc.createElement('style');
-    styleEl.id = 'wishmagic-injected-style';
+    styleEl = doc.createElement("style");
+    styleEl.id = "wishmagic-injected-style";
     doc.head.appendChild(styleEl);
   }
-
-  const primaryCol = currentCustomData.colors.primary || '#ec4899';
-  const secondaryCol = currentCustomData.colors.secondary || '#8b5cf6';
-
-  let fontCSS = '';
-  if (currentCustomData.font === 'elegant') {
+  const primaryCol = currentCustomData.colors.primary || "#ec4899";
+  const secondaryCol = currentCustomData.colors.secondary || "#8b5cf6";
+  let fontCSS = "";
+  if (currentCustomData.font === "elegant") {
     fontCSS = `font-family: 'Playfair Display', serif !important;`;
-  } else if (currentCustomData.font === 'romantic') {
+  } else if (currentCustomData.font === "romantic") {
     fontCSS = `font-family: 'Playfair Display', serif !important; font-style: italic !important;`;
-  } else if (currentCustomData.font === 'playful') {
+  } else if (currentCustomData.font === "playful") {
     fontCSS = `font-family: 'Plus Jakarta Sans', sans-serif !important;`;
   } else {
     fontCSS = `font-family: 'Outfit', sans-serif !important;`;
   }
-
-  // Section Hide / Show Rules
-  let sectionCSS = '';
-  (currentCustomData.sections || []).forEach(sec => {
+  let sectionCSS = "";
+  (currentCustomData.sections || []).forEach((sec) => {
     if (!sec.enabled) {
-      if (sec.id === 'hero') {
-        sectionCSS += `#cake-interactive, #sealed-state, .hero-section, #clock-hours { display: none !important; }\n`;
-      } else if (sec.id === 'message') {
-        sectionCSS += `[data-wm="custom_message"], .message-card, #revealed-state { display: none !important; }\n`;
-      } else if (sec.id === 'gallery') {
-        sectionCSS += `[data-wm="photo_1"], .memory-card, .photo-box { display: none !important; }\n`;
-      } else if (sec.id === 'countdown') {
-        sectionCSS += `#clock-hours, .countdown-wrapper { display: none !important; }\n`;
-      } else if (sec.id === 'finale') {
-        sectionCSS += `#screen-confetti-layer, #confetti-layer { display: none !important; }\n`;
+      if (sec.id === "hero") {
+        sectionCSS += `#cake-interactive, #sealed-state, .hero-section, #clock-hours { display: none !important; }
+`;
+      } else if (sec.id === "message") {
+        sectionCSS += `[data-wm="custom_message"], .message-card, #revealed-state { display: none !important; }
+`;
+      } else if (sec.id === "gallery") {
+        sectionCSS += `[data-wm="photo_1"], .memory-card, .photo-box { display: none !important; }
+`;
+      } else if (sec.id === "countdown") {
+        sectionCSS += `#clock-hours, .countdown-wrapper { display: none !important; }
+`;
+      } else if (sec.id === "finale") {
+        sectionCSS += `#screen-confetti-layer, #confetti-layer { display: none !important; }
+`;
       }
     }
   });
-
   styleEl.textContent = `
     :root {
       --wm-primary: ${primaryCol};
@@ -5674,274 +5006,241 @@ function injectCustomStylesToIframe(doc) {
     ${sectionCSS}
   `;
 }
-
-// -----------------------------------------------------------------------------
-// RESPONSIVE VIEWPORT CONTROLS
-// -----------------------------------------------------------------------------
-window._customizerViewportMode = 'desktop';
+window._customizerViewportMode = "desktop";
 window.setDeviceViewport = function(mode) {
   window._customizerViewportMode = mode;
-  const frame = document.getElementById('sandbox-device-frame');
-  const iframeContainer = document.getElementById('sandbox-iframe-container');
-  const iframe = document.getElementById('live-custom-iframe');
-  const btnD = document.getElementById('btn-view-desktop');
-  const btnT = document.getElementById('btn-view-tablet');
-  const btnM = document.getElementById('btn-view-mobile');
-  const notch = document.getElementById('device-frame-notch');
-  const browserBar = document.getElementById('device-frame-browserbar');
-
-  [btnD, btnT, btnM].forEach(b => {
+  const frame = document.getElementById("sandbox-device-frame");
+  const iframeContainer = document.getElementById("sandbox-iframe-container");
+  const iframe = document.getElementById("live-custom-iframe");
+  const btnD = document.getElementById("btn-view-desktop");
+  const btnT = document.getElementById("btn-view-tablet");
+  const btnM = document.getElementById("btn-view-mobile");
+  const notch = document.getElementById("device-frame-notch");
+  const browserBar = document.getElementById("device-frame-browserbar");
+  [btnD, btnT, btnM].forEach((b) => {
     if (b) {
-      b.classList.remove('bg-purple-700', 'text-white', 'font-bold');
-      b.classList.add('text-purple-700', 'dark:text-purple-300');
+      b.classList.remove("bg-purple-700", "text-white", "font-bold");
+      b.classList.add("text-purple-700", "dark:text-purple-300");
     }
   });
-
   if (!frame) return;
-
-  if (mode === 'desktop') {
-    frame.style.maxWidth = '100%';
-    frame.style.borderRadius = '20px';
+  if (mode === "desktop") {
+    frame.style.maxWidth = "100%";
+    frame.style.borderRadius = "20px";
     if (btnD) {
-      btnD.classList.add('bg-purple-700', 'text-white', 'font-bold');
-      btnD.classList.remove('text-purple-700', 'dark:text-purple-300');
+      btnD.classList.add("bg-purple-700", "text-white", "font-bold");
+      btnD.classList.remove("text-purple-700", "dark:text-purple-300");
     }
-    if (notch) notch.classList.add('hidden');
-    if (browserBar) browserBar.classList.remove('hidden');
+    if (notch) notch.classList.add("hidden");
+    if (browserBar) browserBar.classList.remove("hidden");
     requestAnimationFrame(() => {
-      const availW = Math.max(260, (iframeContainer ? iframeContainer.clientWidth : (frame.clientWidth - 16)));
+      const availW = Math.max(260, iframeContainer ? iframeContainer.clientWidth : frame.clientWidth - 16);
       const DESKTOP_W = 1280;
       const DESKTOP_H = 800;
       const scale = Math.min(1, availW / DESKTOP_W);
       const scaledH = Math.round(DESKTOP_H * scale);
-      frame.style.height = (scaledH + 52) + 'px';
+      frame.style.height = scaledH + 52 + "px";
       if (iframe) {
-        iframe.style.width = DESKTOP_W + 'px';
-        iframe.style.height = DESKTOP_H + 'px';
+        iframe.style.width = DESKTOP_W + "px";
+        iframe.style.height = DESKTOP_H + "px";
         iframe.style.transform = `scale(${scale.toFixed(4)})`;
-        iframe.style.transformOrigin = 'top left';
+        iframe.style.transformOrigin = "top left";
       }
     });
-  } else if (mode === 'tablet') {
-    frame.style.maxWidth = '580px';
-    frame.style.borderRadius = '28px';
+  } else if (mode === "tablet") {
+    frame.style.maxWidth = "580px";
+    frame.style.borderRadius = "28px";
     if (btnT) {
-      btnT.classList.add('bg-purple-700', 'text-white', 'font-bold');
-      btnT.classList.remove('text-purple-700', 'dark:text-purple-300');
+      btnT.classList.add("bg-purple-700", "text-white", "font-bold");
+      btnT.classList.remove("text-purple-700", "dark:text-purple-300");
     }
-    if (notch) notch.classList.add('hidden');
-    if (browserBar) browserBar.classList.remove('hidden');
+    if (notch) notch.classList.add("hidden");
+    if (browserBar) browserBar.classList.remove("hidden");
     requestAnimationFrame(() => {
-      const availW = Math.max(260, (iframeContainer ? iframeContainer.clientWidth : (frame.clientWidth - 16)));
+      const availW = Math.max(260, iframeContainer ? iframeContainer.clientWidth : frame.clientWidth - 16);
       const TABLET_W = 768;
       const TABLET_H = 900;
       const scale = Math.min(1, availW / TABLET_W);
       const scaledH = Math.round(TABLET_H * scale);
-      frame.style.height = (scaledH + 52) + 'px';
+      frame.style.height = scaledH + 52 + "px";
       if (iframe) {
-        iframe.style.width = TABLET_W + 'px';
-        iframe.style.height = TABLET_H + 'px';
+        iframe.style.width = TABLET_W + "px";
+        iframe.style.height = TABLET_H + "px";
         iframe.style.transform = `scale(${scale.toFixed(4)})`;
-        iframe.style.transformOrigin = 'top left';
+        iframe.style.transformOrigin = "top left";
       }
     });
   } else {
-    // Mobile
     const isSmallScreen = window.innerWidth < 640;
-    frame.style.maxWidth = '375px';
-    frame.style.height = isSmallScreen ? '580px' : '660px';
-    frame.style.borderRadius = '32px';
+    frame.style.maxWidth = "375px";
+    frame.style.height = isSmallScreen ? "580px" : "660px";
+    frame.style.borderRadius = "32px";
     if (btnM) {
-      btnM.classList.add('bg-purple-700', 'text-white', 'font-bold');
-      btnM.classList.remove('text-purple-700', 'dark:text-purple-300');
+      btnM.classList.add("bg-purple-700", "text-white", "font-bold");
+      btnM.classList.remove("text-purple-700", "dark:text-purple-300");
     }
-    if (notch) notch.classList.remove('hidden');
-    if (browserBar) browserBar.classList.add('hidden');
+    if (notch) notch.classList.remove("hidden");
+    if (browserBar) browserBar.classList.add("hidden");
     if (iframe) {
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.transform = 'none';
-      iframe.style.transformOrigin = 'top left';
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.transform = "none";
+      iframe.style.transformOrigin = "top left";
     }
   }
 };
-window.addEventListener('resize', () => {
-  if (window._customizerViewportMode === 'desktop' || window._customizerViewportMode === 'tablet') {
+window.addEventListener("resize", () => {
+  if (window._customizerViewportMode === "desktop" || window._customizerViewportMode === "tablet") {
     window.setDeviceViewport(window._customizerViewportMode);
   }
 });
-
 window.reloadSandboxIframe = function() {
-  const iframe = document.getElementById('live-custom-iframe');
+  const iframe = document.getElementById("live-custom-iframe");
   if (iframe) {
     const src = iframe.src;
-    iframe.src = 'about:blank';
+    iframe.src = "about:blank";
     setTimeout(() => {
       iframe.src = src;
-      showToast('Sandbox refreshed ✨');
+      showToast("Sandbox refreshed \u2728");
     }, 150);
   }
 };
-
-// -----------------------------------------------------------------------------
-// AUTOSAVE & DRAFT SYSTEM (Stage 5 Concurrency & Truthful Status Tracking)
-// -----------------------------------------------------------------------------
 function triggerAutosave() {
   currentCustomizerRevision++;
-  updateSaveIndicatorStatus('unsaved');
-
+  updateSaveIndicatorStatus("unsaved");
   if (autosaveTimeout) clearTimeout(autosaveTimeout);
   autosaveTimeout = setTimeout(() => {
     saveDraftLocally();
   }, 400);
 }
-
-function updateSaveIndicatorStatus(state, extraInfo = '') {
-  const indicator = document.getElementById('autosave-indicator');
+function updateSaveIndicatorStatus(state, extraInfo = "") {
+  const indicator = document.getElementById("autosave-indicator");
   if (!indicator) return;
-
   switch (state) {
-    case 'saving':
+    case "saving":
       indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span class="text-xs text-amber-300">Saving changes...</span>`;
       break;
-    case 'saved':
-      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-300">All changes saved ✨</span>`;
+    case "saved":
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-300">All changes saved \u2728</span>`;
       break;
-    case 'saved_local':
+    case "saved_local":
       indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-300">Draft saved locally</span>`;
       break;
-    case 'unsaved':
+    case "unsaved":
       indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-pink-400 animate-pulse"></span><span class="text-xs text-pink-300">Unsaved edits</span>`;
       break;
-    case 'conflict':
+    case "conflict":
       indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span><span class="text-xs text-amber-200 font-bold">Conflict detected</span>`;
       break;
-    case 'error':
-      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-xs text-rose-300">${extraInfo || 'Save error (retained locally)'}</span>`;
+    case "error":
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-xs text-rose-300">${extraInfo || "Save error (retained locally)"}</span>`;
       break;
     default:
       indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-purple-400/50"></span><span class="text-xs text-purple-200/70">Ready</span>`;
   }
 }
-
 window.saveDraftLocally = async function(isManualSave = false) {
   if (!activeTemplate) return false;
-
   const targetRevision = currentCustomizerRevision;
   const draftKey = getLocalDraftStorageKey(activeTemplate);
-
   try {
-    // 1. Immediately ensure reliable local fallback preservation (variant-scoped + base fallback)
     localStorage.setItem(draftKey, JSON.stringify(currentCustomData));
     if (!activeTemplate.selectedVariant) {
       localStorage.setItem(`wishmagic_draft_${activeTemplate.id}`, JSON.stringify(currentCustomData));
     }
-
-    // Also update unified drafts collection for My Wishes Creator Dashboard
     let drafts = [];
     try {
-      drafts = JSON.parse(localStorage.getItem('wishmagic_drafts') || '[]');
+      drafts = JSON.parse(localStorage.getItem("wishmagic_drafts") || "[]");
       if (!Array.isArray(drafts)) drafts = [];
     } catch (e) {
       drafts = [];
     }
-
-    const draftId = currentEditingWishId ? ('draft_' + currentEditingWishId) : ('draft_' + activeTemplate.id);
-    const currentUserId = (window.WishAuth && window.WishAuth.getCurrentUser()?.id) || 'guest';
-    const existingIdx = drafts.findIndex(d => (d.id === draftId || d.templateId === activeTemplate.id) && (d.userId === currentUserId || !d.userId));
+    const draftId = currentEditingWishId ? "draft_" + currentEditingWishId : "draft_" + activeTemplate.id;
+    const currentUserId = window.WishAuth && window.WishAuth.getCurrentUser()?.id || "guest";
+    const existingIdx = drafts.findIndex((d) => (d.id === draftId || d.templateId === activeTemplate.id) && (d.userId === currentUserId || !d.userId));
     const draftRecord = {
       id: draftId,
       wishId: currentEditingWishId || null,
       userId: currentUserId,
       templateId: activeTemplate.id,
-      templateName: activeTemplate.name || 'Personalized Celebration',
-      category: activeTemplate.category || 'Birthday',
-      tier: activeTemplate.tier || 'free',
+      templateName: activeTemplate.name || "Personalized Celebration",
+      category: activeTemplate.category || "Birthday",
+      tier: activeTemplate.tier || "free",
       price: activeTemplate.price || 0,
-      recipientName: currentCustomData.recipient_name || 'Special Person',
-      senderName: currentCustomData.sender_name || 'Creator',
-      eventDate: currentCustomData.event_date || new Date().toISOString().split('T')[0],
-      coverPhoto: currentCustomData.cover_photo || (currentCustomData.photos && currentCustomData.photos[0] && currentCustomData.photos[0].src) || activeTemplate.thumbnail || '',
+      recipientName: currentCustomData.recipient_name || "Special Person",
+      senderName: currentCustomData.sender_name || "Creator",
+      eventDate: currentCustomData.event_date || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+      coverPhoto: currentCustomData.cover_photo || currentCustomData.photos && currentCustomData.photos[0] && currentCustomData.photos[0].src || activeTemplate.thumbnail || "",
       customData: JSON.parse(JSON.stringify(currentCustomData)),
-      updatedAt: new Date().toISOString(),
-      status: 'draft',
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      status: "draft",
       isDraft: true
     };
-
     if (existingIdx >= 0) {
       drafts[existingIdx] = draftRecord;
     } else {
       drafts.unshift(draftRecord);
     }
-    localStorage.setItem('wishmagic_drafts', JSON.stringify(drafts));
-
-    // 2. Prevent overlapping network requests
+    localStorage.setItem("wishmagic_drafts", JSON.stringify(drafts));
     if (isSaveInProgress) {
       pendingSaveAfterInFlight = true;
       return true;
     }
-
-    // 3. Persist draft to Server D1 when authenticated (Part 26 & Stage 5)
     let serverSaveFailed = false;
     const authUser = window.WishAuth && window.WishAuth.getCurrentUser();
-    if (authUser && authUser.id && authUser.id !== 'guest') {
+    if (authUser && authUser.id && authUser.id !== "guest") {
       isSaveInProgress = true;
-      updateSaveIndicatorStatus('saving');
-
+      updateSaveIndicatorStatus("saving");
       const headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        "Accept": "application/json"
       };
       const session = window.WishAuth.getSession();
       if (session && session.token) {
-        headers['Authorization'] = `Bearer ${session.token}`;
+        headers["Authorization"] = `Bearer ${session.token}`;
       }
-
       try {
         if (currentEditingWishId) {
           const res = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, {
-            method: 'PUT',
+            method: "PUT",
             headers,
-            credentials: 'include',
+            credentials: "include",
             body: JSON.stringify({
-              status: 'draft',
+              status: "draft",
               isDraft: true,
               lockVersion: currentLockVersion,
-              recipientName: currentCustomData.recipient_name || 'Special Person',
-              eventDate: currentCustomData.event_date || new Date().toISOString().split('T')[0],
+              recipientName: currentCustomData.recipient_name || "Special Person",
+              eventDate: currentCustomData.event_date || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
               customData: currentCustomData
             })
           });
-
           const data = await res.json().catch(() => ({}));
-          if (res.status === 409 || (data && data.error && data.error.code === 'CONCURRENCY_CONFLICT')) {
-            updateSaveIndicatorStatus('conflict');
+          if (res.status === 409 || data && data.error && data.error.code === "CONCURRENCY_CONFLICT") {
+            updateSaveIndicatorStatus("conflict");
             handleDraftConcurrencyConflict(data);
             return false;
           }
-
           if (data && data.success) {
             if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
             else currentLockVersion = (currentLockVersion || 1) + 1;
-
             if (targetRevision >= currentCustomizerRevision) {
               lastSavedRevision = targetRevision;
-              updateSaveIndicatorStatus('saved');
+              updateSaveIndicatorStatus("saved");
             } else {
-              updateSaveIndicatorStatus('unsaved');
+              updateSaveIndicatorStatus("unsaved");
             }
           } else {
             serverSaveFailed = true;
-            updateSaveIndicatorStatus('error', (data && data.message) || 'Save failed');
+            updateSaveIndicatorStatus("error", data && data.message || "Save failed");
           }
         } else {
-          const res = await fetch('/api/wishes', {
-            method: 'POST',
+          const res = await fetch("/api/wishes", {
+            method: "POST",
             headers,
-            credentials: 'include',
+            credentials: "include",
             body: JSON.stringify({
               templateId: activeTemplate.id,
-              status: 'draft',
+              status: "draft",
               isDraft: true,
               customData: {
                 ...currentCustomData,
@@ -5949,28 +5248,26 @@ window.saveDraftLocally = async function(isManualSave = false) {
               }
             })
           });
-
           const data = await res.json().catch(() => ({}));
           if (data && data.success && data.wishId) {
             currentEditingWishId = data.wishId;
             if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
-
             if (targetRevision >= currentCustomizerRevision) {
               lastSavedRevision = targetRevision;
-              updateSaveIndicatorStatus('saved');
+              updateSaveIndicatorStatus("saved");
             } else {
-              updateSaveIndicatorStatus('unsaved');
+              updateSaveIndicatorStatus("unsaved");
             }
           } else {
             serverSaveFailed = true;
-            updateSaveIndicatorStatus('error', (data && data.message) || 'Draft creation failed');
+            updateSaveIndicatorStatus("error", data && data.message || "Draft creation failed");
           }
         }
       } catch (netErr) {
-        console.warn('[Autosave Network Error]', netErr);
-        updateSaveIndicatorStatus('error', 'Network error (retained locally)');
+        console.warn("[Autosave Network Error]", netErr);
+        updateSaveIndicatorStatus("error", "Network error (retained locally)");
         if (isManualSave) {
-          showToast('⚠️ Saved on this device, but cloud sync failed. Will retry automatically.');
+          showToast("\u26A0\uFE0F Saved on this device, but cloud sync failed. Will retry automatically.");
         }
         return false;
       } finally {
@@ -5981,44 +5278,39 @@ window.saveDraftLocally = async function(isManualSave = false) {
         }
       }
     } else {
-      // Guest mode
       lastSavedRevision = targetRevision;
-      updateSaveIndicatorStatus('saved_local');
+      updateSaveIndicatorStatus("saved_local");
     }
-
     if (isManualSave) {
       if (serverSaveFailed) {
-        showToast('⚠️ Saved locally on this device, but cloud sync failed.');
+        showToast("\u26A0\uFE0F Saved locally on this device, but cloud sync failed.");
         return false;
       }
-      showToast('💾 Draft saved successfully!');
+      showToast("\u{1F4BE} Draft saved successfully!");
     }
     return !serverSaveFailed;
   } catch (e) {
-    console.warn('Error saving local draft:', e);
-    updateSaveIndicatorStatus('error', 'Local storage error');
+    console.warn("Error saving local draft:", e);
+    updateSaveIndicatorStatus("error", "Local storage error");
     return false;
   }
 };
-
 function handleDraftConcurrencyConflict(conflictData) {
-  const indicator = document.getElementById('autosave-indicator');
+  const indicator = document.getElementById("autosave-indicator");
   if (indicator) {
     indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span class="text-amber-700 dark:text-amber-300 font-bold">Draft Conflict Detected</span>`;
   }
-
-  let conflictBanner = document.getElementById('draft-concurrency-conflict-banner');
+  let conflictBanner = document.getElementById("draft-concurrency-conflict-banner");
   if (!conflictBanner) {
-    conflictBanner = document.createElement('div');
-    conflictBanner.id = 'draft-concurrency-conflict-banner';
-    conflictBanner.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] p-4 rounded-2xl bg-amber-600/95 text-white shadow-2xl backdrop-blur-xl border border-amber-300 flex flex-col gap-2 transition-all';
+    conflictBanner = document.createElement("div");
+    conflictBanner.id = "draft-concurrency-conflict-banner";
+    conflictBanner.className = "fixed bottom-20 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] p-4 rounded-2xl bg-amber-600/95 text-white shadow-2xl backdrop-blur-xl border border-amber-300 flex flex-col gap-2 transition-all";
     document.body.appendChild(conflictBanner);
   }
-
-  const remoteVer = (conflictData && conflictData.currentLockVersion) || 'newer';
+  const remoteVer = conflictData && conflictData.currentLockVersion || "newer";
   conflictBanner.innerHTML = `
     <div class="flex items-start gap-2.5">
-      <span class="text-xl">⚠️</span>
+      <span class="text-xl">\u26A0\uFE0F</span>
       <div class="flex-1 text-xs leading-relaxed">
         <p class="font-bold text-sm">Draft Updated Elsewhere (v${remoteVer})</p>
         <p class="text-amber-100 mt-0.5">A newer version of this draft was saved from another browser tab or device. Choose how to keep your changes:</p>
@@ -6033,45 +5325,39 @@ function handleDraftConcurrencyConflict(conflictData) {
       </button>
     </div>
   `;
-  conflictBanner.classList.remove('hidden');
-
-  document.getElementById('btn-conflict-overwrite')?.addEventListener('click', () => {
+  conflictBanner.classList.remove("hidden");
+  document.getElementById("btn-conflict-overwrite")?.addEventListener("click", () => {
     currentLockVersion = Number(conflictData?.currentLockVersion || currentLockVersion);
     conflictBanner.remove();
     saveDraftLocally();
-    showToast('Saved your current local changes ✨');
+    showToast("Saved your current local changes \u2728");
   });
-
-  document.getElementById('btn-conflict-reload')?.addEventListener('click', async () => {
+  document.getElementById("btn-conflict-reload")?.addEventListener("click", async () => {
     conflictBanner.remove();
     if (currentEditingWishId) {
       try {
-        const res = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, { credentials: 'include' });
+        const res = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, { credentials: "include" });
         const json = await res.json();
         if (json.success && json.wish && json.wish.customData) {
           currentCustomData = { ...currentCustomData, ...json.wish.customData };
           currentLockVersion = Number(json.wish.lock_version || json.wish.lockVersion || currentLockVersion);
           populateFormValuesFromState();
           syncDataToIframe();
-          showToast('Loaded newest remote draft 🔄');
+          showToast("Loaded newest remote draft \u{1F504}");
         }
       } catch (e) {
-        showToast('Error reloading remote draft');
+        showToast("Error reloading remote draft");
       }
     }
   });
 }
-
 function sanitizeCustomDataForPublish(data) {
-  if (!data || typeof data !== 'object') return data;
+  if (!data || typeof data !== "object") return data;
   const sanitized = Array.isArray(data) ? [] : {};
   for (const [k, v] of Object.entries(data)) {
-    if (typeof v === 'string') {
-      sanitized[k] = v
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/javascript\s*:/gi, '')
-        .replace(/on\w+\s*=/gi, '');
-    } else if (typeof v === 'object' && v !== null) {
+    if (typeof v === "string") {
+      sanitized[k] = v.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "").replace(/javascript\s*:/gi, "").replace(/on\w+\s*=/gi, "");
+    } else if (typeof v === "object" && v !== null) {
       sanitized[k] = sanitizeCustomDataForPublish(v);
     } else {
       sanitized[k] = v;
@@ -6079,50 +5365,43 @@ function sanitizeCustomDataForPublish(data) {
   }
   return sanitized;
 }
-
 window.resetCustomizerChanges = function(skipConfirm = false) {
-  if (!skipConfirm && typeof confirm === 'function' && !confirm('Are you sure you want to reset all changes to template defaults?')) return false;
-
+  if (!skipConfirm && typeof confirm === "function" && !confirm("Are you sure you want to reset all changes to template defaults?")) return false;
   if (activeTemplate) {
     const variantDraftKey = getLocalDraftStorageKey(activeTemplate);
     localStorage.removeItem(variantDraftKey);
     localStorage.removeItem(`wishmagic_draft_${activeTemplate.id}`);
-
-    window._userModifiedFields = new Set();
-    currentCustomData.recipient_name = '';
-    currentCustomData.sender_name = '';
-    currentCustomData.sender_contact = '';
-    currentCustomData.event_date = '';
-    currentCustomData.custom_message = '';
+    window._userModifiedFields = /* @__PURE__ */ new Set();
+    currentCustomData.recipient_name = "";
+    currentCustomData.sender_name = "";
+    currentCustomData.sender_contact = "";
+    currentCustomData.event_date = "";
+    currentCustomData.custom_message = "";
     currentCustomData.photos = [];
-    currentCustomData.cover_photo = '';
-    currentCustomData.photo_1 = '';
+    currentCustomData.cover_photo = "";
+    currentCustomData.photo_1 = "";
     currentCustomData._hiddenSections = [];
     currentCustomData.hiddenSections = [];
     currentCustomData._hiddenFields = [];
     currentCustomData.hiddenFields = [];
     if (Array.isArray(currentCustomData.sections)) {
-      currentCustomData.sections.forEach(s => {
-        if (s && s.id !== 'voice') s.enabled = true;
+      currentCustomData.sections.forEach((s) => {
+        if (s && s.id !== "voice") s.enabled = true;
       });
     }
     currentCustomData._userOverrodePalette = false;
-
     if (currentCustomData.media) {
       currentCustomData.media.coverPhoto = null;
       currentCustomData.media.photos = [];
       if (currentCustomData.media.voiceNote) {
-        currentCustomData.media.voiceNote = { enabled: false, type: 'none', name: '', src: '', duration: 0 };
+        currentCustomData.media.voiceNote = { enabled: false, type: "none", name: "", src: "", duration: 0 };
       }
     }
-
-    // Reset all dynamic manifest field keys back to templateDefaultValues
-    Object.keys(templateDefaultValues).forEach(k => {
+    Object.keys(templateDefaultValues).forEach((k) => {
       if (!isMandatoryIdentityField(k)) {
         currentCustomData[k] = templateDefaultValues[k];
       }
     });
-
     applyTemplateDefaults(activeTemplate);
     if (activeTemplate.selectedVariant) {
       applySelectedVariantToCustomizer(activeTemplate.selectedVariant, true);
@@ -6132,79 +5411,71 @@ window.resetCustomizerChanges = function(skipConfirm = false) {
     populateFormValuesFromState();
     renderPhotosUI();
     renderSectionsUI();
-    if (typeof window.renderTemplatePhotoSlotsManager === 'function') {
+    if (typeof window.renderTemplatePhotoSlotsManager === "function") {
       window.renderTemplatePhotoSlotsManager();
     }
-    if (typeof window.updateCustomizationProgressUI === 'function') {
+    if (typeof window.updateCustomizationProgressUI === "function") {
       window.updateCustomizationProgressUI();
     }
     syncDataToIframe();
-    showToast('Reset to template defaults ↺');
+    showToast("Reset to template defaults \u21BA");
     return true;
   }
   return false;
 };
-
-// -----------------------------------------------------------------------------
-// PUBLISHING & LINK GENERATION FLOW
-// -----------------------------------------------------------------------------
 let isPublishingInProgress = false;
-
 window.publishWishAndGetLink = async function() {
   if (isPublishingInProgress) {
-    console.warn('[Customizer] Publish already in progress. Ignoring duplicate click.');
+    console.warn("[Customizer] Publish already in progress. Ignoring duplicate click.");
     return;
   }
-
   if (!validateStep1()) {
     window.goToStep(1);
     return;
   }
-
   if (!activeTemplate) {
-    showToast('Please select a template');
+    showToast("Please select a template");
     return;
   }
-
-  // Validate chosen slug before publishing
-  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
-  if (chosenSlug) {
+  const slugInputVal = isPersonalizedStudioOpen ? (document.getElementById("wish-slug-input")?.value || "") : "";
+  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || slugInputVal || "").toLowerCase().trim();
+  const explicitlyChosePersonalizedEarly = Boolean(
+    isPersonalizedStudioOpen || currentCustomData.linkType === "personalized" || currentCustomData.link_type === "personalized"
+  );
+  if (chosenSlug && explicitlyChosePersonalizedEarly) {
+    currentCustomData.customSlug = chosenSlug;
+    currentCustomData.slug = chosenSlug;
     const isValid = window.WishLinkSuggestions ? window.WishLinkSuggestions.isValidSlug(chosenSlug) : true;
     const isReserved = window.WishLinkSuggestions ? window.WishLinkSuggestions.isReservedSlug(chosenSlug) : false;
     if (isReserved) {
-      showToast('🚫 This link is reserved for platform use. Please pick another.');
-      const slugInput = document.getElementById('wish-slug-input');
+      showToast("\u{1F6AB} This link is reserved for platform use. Please pick another.");
+      const slugInput = document.getElementById("wish-slug-input");
       if (slugInput) slugInput.focus();
       return;
     }
     if (!isValid) {
-      showToast('⚠️ Please enter a valid link name (3–80 letters, numbers, and hyphens).');
-      const slugInput = document.getElementById('wish-slug-input');
+      showToast("\u26A0\uFE0F Please enter a valid link name (3\u201380 letters, numbers, and hyphens).");
+      const slugInput = document.getElementById("wish-slug-input");
       if (slugInput) slugInput.focus();
       return;
     }
-    if (lastSlugCheckResult && lastSlugCheckResult.available === false && lastSlugCheckResult.reason === 'taken') {
-      showToast('⚠️ That link is already taken. Please choose an available link.');
-      const slugInput = document.getElementById('wish-slug-input');
+    if (lastSlugCheckResult && lastSlugCheckResult.available === false && lastSlugCheckResult.reason === "taken" && (!lastSlugCheckResult.slug || lastSlugCheckResult.slug === chosenSlug) && !lastSlugCheckResult.isCurrent) {
+      showToast("\u26A0\uFE0F That link is already taken. Please choose an available link.");
+      const slugInput = document.getElementById("wish-slug-input");
       if (slugInput) slugInput.focus();
       return;
     }
   }
-
-  // Part 12: Field & Template Content Validation Check
   if (window.WishFieldValidator) {
     const valResult = window.WishFieldValidator.validateWishState(currentCustomData, activeTemplate);
     if (!valResult.valid && valResult.errors.length > 0) {
-      showToast('⚠️ ' + valResult.errors[0].message);
+      showToast("\u26A0\uFE0F " + valResult.errors[0].message);
       return;
     }
   }
-
   ensureDefaultMessagesPreserved();
-
-  // Part 4: Validate manifest dynamic fields before publishing (only Name/DOB are required; uncustomized messages keep template defaults)
   if (activeTemplate) {
-    const rawFields = (activeTemplate.manifest && activeTemplate.manifest.fields) || activeTemplate.fields || [];
+    const rawFields = activeTemplate.manifest && activeTemplate.manifest.fields || activeTemplate.fields || [];
     for (const f of rawFields) {
       const fKey = f.id || f.key;
       const isVisible = evaluateFieldVisibility(f, currentCustomData);
@@ -6212,13 +5483,13 @@ window.publishWishAndGetLink = async function() {
         const fieldForVal = { ...f, required: isMandatoryIdentityField(fKey) };
         const valRes = window.WishMagicFieldRenderer.validate(fieldForVal, currentCustomData[fKey]);
         if (!valRes.valid) {
-          showToast(`⚠️ ${valRes.errors[0] || ((f.label || fKey) + ' is required')}`);
+          showToast(`\u26A0\uFE0F ${valRes.errors[0] || (f.label || fKey) + " is required"}`);
           window.goToStep(1);
           const el = document.querySelector(`[data-field-key="${fKey}"]`);
           if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('wm-field-invalid');
-            const inputCtrl = el.querySelector('input, textarea, select');
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("wm-field-invalid");
+            const inputCtrl = el.querySelector("input, textarea, select");
             if (inputCtrl) inputCtrl.focus();
           }
           return;
@@ -6226,14 +5497,12 @@ window.publishWishAndGetLink = async function() {
       }
     }
   }
-
-  // Part 11: Centralized Entitlement Check
   if (window.WishFeatureAccess) {
     const publishCheck = window.WishFeatureAccess.canPublishWish(activeTemplate, currentCustomData);
     if (!publishCheck.allowed) {
       if (window.WishPremiumLock) {
         window.WishPremiumLock.open({
-          context: 'template',
+          context: "template",
           template: activeTemplate,
           onUnlocked: async () => {
             await window.publishWishAndGetLink();
@@ -6243,128 +5512,125 @@ window.publishWishAndGetLink = async function() {
       return;
     }
   }
-
-  // Ensure auth check has resolved
-  if (window.WishAuth && typeof window.WishAuth.waitForAuthReady === 'function') {
+  if (window.WishAuth && typeof window.WishAuth.waitForAuthReady === "function") {
     await window.WishAuth.waitForAuthReady(2500);
   }
-
-  // Ensure user is authenticated before publishing
   if (!window.WishAuth || !window.WishAuth.isAuthenticated()) {
-    if (typeof window.openAuthModal === 'function') {
-      window.openAuthModal('signin', '✨ Please sign in with your Google account to publish and save your celebration website!');
+    if (typeof window.openAuthModal === "function") {
+      window.openAuthModal("signin", "\u2728 Please sign in with your Google account to publish and save your celebration website!");
     } else {
-      showToast('⚠️ Please sign in to publish your celebration website.');
+      showToast("\u26A0\uFE0F Please sign in to publish your celebration website.");
     }
     return;
   }
-
-  // Verify Custom Link entitlement only if user explicitly selected a personalized link
-  const randomPrefix = (currentWishLinkSettings && currentWishLinkSettings.random && currentWishLinkSettings.random.prefix) || 'wish-';
-  const isRandomSlug = Boolean(
-    (chosenSlug && chosenSlug.startsWith(randomPrefix)) ||
-    currentCustomData.linkType === 'random' ||
-    currentCustomData.link_type === 'random'
-  );
-  const hasCustomLinkEnt = (window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === 'function')
-    ? window.WishEntitlement.hasCustomLinkAccess(chosenSlug, activeTemplate && activeTemplate.id)
-    : (window.WishEntitlement ? window.WishEntitlement.isPremium() : false);
+  const randomPrefix = currentWishLinkSettings && currentWishLinkSettings.random && currentWishLinkSettings.random.prefix || "wish-";
+  const escapedRandomPrefix = randomPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const looksLikeRandomSlug = Boolean(chosenSlug && new RegExp(`^${escapedRandomPrefix}[a-z0-9]{4,12}$`).test(chosenSlug));
   const explicitlyChosePersonalized = Boolean(
-    isPersonalizedStudioOpen ||
-    currentCustomData.linkType === 'personalized' ||
-    currentCustomData.link_type === 'personalized'
+    isPersonalizedStudioOpen || currentCustomData.linkType === "personalized" || currentCustomData.link_type === "personalized"
   );
+  const isRandomSlug = Boolean(
+    currentCustomData.linkType === "random" || currentCustomData.link_type === "random" || (!explicitlyChosePersonalized && looksLikeRandomSlug)
+  );
+  const hasCustomLinkEnt = window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === "function" ? window.WishEntitlement.hasCustomLinkAccess(chosenSlug, activeTemplate && activeTemplate.id) : window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
+  const hasYearlyLinkEnt = window.WishEntitlement && typeof window.WishEntitlement.hasYearlyLinkAccess === "function" ? window.WishEntitlement.hasYearlyLinkAccess(chosenSlug, activeTemplate && activeTemplate.id) : window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
+  const hasHdEnt = window.WishEntitlement && typeof window.WishEntitlement.hasHdPhotosAccess === "function" ? window.WishEntitlement.hasHdPhotosAccess(activeTemplate && activeTemplate.id) : window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
+  const supportsPhotos = activeTemplateSupportsPhotos();
   const wantsPersonalizedLink = Boolean(
-    explicitlyChosePersonalized &&
-    chosenSlug &&
-    !isRandomSlug &&
-    !currentCustomData.useReferralCredit
+    explicitlyChosePersonalized && chosenSlug && !isRandomSlug && !currentCustomData.useReferralCredit
   );
-
+  const wantsYearly = wantsPersonalizedLink && (selectedLinkOption === "1yr" || currentCustomData.linkDuration === "1_year");
+  const wantsHd = supportsPhotos && selectedHdPhotosAddon && !hasHdEnt;
   if (wantsPersonalizedLink) {
-    if (!hasCustomLinkEnt && !currentCustomData.verifiedOrderId) {
-      await window.handlePersonalizedLinkCheckout(selectedCustomizerPack === 'hd_style' ? 'custom_link' : (selectedCustomizerPack || 'combo'));
+    const needsPaymentForLink = wantsYearly ? !hasYearlyLinkEnt : !hasCustomLinkEnt;
+    if ((needsPaymentForLink || wantsHd) && !currentCustomData.verifiedOrderId) {
+      await window.handlePersonalizedLinkCheckout();
       return;
     }
+    currentCustomData.linkType = "personalized";
+    currentCustomData.link_type = "personalized";
+    currentCustomData.linkDuration = wantsYearly ? "1_year" : "standard";
   } else if (!isRandomSlug && !currentEditingWishSlug && !hasCustomLinkEnt && !currentCustomData.useReferralCredit) {
-    // Default to a Free Random Link when user clicks Finalize/Publish without unlocking a paid custom slug
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let rCode = '';
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let rCode = "";
     for (let i = 0; i < 6; i++) rCode += chars.charAt(Math.floor(Math.random() * chars.length));
     const autoRandomSlug = `${randomPrefix}${rCode}`;
     currentCustomData.customSlug = autoRandomSlug;
     currentCustomData.slug = autoRandomSlug;
-    currentCustomData.linkType = 'random';
-    currentCustomData.link_type = 'random';
+    currentCustomData.linkType = "random";
+    currentCustomData.link_type = "random";
+    currentCustomData.linkDuration = "standard";
   }
-
   isPublishingInProgress = true;
   try {
+    const { clPrice, hdPrice, yrPrice } = getLiveAdditivePrices();
     const isVipEntitled = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
-    const hasTplEnt = window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === 'function'
-      ? window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id)
-      : isVipEntitled;
-    const isVipTemplate = activeTemplate.tier === 'vip' || activeTemplate.isPremium === true || (activeTemplate.price && Number(activeTemplate.price) > 0);
-    const isVip = isVipEntitled || hasTplEnt || isVipTemplate || Boolean(currentCustomData.lifetimePreservation) || Boolean(currentCustomData.watermarkRemoved);
-
+    const hasTplEnt = window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === "function" ? window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id) : isVipEntitled;
+    const tplPrice = Math.max(0, Number(activeTemplate && activeTemplate.price || 0));
+    const isPaidTemplate = tplPrice > 0;
+    const resolvedLinkDuration = wantsYearly ? "1_year" : "standard";
+    const resolvedPublishPrice =
+      (isPaidTemplate ? tplPrice : 0) +
+      (wantsPersonalizedLink ? (wantsYearly ? yrPrice : clPrice) : 0) +
+      (supportsPhotos && (selectedHdPhotosAddon || currentCustomData.hdPhotosEnabled) ? hdPrice : 0);
+    const isPaidWish = resolvedPublishPrice > 0 || isVipEntitled || hasTplEnt && isPaidTemplate || Boolean(currentCustomData.verifiedOrderId);
     await executeWishCreation({
-      tier: isVip ? 'vip' : 'free',
-      price: isVip ? (activeTemplate.price || 49) : 0,
+      tier: isPaidWish ? "vip" : "free",
+      price: resolvedPublishPrice,
+      linkDuration: resolvedLinkDuration,
       orderId: currentCustomData.verifiedOrderId || null,
       buyerDetails: {
-        name: currentCustomData.sender_name || 'Creator',
-        phone: currentCustomData.sender_contact || ''
+        name: currentCustomData.sender_name || "Creator",
+        phone: currentCustomData.sender_contact || ""
       },
-      payment: (isVip || wantsPersonalizedLink || currentCustomData.verifiedOrderId) ? {
-        status: 'Completed',
-        orderId: currentCustomData.verifiedOrderId || null,
-        method: currentCustomData.verifiedOrderId ? 'Razorpay Verified' : 'Verified Entitlement',
-        transactionId: currentCustomData.verifiedTransactionId || ('ENT_' + Date.now().toString(36).toUpperCase())
+      payment: currentCustomData.verifiedOrderId ? {
+        status: "Completed",
+        orderId: currentCustomData.verifiedOrderId,
+        method: "Razorpay Verified",
+        transactionId: currentCustomData.verifiedTransactionId || "ENT_" + Date.now().toString(36).toUpperCase()
       } : null
     });
   } finally {
     isPublishingInProgress = false;
   }
 };
-
 async function executeWishCreation(extraPayload = {}) {
   try {
-    const currentUser = (window.WishAuth && window.WishAuth.getCurrentUser()) || null;
-    const currentUserId = currentUser ? currentUser.id : (localStorage.getItem('wishmagic_guest_user_id') || ('usr_guest_' + Date.now().toString(36)));
+    const currentUser = window.WishAuth && window.WishAuth.getCurrentUser() || null;
+    const currentUserId = currentUser ? currentUser.id : localStorage.getItem("wishmagic_guest_user_id") || "usr_guest_" + Date.now().toString(36);
     try {
-      if (!localStorage.getItem('wishmagic_guest_user_id')) {
-        localStorage.setItem('wishmagic_guest_user_id', currentUserId);
+      if (!localStorage.getItem("wishmagic_guest_user_id")) {
+        localStorage.setItem("wishmagic_guest_user_id", currentUserId);
       }
-    } catch (e) {}
-
+    } catch (e) {
+    }
     currentCustomData.isDraft = false;
-    currentCustomData.status = 'published';
-    const chosenSlug = (extraPayload.slug || currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
-    const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug && !chosenSlug.startsWith('wish-') ? 'personalized' : 'random');
+    currentCustomData.status = "published";
+    const chosenSlug = (extraPayload.slug || currentCustomData.customSlug || currentCustomData.slug || "").toLowerCase().trim();
+    const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug && !chosenSlug.startsWith("wish-") ? "personalized" : "random");
     const mergedSourceData = {
       ...currentCustomData,
-      ...(extraPayload.customData || {}),
+      ...extraPayload.customData || {},
       isDraft: false,
-      status: 'published'
+      status: "published"
     };
     const sanitizedData = sanitizeCustomDataForPublish(mergedSourceData);
-    const resolvedVersionId = (activeTemplate && (activeTemplate.currentVersionId || activeTemplate.activeVersionId || activeTemplate.versionId || activeTemplate.templateVersionId)) || null;
-    const resolvedPreviewUrl = (activeTemplate && activeTemplate.previewUrl) || null;
+    const resolvedVersionId = activeTemplate && (activeTemplate.currentVersionId || activeTemplate.activeVersionId || activeTemplate.versionId || activeTemplate.templateVersionId) || null;
+    const resolvedPreviewUrl = activeTemplate && activeTemplate.previewUrl || null;
     const { customData: _ignoredExtraCd, ...restExtraPayload } = extraPayload;
-
-    const urlParamsForCamp = new URLSearchParams(window.location.search || '');
-    const activeFestivalCampaignId = window._activeFestivalCampaignId || currentCustomData.festivalCampaignId || urlParamsForCamp.get('campaign') || urlParamsForCamp.get('campaignId') || (activeTemplate && activeTemplate.festivalCampaign && activeTemplate.festivalCampaign.campaignId) || null;
+    const urlParamsForCamp = new URLSearchParams(window.location.search || "");
+    const activeFestivalCampaignId = window._activeFestivalCampaignId || currentCustomData.festivalCampaignId || urlParamsForCamp.get("campaign") || urlParamsForCamp.get("campaignId") || activeTemplate && activeTemplate.festivalCampaign && activeTemplate.festivalCampaign.campaignId || null;
     const payload = {
       templateId: activeTemplate.id,
-      ...(activeFestivalCampaignId ? { campaignId: activeFestivalCampaignId, festivalCampaignId: activeFestivalCampaignId } : {}),
+      ...activeFestivalCampaignId ? { campaignId: activeFestivalCampaignId, festivalCampaignId: activeFestivalCampaignId } : {},
       templateVersionId: resolvedVersionId,
       linkType,
       userId: currentUserId,
       lockVersion: currentLockVersion,
-      status: 'published',
+      status: "published",
       isDraft: false,
-      relationship: sanitizedData.relationship || currentCustomData.relationship || '',
-      variantId: sanitizedData.variantId || currentCustomData.variantId || currentCustomData.declaredVariantId || '',
+      relationship: sanitizedData.relationship || currentCustomData.relationship || "",
+      variantId: sanitizedData.variantId || currentCustomData.variantId || currentCustomData.declaredVariantId || "",
       slug: chosenSlug,
       ...restExtraPayload,
       customData: {
@@ -6373,59 +5639,53 @@ async function executeWishCreation(extraPayload = {}) {
         templateId: activeTemplate.id,
         templateVersionId: resolvedVersionId,
         template_version_id: resolvedVersionId,
-        ...(resolvedPreviewUrl ? { previewUrl: resolvedPreviewUrl } : {}),
+        ...resolvedPreviewUrl ? { previewUrl: resolvedPreviewUrl } : {},
         customSlug: chosenSlug,
         slug: chosenSlug,
         linkType,
         link_type: linkType,
         isDraft: false,
-        status: 'published'
+        status: "published"
       }
     };
-
     let data = null;
     if (currentEditingWishId) {
-      // 1. Ensure latest customizations are updated and status is transitioned to published
       payload.status = 'published';
       payload.isDraft = false;
-
-      if (window.WishApiClient && typeof window.WishApiClient.put === 'function') {
+      if (window.WishApiClient && typeof window.WishApiClient.put === "function") {
         data = await window.WishApiClient.put(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, payload);
       } else {
         const res = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload)
         });
         data = await res.json();
       }
-
-      // If draft wish was deleted or not found, fallback to creating a new wish via POST /api/wishes
-      if (!data || (!data.success && (data.status === 404 || data.code === 'NOT_FOUND' || data.error === 'NOT_FOUND'))) {
+      if (!data || !data.success && (data.status === 404 || data.code === "NOT_FOUND" || data.error === "NOT_FOUND")) {
         currentEditingWishId = null;
-        if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
-          data = await window.WishApiClient.post('/api/wishes', payload);
+        if (window.WishApiClient && typeof window.WishApiClient.post === "function") {
+          data = await window.WishApiClient.post("/api/wishes", payload);
         } else {
-          const res = await fetch('/api/wishes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+          const res = await fetch("/api/wishes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify(payload)
           });
           data = await res.json();
         }
       } else if (data && data.success) {
-        // 2. Trigger server-authoritative publish snapshot generation using authenticated client
         try {
           let pubData = null;
-          if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
+          if (window.WishApiClient && typeof window.WishApiClient.post === "function") {
             pubData = await window.WishApiClient.post(`/api/wishes/${encodeURIComponent(currentEditingWishId)}/publish`, { id: currentEditingWishId });
           } else {
             const pubRes = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}/publish`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
               body: JSON.stringify({ id: currentEditingWishId })
             });
             pubData = await pubRes.json().catch(() => ({}));
@@ -6434,54 +5694,49 @@ async function executeWishCreation(extraPayload = {}) {
             data.activeSnapshotId = pubData.activeSnapshotId;
             data.snapshotVersion = pubData.snapshotVersion;
           }
-        } catch (_) {}
-
+        } catch (_) {
+        }
         data.wishId = currentEditingWishId;
         if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
       }
     } else {
       payload.status = 'published';
       payload.isDraft = false;
-
-      if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
-        data = await window.WishApiClient.post('/api/wishes', payload);
+      if (window.WishApiClient && typeof window.WishApiClient.post === "function") {
+        data = await window.WishApiClient.post("/api/wishes", payload);
       } else {
-        const res = await fetch('/api/wishes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
+        const res = await fetch("/api/wishes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload)
         });
         data = await res.json();
       }
     }
-
     if (!data || !data.success) {
-      if (data && (data.error === 'SLUG_TAKEN' || (data.message && data.message.includes('already taken')))) {
-        showToast('⚠️ That link is already taken. Please choose another variation below!');
-        const slugInput = document.getElementById('wish-slug-input');
+      if (data && (data.error === "SLUG_TAKEN" || data.message && data.message.includes("already taken"))) {
+        showToast("\u26A0\uFE0F That link is already taken. Please choose another variation below!");
+        const slugInput = document.getElementById("wish-slug-input");
         if (slugInput) slugInput.focus();
-        if (typeof window.checkSlugAvailability === 'function') {
+        if (typeof window.checkSlugAvailability === "function") {
           window.checkSlugAvailability(chosenSlug, true);
         }
         return null;
       }
-      const errCode = (data && (data.code || data.error)) || '';
-      if (String(errCode).startsWith('FESTIVAL_') || errCode === 'VARIANT_NOT_ENABLED_FOR_CAMPAIGN') {
-        if (typeof window.showFestivalCampaignExpiredNotice === 'function') {
-          window.showFestivalCampaignExpiredNotice(data.message || 'This festival campaign is no longer accepting new wishes.', data);
+      const errCode = data && (data.code || data.error) || "";
+      if (String(errCode).startsWith("FESTIVAL_") || errCode === "VARIANT_NOT_ENABLED_FOR_CAMPAIGN") {
+        if (typeof window.showFestivalCampaignExpiredNotice === "function") {
+          window.showFestivalCampaignExpiredNotice(data.message || "This festival campaign is no longer accepting new wishes.", data);
         }
       }
-      showToast('⚠️ ' + (data && data.message ? data.message : 'Could not generate wish link. Please try again.'));
+      showToast("\u26A0\uFE0F " + (data && data.message ? data.message : "Could not generate wish link. Please try again."));
       return null;
     }
-
-    const createdWishId = data.wishId || (data.wish && data.wish.id) || currentEditingWishId;
+    const createdWishId = data.wishId || data.wish && data.wish.id || currentEditingWishId;
     if (data.success && createdWishId) {
-      const wishSlug = data.slug || (data.wish && data.wish.slug) || chosenSlug || createdWishId;
-      const fullLink = data.canonicalUrl || data.url || (typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(wishSlug) : `${window.location.origin}/wish/${wishSlug}`);
-
-      // Save to local user wishes collection for creator dashboard with repository
+      const wishSlug = data.slug || data.wish && data.wish.slug || chosenSlug || createdWishId;
+      const fullLink = data.canonicalUrl || data.url || (typeof window.getPublicWishUrl === "function" ? window.getPublicWishUrl(wishSlug) : `${window.location.origin}/wish/${wishSlug}`);
       try {
         const wishRecord = data.wish || {
           id: data.wishId,
@@ -6489,41 +5744,32 @@ async function executeWishCreation(extraPayload = {}) {
           userId: currentUserId,
           templateId: activeTemplate.id,
           customData: currentCustomData,
-          createdAt: new Date().toISOString()
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
         };
-
         if (window.WishRepositories) {
           await WishRepositories.wishRepository.save(wishRecord, currentUserId);
-          WishRepositories.draftRepository.delete('draft_' + activeTemplate.id, currentUserId);
+          WishRepositories.draftRepository.delete("draft_" + activeTemplate.id, currentUserId);
         } else {
-          let userWishes = JSON.parse(localStorage.getItem('wishmagic_user_wishes') || '[]');
+          let userWishes = JSON.parse(localStorage.getItem("wishmagic_user_wishes") || "[]");
           if (!Array.isArray(userWishes)) userWishes = [];
           userWishes.unshift(wishRecord);
-          localStorage.setItem('wishmagic_user_wishes', JSON.stringify(userWishes));
+          localStorage.setItem("wishmagic_user_wishes", JSON.stringify(userWishes));
         }
-
-        // Clean up draft for this template if successfully published
-        let drafts = JSON.parse(localStorage.getItem('wishmagic_drafts') || '[]');
+        let drafts = JSON.parse(localStorage.getItem("wishmagic_drafts") || "[]");
         if (Array.isArray(drafts)) {
-          drafts = drafts.filter(d => !(d.templateId === activeTemplate.id && (d.userId === currentUserId || !d.userId)));
-          localStorage.setItem('wishmagic_drafts', JSON.stringify(drafts));
+          drafts = drafts.filter((d) => !(d.templateId === activeTemplate.id && (d.userId === currentUserId || !d.userId)));
+          localStorage.setItem("wishmagic_drafts", JSON.stringify(drafts));
         }
       } catch (e) {
-        console.warn('Error saving to creator storage:', e);
+        console.warn("Error saving to creator storage:", e);
       }
-
-      // Stage 5: Sync saved revision state on successful publish
       lastSavedRevision = currentCustomizerRevision;
-      updateSaveIndicatorStatus('saved');
-
-      // Trigger Confetti Celebration
-      if (typeof confetti === 'function') {
+      updateSaveIndicatorStatus("saved");
+      if (typeof confetti === "function") {
         confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
       }
-
-      // Part 16: Track Event
       if (window.WishAnalyticsService) {
-        window.WishAnalyticsService.trackEvent('wish_created', {
+        window.WishAnalyticsService.trackEvent("wish_created", {
           wishId: data.wishId,
           slug: wishSlug,
           templateId: activeTemplate.id,
@@ -6534,16 +5780,13 @@ async function executeWishCreation(extraPayload = {}) {
           metadata: { isVip: Boolean(currentCustomData.lifetimePreservation || currentCustomData.watermarkRemoved || activeTemplate.isPremium) }
         });
       }
-
-      // Celebration toast
       if (window.WishToast) {
         window.WishToast.show({
-          title: 'Celebration Published! ✨',
-          message: `Your wish for ${currentCustomData.recipient_name || 'your loved one'} is now live and ready to share!`,
-          type: 'success'
+          title: "Celebration Published! \u2728",
+          message: `Your wish for ${currentCustomData.recipient_name || "your loved one"} is now live and ready to share!`,
+          type: "success"
         });
       }
-
       if (window.WishShareSystem) {
         WishShareSystem.openShareModal(data.wish || {
           id: data.wishId,
@@ -6556,31 +5799,25 @@ async function executeWishCreation(extraPayload = {}) {
         showGeneratedLinkModal(data.wishId, fullLink, data.wish);
       }
     } else {
-      showToast('⚠️ Error generating wish: ' + (data.message || 'Unknown error'));
+      showToast("\u26A0\uFE0F Error generating wish: " + (data.message || "Unknown error"));
     }
   } catch (err) {
-    showToast('⚠️ Network error generating wish link: ' + err.message);
+    showToast("\u26A0\uFE0F Network error generating wish link: " + err.message);
   }
 }
-
 function showGeneratedLinkModal(wishId, fullLink, wish = null) {
-  let modal = document.getElementById('generated-link-modal');
+  let modal = document.getElementById("generated-link-modal");
   if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'generated-link-modal';
-    modal.className = 'fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 transition-all duration-300';
+    modal = document.createElement("div");
+    modal.id = "generated-link-modal";
+    modal.className = "fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 transition-all duration-300";
     document.body.appendChild(modal);
   }
-
-  const recipient = currentCustomData.recipient_name || 'Friend';
-  const whatsappMsg = encodeURIComponent(`✨ Hey ${recipient}! I created a magical interactive celebration surprise website for you. Tap the link to open it: ${fullLink}`);
-
-  const isFuture = wish && wish.lifecycleStatus === 'future';
-  const eventDate = wish && (wish.eventDate || (wish.customData && wish.customData.event_date));
-  const statusPill = isFuture 
-    ? `<div class="mb-3 px-3.5 py-1.5 rounded-full bg-purple-500/20 text-purple-300 text-xs font-semibold border border-purple-500/30 inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-purple-400"></span> 🟣 Future Scheduled: ${eventDate || 'Upcoming Date'}</div>`
-    : `<div class="mb-3 px-3.5 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold border border-emerald-500/30 inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> 🟢 Live &amp; Shareable Right Now</div>`;
-
+  const recipient = currentCustomData.recipient_name || "Friend";
+  const whatsappMsg = encodeURIComponent(`\u2728 Hey ${recipient}! I created a magical interactive celebration surprise website for you. Tap the link to open it: ${fullLink}`);
+  const isFuture = wish && wish.lifecycleStatus === "future";
+  const eventDate = wish && (wish.eventDate || wish.customData && wish.customData.event_date);
+  const statusPill = isFuture ? `<div class="mb-3 px-3.5 py-1.5 rounded-full bg-purple-500/20 text-purple-300 text-xs font-semibold border border-purple-500/30 inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-purple-400"></span> \u{1F7E3} Future Scheduled: ${eventDate || "Upcoming Date"}</div>` : `<div class="mb-3 px-3.5 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold border border-emerald-500/30 inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> \u{1F7E2} Live &amp; Shareable Right Now</div>`;
   modal.innerHTML = `
     <div class="w-full max-w-lg bg-surface-container-low rounded-3xl shadow-2xl p-6 sm:p-8 flex flex-col items-center text-center border border-purple-500/30 relative overflow-hidden">
       <!-- Glow background -->
@@ -6594,7 +5831,7 @@ function showGeneratedLinkModal(wishId, fullLink, wish = null) {
 
       <!-- Celebration Icon -->
       <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 flex items-center justify-center text-3xl shadow-[0_0_30px_rgba(236,72,153,0.5)] mb-3 animate-bounce">
-        🎊
+        \u{1F38A}
       </div>
 
       <h3 class="font-display text-2xl sm:text-3xl font-extrabold text-on-surface mb-2">
@@ -6632,29 +5869,22 @@ function showGeneratedLinkModal(wishId, fullLink, wish = null) {
       </div>
     </div>
   `;
-
-  modal.classList.remove('hidden');
-
-  // Trigger confetti
-  if (typeof confetti === 'function') {
+  modal.classList.remove("hidden");
+  if (typeof confetti === "function") {
     confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
   }
 }
-
 async function copyGeneratedLink() {
-  const input = document.getElementById('generated-link-input');
-  const btnText = document.getElementById('copy-btn-text');
-  const btn = document.getElementById('btn-copy-link');
-
+  const input = document.getElementById("generated-link-input");
+  const btnText = document.getElementById("copy-btn-text");
+  const btn = document.getElementById("btn-copy-link");
   if (!input || !input.value.trim()) {
-    showToast('⚠️ No celebration link available to copy.');
+    showToast("\u26A0\uFE0F No celebration link available to copy.");
     return;
   }
-
   const url = input.value.trim();
   if (btn) btn.disabled = true;
-  if (btnText) btnText.textContent = 'Copying...';
-
+  if (btnText) btnText.textContent = "Copying...";
   let copied = false;
   if (navigator.clipboard && window.isSecureContext) {
     try {
@@ -6664,314 +5894,265 @@ async function copyGeneratedLink() {
       copied = false;
     }
   }
-
   if (!copied) {
     try {
       input.focus();
       input.select();
       input.setSelectionRange(0, 99999);
-      copied = document.execCommand('copy');
+      copied = document.execCommand("copy");
     } catch (_) {
       copied = false;
     }
   }
-
   if (copied) {
-    if (btnText) btnText.textContent = 'Copied! ✨';
-    showToast('🔗 Celebration link copied to clipboard!');
+    if (btnText) btnText.textContent = "Copied! \u2728";
+    showToast("\u{1F517} Celebration link copied to clipboard!");
   } else {
-    if (btnText) btnText.textContent = 'Copy Failed';
-    showToast('⚠️ Could not copy automatically. Please select and copy manually.');
+    if (btnText) btnText.textContent = "Copy Failed";
+    showToast("\u26A0\uFE0F Could not copy automatically. Please select and copy manually.");
     input.focus();
     input.select();
   }
-
   setTimeout(() => {
-    if (btnText) btnText.textContent = 'Copy Link';
+    if (btnText) btnText.textContent = "Copy Link";
     if (btn) btn.disabled = false;
   }, 2500);
 }
-
-// Toast notification helper
 var showToast = function(msg) {
-  let toast = document.getElementById('customizer-toast');
+  let toast = document.getElementById("customizer-toast");
   if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'customizer-toast';
-    toast.className = 'fixed top-6 right-6 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-2xl bg-purple-950/95 text-white text-xs font-bold shadow-2xl border border-purple-700/60 flex items-center gap-2';
+    toast = document.createElement("div");
+    toast.id = "customizer-toast";
+    toast.className = "fixed top-6 right-6 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-2xl bg-purple-950/95 text-white text-xs font-bold shadow-2xl border border-purple-700/60 flex items-center gap-2";
     document.body.appendChild(toast);
   }
   toast.textContent = msg;
-  toast.classList.remove('translate-y-[-150%]', 'opacity-0');
-  toast.classList.add('translate-y-0', 'opacity-100');
+  toast.classList.remove("translate-y-[-150%]", "opacity-0");
+  toast.classList.add("translate-y-0", "opacity-100");
   setTimeout(() => {
-    toast.classList.remove('translate-y-0', 'opacity-100');
-    toast.classList.add('translate-y-[-150%]', 'opacity-0');
+    toast.classList.remove("translate-y-0", "opacity-100");
+    toast.classList.add("translate-y-[-150%]", "opacity-0");
   }, 2800);
-}
-
-
-
-// =============================================================================
-// QUICK SUB-TAB NAVIGATION, LEVEL A/B/C PROGRESSIVE DISCLOSURE & PHOTO SLOTS MANAGER
-// =============================================================================
-window._activeStep1SubTab = 'basic';
-window._activeStep2SubTab = 'colors';
+};
+window._activeStep1SubTab = "basic";
+window._activeStep2SubTab = "colors";
 window._pendingSlotPhotoFieldKey = null;
-
 window.getAvailableStep1SubTabs = function() {
   const caps = window._customizerCapabilities || {};
   const hasDynFields = Boolean(
-    caps.hasDynamicFields ||
-    (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0 ||
-    ((currentCustomData.sections || []).length > 0)
+    caps.hasDynamicFields || (document.getElementById("template-dynamic-fields-container")?.children.length || 0) > 0 || (currentCustomData.sections || []).length > 0
   );
   const supportsPhotos = caps.supportsAnyPhoto !== false;
-  const supportsAudio = (caps.supportsVoice !== false) || (caps.supportsMusic !== false);
-
-  const available = ['basic'];
-  if (hasDynFields) available.push('template');
-  if (supportsPhotos) available.push('photos');
-  if (supportsAudio) available.push('audio');
+  const supportsAudio = caps.supportsVoice !== false || caps.supportsMusic !== false;
+  const available = ["basic"];
+  if (hasDynFields) available.push("template");
+  if (supportsPhotos) available.push("photos");
+  if (supportsAudio) available.push("audio");
   return available;
 };
-
 window.syncStep1SubTabCapabilitiesUI = function() {
   const available = new Set(window.getAvailableStep1SubTabs());
   const tabMeta = [
-    { key: 'basic', btnId: 'step1-subtab-btn-basic' },
-    { key: 'template', btnId: 'step1-subtab-btn-template' },
-    { key: 'photos', btnId: 'step1-subtab-btn-photos' },
-    { key: 'audio', btnId: 'step1-subtab-btn-audio' }
+    { key: "basic", btnId: "step1-subtab-btn-basic" },
+    { key: "template", btnId: "step1-subtab-btn-template" },
+    { key: "photos", btnId: "step1-subtab-btn-photos" },
+    { key: "audio", btnId: "step1-subtab-btn-audio" }
   ];
   tabMeta.forEach(({ key, btnId }) => {
     const btn = document.getElementById(btnId);
     if (!btn) return;
     if (available.has(key)) {
-      btn.classList.remove('hidden');
-      btn.removeAttribute('aria-hidden');
+      btn.classList.remove("hidden");
+      btn.removeAttribute("aria-hidden");
       btn.disabled = false;
     } else {
-      btn.classList.add('hidden');
-      btn.setAttribute('aria-hidden', 'true');
+      btn.classList.add("hidden");
+      btn.setAttribute("aria-hidden", "true");
       btn.disabled = true;
     }
   });
-  if (window._activeStep1SubTab !== 'all' && !available.has(window._activeStep1SubTab)) {
-    window._activeStep1SubTab = 'basic';
+  if (window._activeStep1SubTab !== "all" && !available.has(window._activeStep1SubTab)) {
+    window._activeStep1SubTab = "basic";
   }
 };
-
 window.switchCustomizationLevel = function(levelKey) {
-  const validLevels = ['quick', 'personal', 'advanced'];
-  const targetLevel = validLevels.includes(levelKey) ? levelKey : 'quick';
+  const validLevels = ["quick", "personal", "advanced"];
+  const targetLevel = validLevels.includes(levelKey) ? levelKey : "quick";
   window._activeCustomizationLevel = targetLevel;
-
-  if (targetLevel === 'quick') {
+  if (targetLevel === "quick") {
     if (currentStep !== 1) window.goToStep(1);
-    window.switchStep1SubTab('basic');
-  } else if (targetLevel === 'personal') {
+    window.switchStep1SubTab("basic");
+  } else if (targetLevel === "personal") {
     if (currentStep !== 1) window.goToStep(1);
-    const avail = window.getAvailableStep1SubTabs().filter(k => k !== 'basic');
-    window.switchStep1SubTab(avail[0] || 'all');
-  } else if (targetLevel === 'advanced') {
+    const avail = window.getAvailableStep1SubTabs().filter((k) => k !== "basic");
+    window.switchStep1SubTab(avail[0] || "all");
+  } else if (targetLevel === "advanced") {
     window.goToStep(2);
-    window.switchStep2SubTab('colors');
+    window.switchStep2SubTab("colors");
   }
-
   window.syncCustomizationLevelButtonsUI();
   window.updateCustomizationProgressUI();
 };
-
 window.syncCustomizationLevelButtonsUI = function() {
-  let effectiveLevel = window._activeCustomizationLevel || 'quick';
+  let effectiveLevel = window._activeCustomizationLevel || "quick";
   if (currentStep === 2 || currentStep === 3) {
-    effectiveLevel = 'advanced';
+    effectiveLevel = "advanced";
   } else if (currentStep === 1) {
-    effectiveLevel = (window._activeStep1SubTab === 'basic') ? 'quick' : 'personal';
+    effectiveLevel = window._activeStep1SubTab === "basic" ? "quick" : "personal";
   }
   window._activeCustomizationLevel = effectiveLevel;
-
-  ['quick', 'personal', 'advanced'].forEach(lvl => {
-    const btn = document.getElementById('level-tab-btn-' + lvl);
+  ["quick", "personal", "advanced"].forEach((lvl) => {
+    const btn = document.getElementById("level-tab-btn-" + lvl);
     if (!btn) return;
     const isSel = lvl === effectiveLevel;
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", isSel ? "true" : "false");
     btn.tabIndex = isSel ? 0 : -1;
     if (isSel) {
-      btn.className = 'level-tab-btn flex-1 min-w-0 py-2 px-3 rounded-xl font-extrabold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = "level-tab-btn flex-1 min-w-0 py-2 px-3 rounded-xl font-extrabold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer";
     } else {
-      btn.className = 'level-tab-btn flex-1 min-w-0 py-2 px-3 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = "level-tab-btn flex-1 min-w-0 py-2 px-3 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer";
     }
   });
 };
-
 window.updateCustomizationProgressUI = function() {
   const requiresDate = templateRequiresEventDate(activeTemplate);
   const hasName = Boolean(currentCustomData.recipient_name && String(currentCustomData.recipient_name).trim().length > 0);
   const hasDate = !requiresDate || Boolean(currentCustomData.event_date && String(currentCustomData.event_date).trim().length > 0);
   const hasSender = Boolean(currentCustomData.sender_name && String(currentCustomData.sender_name).trim().length > 0);
   const hasMessage = Boolean(currentCustomData.custom_message && String(currentCustomData.custom_message).trim().length > 0);
-
   const reqTotal = requiresDate ? 2 : 1;
-  const reqDone = (hasName ? 1 : 0) + (requiresDate ? (hasDate ? 1 : 0) : 0);
-
-  const uploadedPhotos = (currentCustomData.media && Array.isArray(currentCustomData.media.photos))
-    ? currentCustomData.media.photos
-    : (Array.isArray(currentCustomData.photos) ? currentCustomData.photos : []);
-  const customPhotosCount = uploadedPhotos.filter(p => p && (p.src || p.url) && p.id !== 'photo_default_1').length;
-  const hasVoice = Boolean((currentCustomData.voice_note && currentCustomData.voice_note.enabled) || (currentCustomData.media && currentCustomData.media.voiceNote && currentCustomData.media.voiceNote.enabled));
-  const hasMusic = Boolean((currentCustomData.music && currentCustomData.music.enabled !== false) || (currentCustomData.media && currentCustomData.media.music && currentCustomData.media.music.enabled !== false));
-
-  const pct = Math.min(100, Math.round((reqDone / reqTotal) * 70 + (hasSender ? 10 : 0) + (hasMessage ? 10 : 0) + (customPhotosCount > 0 ? 10 : 0)));
-
-  const progBar = document.getElementById('customizer-progress-bar');
+  const reqDone = (hasName ? 1 : 0) + (requiresDate ? hasDate ? 1 : 0 : 0);
+  const uploadedPhotos = currentCustomData.media && Array.isArray(currentCustomData.media.photos) ? currentCustomData.media.photos : Array.isArray(currentCustomData.photos) ? currentCustomData.photos : [];
+  const customPhotosCount = uploadedPhotos.filter((p) => p && (p.src || p.url) && p.id !== "photo_default_1").length;
+  const hasVoice = Boolean(currentCustomData.voice_note && currentCustomData.voice_note.enabled || currentCustomData.media && currentCustomData.media.voiceNote && currentCustomData.media.voiceNote.enabled);
+  const hasMusic = Boolean(currentCustomData.music && currentCustomData.music.enabled !== false || currentCustomData.media && currentCustomData.media.music && currentCustomData.media.music.enabled !== false);
+  const pct = Math.min(100, Math.round(reqDone / reqTotal * 70 + (hasSender ? 10 : 0) + (hasMessage ? 10 : 0) + (customPhotosCount > 0 ? 10 : 0)));
+  const progBar = document.getElementById("customizer-progress-bar");
   if (progBar) {
     progBar.style.width = `${pct}%`;
-    progBar.setAttribute('aria-valuenow', String(pct));
+    progBar.setAttribute("aria-valuenow", String(pct));
   }
-  const progText = document.getElementById('customizer-progress-text');
+  const progText = document.getElementById("customizer-progress-text");
   if (progText) {
-    progText.textContent = reqDone >= reqTotal
-      ? `Ready to publish (${pct}% personalized)`
-      : `Required: ${reqDone}/${reqTotal} complete`;
+    progText.textContent = reqDone >= reqTotal ? `Ready to publish (${pct}% personalized)` : `Required: ${reqDone}/${reqTotal} complete`;
   }
-
-  // Update Level B state badges
-  const photosBadge = document.getElementById('subtab-state-badge-photos');
+  const photosBadge = document.getElementById("subtab-state-badge-photos");
   if (photosBadge) {
-    photosBadge.textContent = customPhotosCount > 0 ? `${customPhotosCount} added` : 'Default';
+    photosBadge.textContent = customPhotosCount > 0 ? `${customPhotosCount} added` : "Default";
   }
-  const audioBadge = document.getElementById('subtab-state-badge-audio');
+  const audioBadge = document.getElementById("subtab-state-badge-audio");
   if (audioBadge) {
-    audioBadge.textContent = hasVoice ? 'Voice + Music' : (hasMusic ? 'Music On' : 'Muted');
+    audioBadge.textContent = hasVoice ? "Voice + Music" : hasMusic ? "Music On" : "Muted";
   }
 };
-
 window.switchStep1SubTab = function(tabKey) {
   window.syncStep1SubTabCapabilitiesUI();
   const tabsOrder = window.getAvailableStep1SubTabs();
-  const requested = tabKey || 'basic';
-  window._activeStep1SubTab = (requested === 'all' || tabsOrder.includes(requested)) ? requested : 'basic';
-
+  const requested = tabKey || "basic";
+  window._activeStep1SubTab = requested === "all" || tabsOrder.includes(requested) ? requested : "basic";
   const labelsMap = {
-    basic: 'Level A: Quick Customize (Essential Info)',
-    template: 'Level B: Template Text & Sections',
-    photos: 'Level B: Photos & Album Slots',
-    audio: 'Level B: Music & Voice Note',
-    all: 'Showing All Supported Sections'
+    basic: "Level A: Quick Customize (Essential Info)",
+    template: "Level B: Template Text & Sections",
+    photos: "Level B: Photos & Album Slots",
+    audio: "Level B: Music & Voice Note",
+    all: "Showing All Supported Sections"
   };
-
   const nameMap = {
-    basic: 'Basic Info',
-    template: 'Text & Sections',
-    photos: 'Photos & Slots',
-    audio: 'Music & Voice'
+    basic: "Basic Info",
+    template: "Text & Sections",
+    photos: "Photos & Slots",
+    audio: "Music & Voice"
   };
-
-  ['basic', 'template', 'photos', 'audio', 'all'].forEach(k => {
-    const btn = document.getElementById('step1-subtab-btn-' + k);
+  ["basic", "template", "photos", "audio", "all"].forEach((k) => {
+    const btn = document.getElementById("step1-subtab-btn-" + k);
     if (!btn) return;
     const isSel = k === window._activeStep1SubTab;
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", isSel ? "true" : "false");
     btn.tabIndex = isSel ? 0 : -1;
-    const isHidden = btn.classList.contains('hidden');
-    if (k === 'all') {
-      btn.className = (isSel
-        ? 'step1-subtab-btn py-1.5 px-3 rounded-lg font-bold text-[11px] bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs flex items-center gap-1 transition cursor-pointer'
-        : 'step1-subtab-btn py-1.5 px-3 rounded-lg font-bold text-[11px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer') + (isHidden ? ' hidden' : '');
+    const isHidden = btn.classList.contains("hidden");
+    if (k === "all") {
+      btn.className = (isSel ? "step1-subtab-btn py-1.5 px-3 rounded-lg font-bold text-[11px] bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs flex items-center gap-1 transition cursor-pointer" : "step1-subtab-btn py-1.5 px-3 rounded-lg font-bold text-[11px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer") + (isHidden ? " hidden" : "");
       return;
     }
     if (isSel) {
-      btn.className = 'step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer' + (isHidden ? ' hidden' : '');
+      btn.className = "step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer" + (isHidden ? " hidden" : "");
     } else {
-      btn.className = 'step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer' + (isHidden ? ' hidden' : '');
+      btn.className = "step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer" + (isHidden ? " hidden" : "");
     }
   });
-
   const caps = window._customizerCapabilities || {};
-  const step1Container = document.getElementById('step-content-1');
+  const step1Container = document.getElementById("step-content-1");
   if (step1Container) {
-    step1Container.querySelectorAll('[data-step1-tab]').forEach(cardEl => {
-      const cardTab = cardEl.getAttribute('data-step1-tab');
-
-      // Respect capability gating strictly: never un-hide unsupported cards!
-      if (cardEl.id === 'dynamic-template-fields-card') {
-        const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0;
+    step1Container.querySelectorAll("[data-step1-tab]").forEach((cardEl) => {
+      const cardTab = cardEl.getAttribute("data-step1-tab");
+      if (cardEl.id === "dynamic-template-fields-card") {
+        const hasDynFields = (document.getElementById("template-dynamic-fields-container")?.children.length || 0) > 0;
         if (!hasDynFields) {
-          cardEl.classList.add('hidden');
-          cardEl.setAttribute('aria-hidden', 'true');
+          cardEl.classList.add("hidden");
+          cardEl.setAttribute("aria-hidden", "true");
           return;
         }
       }
-      if (cardEl.id === 'step1-card-photos' && caps.supportsAnyPhoto === false) {
-        cardEl.classList.add('hidden');
-        cardEl.setAttribute('aria-hidden', 'true');
+      if (cardEl.id === "step1-card-photos" && caps.supportsAnyPhoto === false) {
+        cardEl.classList.add("hidden");
+        cardEl.setAttribute("aria-hidden", "true");
         return;
       }
-      if (cardEl.id === 'voice-note-section-wrapper' && caps.supportsVoice === false) {
-        cardEl.classList.add('hidden');
-        cardEl.setAttribute('aria-hidden', 'true');
+      if (cardEl.id === "voice-note-section-wrapper" && caps.supportsVoice === false) {
+        cardEl.classList.add("hidden");
+        cardEl.setAttribute("aria-hidden", "true");
         return;
       }
-      if (cardEl.id === 'music-section-wrapper' && caps.supportsMusic === false) {
-        cardEl.classList.add('hidden');
-        cardEl.setAttribute('aria-hidden', 'true');
+      if (cardEl.id === "music-section-wrapper" && caps.supportsMusic === false) {
+        cardEl.classList.add("hidden");
+        cardEl.setAttribute("aria-hidden", "true");
         return;
       }
-
-      if (window._activeStep1SubTab === 'all' || cardTab === window._activeStep1SubTab) {
-        cardEl.classList.remove('hidden');
-        cardEl.setAttribute('aria-hidden', 'false');
+      if (window._activeStep1SubTab === "all" || cardTab === window._activeStep1SubTab) {
+        cardEl.classList.remove("hidden");
+        cardEl.setAttribute("aria-hidden", "false");
       } else {
-        cardEl.classList.add('hidden');
-        cardEl.setAttribute('aria-hidden', 'true');
+        cardEl.classList.add("hidden");
+        cardEl.setAttribute("aria-hidden", "true");
       }
     });
   }
-
-  const progPill = document.getElementById('step1-progress-pill');
-  const footerLabel = document.getElementById('step1-footer-card-label');
-  const prevBtn = document.getElementById('btn-step1-prev-card');
-  const nextBtn = document.getElementById('btn-step1-next-card');
+  const progPill = document.getElementById("step1-progress-pill");
+  const footerLabel = document.getElementById("step1-footer-card-label");
+  const prevBtn = document.getElementById("btn-step1-prev-card");
+  const nextBtn = document.getElementById("btn-step1-next-card");
   const idx = tabsOrder.indexOf(window._activeStep1SubTab);
-
   if (progPill) {
     progPill.textContent = idx !== -1 ? `Section ${idx + 1} of ${tabsOrder.length}` : `All ${tabsOrder.length} Sections`;
   }
   if (footerLabel) {
-    footerLabel.textContent = labelsMap[window._activeStep1SubTab] || '';
+    footerLabel.textContent = labelsMap[window._activeStep1SubTab] || "";
   }
   if (prevBtn) {
     prevBtn.disabled = idx <= 0;
-    prevBtn.className = idx <= 0
-      ? 'min-h-[40px] py-2 px-3.5 rounded-xl bg-purple-100/40 dark:bg-purple-900/20 text-purple-400 text-xs font-bold opacity-40 pointer-events-none'
-      : 'min-h-[40px] py-2 px-3.5 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 text-purple-900 dark:text-purple-200 font-bold text-xs transition cursor-pointer';
+    prevBtn.className = idx <= 0 ? "min-h-[40px] py-2 px-3.5 rounded-xl bg-purple-100/40 dark:bg-purple-900/20 text-purple-400 text-xs font-bold opacity-40 pointer-events-none" : "min-h-[40px] py-2 px-3.5 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 text-purple-900 dark:text-purple-200 font-bold text-xs transition cursor-pointer";
   }
   if (nextBtn) {
     if (idx !== -1 && idx < tabsOrder.length - 1) {
       const nextKey = tabsOrder[idx + 1];
-      nextBtn.textContent = `Next: ${nameMap[nextKey] || nextKey} →`;
+      nextBtn.textContent = `Next: ${nameMap[nextKey] || nextKey} \u2192`;
       nextBtn.onclick = () => window.step1NavigateCard(1);
     } else {
-      nextBtn.textContent = 'Next: Step 2 (Theme & Style) →';
+      nextBtn.textContent = "Next: Step 2 (Theme & Style) \u2192";
       nextBtn.onclick = () => window.goToStep(2);
     }
   }
-
   window.syncCustomizationLevelButtonsUI();
   window.updateCustomizationProgressUI();
-
-  if (window._activeStep1SubTab === 'photos') {
+  if (window._activeStep1SubTab === "photos") {
     window.renderTemplatePhotoSlotsManager();
-    window.scrollIframeToSection('gallery');
-  } else if (window._activeStep1SubTab === 'basic') {
-    window.scrollIframeToSection('hero');
+    window.scrollIframeToSection("gallery");
+  } else if (window._activeStep1SubTab === "basic") {
+    window.scrollIframeToSection("hero");
   }
 };
-
 window.step1NavigateCard = function(direction) {
   const tabsOrder = window.getAvailableStep1SubTabs();
   const curIdx = Math.max(0, tabsOrder.indexOf(window._activeStep1SubTab));
@@ -6982,117 +6163,109 @@ window.step1NavigateCard = function(direction) {
     window.goToStep(2);
   }
 };
-
 window.switchStep2SubTab = function(tabKey) {
-  window._activeStep2SubTab = tabKey || 'colors';
-  ['colors', 'fonts', 'fx', 'all'].forEach(k => {
-    const btn = document.getElementById('step2-subtab-btn-' + k);
+  window._activeStep2SubTab = tabKey || "colors";
+  ["colors", "fonts", "fx", "all"].forEach((k) => {
+    const btn = document.getElementById("step2-subtab-btn-" + k);
     if (!btn) return;
     const isSel = k === window._activeStep2SubTab;
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", isSel ? "true" : "false");
     btn.tabIndex = isSel ? 0 : -1;
     if (isSel) {
-      btn.className = 'step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = "step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer";
     } else {
-      btn.className = 'step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = "step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer";
     }
   });
-  const step2Container = document.getElementById('step-content-2');
+  const step2Container = document.getElementById("step-content-2");
   if (step2Container) {
-    step2Container.querySelectorAll('[data-step2-tab]').forEach(cardEl => {
-      const cardTab = cardEl.getAttribute('data-step2-tab');
-      if (window._activeStep2SubTab === 'all' || cardTab === window._activeStep2SubTab) {
-        cardEl.classList.remove('hidden');
-        cardEl.setAttribute('aria-hidden', 'false');
+    step2Container.querySelectorAll("[data-step2-tab]").forEach((cardEl) => {
+      const cardTab = cardEl.getAttribute("data-step2-tab");
+      if (window._activeStep2SubTab === "all" || cardTab === window._activeStep2SubTab) {
+        cardEl.classList.remove("hidden");
+        cardEl.setAttribute("aria-hidden", "false");
       } else {
-        cardEl.classList.add('hidden');
-        cardEl.setAttribute('aria-hidden', 'true');
+        cardEl.classList.add("hidden");
+        cardEl.setAttribute("aria-hidden", "true");
       }
     });
   }
 };
-
 window.selectDynamicFieldSection = function(secId) {
-  window._activeDynamicFieldSection = secId || 'all';
+  window._activeDynamicFieldSection = secId || "all";
   if (activeTemplate) {
     renderDynamicTemplateFields(activeTemplate);
   }
-  if (secId && secId !== 'all') {
+  if (secId && secId !== "all") {
     window.scrollIframeToSection(secId);
   }
 };
-
 window.scrollIframeToSection = function(sectionId) {
   if (!sectionId) return;
   try {
-    const iframe = document.getElementById('live-custom-iframe');
+    const iframe = document.getElementById("live-custom-iframe");
     const doc = iframe && (iframe.contentDocument || iframe.contentWindow?.document);
     if (!doc) return;
     const target = doc.querySelector(`[data-wm-section="${sectionId}"], [data-wm-subsection="${sectionId}"], #${sectionId}, #section-${sectionId}`);
-    if (target && typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (target && typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  } catch (_) {}
+  } catch (_) {
+  }
 };
-
 window.toggleCustomerSectionQuick = function(sectionId) {
-  if (!sectionId || sectionId === 'hero') return;
+  if (!sectionId || sectionId === "hero") return;
   if (!Array.isArray(currentCustomData._hiddenSections)) currentCustomData._hiddenSections = [];
-  const secObj = (currentCustomData.sections || []).find(s => s.id === sectionId);
-  const currentlyHidden = currentCustomData._hiddenSections.includes(sectionId) || (secObj && secObj.enabled === false);
+  const secObj = (currentCustomData.sections || []).find((s) => s.id === sectionId);
+  const currentlyHidden = currentCustomData._hiddenSections.includes(sectionId) || secObj && secObj.enabled === false;
   const nextEnabled = currentlyHidden;
-
   if (secObj) {
     window.toggleSection(sectionId, nextEnabled);
   } else {
     if (!nextEnabled) {
       if (!currentCustomData._hiddenSections.includes(sectionId)) currentCustomData._hiddenSections.push(sectionId);
     } else {
-      currentCustomData._hiddenSections = currentCustomData._hiddenSections.filter(id => id !== sectionId);
+      currentCustomData._hiddenSections = currentCustomData._hiddenSections.filter((id) => id !== sectionId);
     }
     currentCustomData.hiddenSections = [...currentCustomData._hiddenSections];
     if (!currentCustomData.sectionsMap) currentCustomData.sectionsMap = {};
     currentCustomData.sectionsMap[sectionId] = { enabled: nextEnabled };
     triggerAutosave();
     syncDataToIframe();
-    showToast(`Section "${sectionId.replace(/_/g, ' ')}" ${nextEnabled ? 'Shown 👁️' : 'Hidden 🙈'}`);
+    showToast(`Section "${sectionId.replace(/_/g, " ")}" ${nextEnabled ? "Shown \u{1F441}\uFE0F" : "Hidden \u{1F648}"}`);
   }
   if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
   updateGallerySectionQuickButtonUI();
 };
-
 window.toggleGallerySectionQuick = function() {
-  const galSec = (currentCustomData.sections || []).find(s => ['gallery', 'photos', 'album', 'memories'].includes(String(s.id || '').toLowerCase()));
-  const secId = galSec ? galSec.id : 'gallery';
+  const galSec = (currentCustomData.sections || []).find((s) => ["gallery", "photos", "album", "memories"].includes(String(s.id || "").toLowerCase()));
+  const secId = galSec ? galSec.id : "gallery";
   window.toggleCustomerSectionQuick(secId);
 };
-
 function updateGallerySectionQuickButtonUI() {
-  const btn = document.getElementById('btn-toggle-entire-gallery-section');
+  const btn = document.getElementById("btn-toggle-entire-gallery-section");
   if (!btn) return;
-  const galSec = (currentCustomData.sections || []).find(s => ['gallery', 'photos', 'album', 'memories'].includes(String(s.id || '').toLowerCase()));
-  const secId = galSec ? galSec.id : 'gallery';
+  const galSec = (currentCustomData.sections || []).find((s) => ["gallery", "photos", "album", "memories"].includes(String(s.id || "").toLowerCase()));
+  const secId = galSec ? galSec.id : "gallery";
   const hiddenSet = new Set(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []);
-  const isOff = hiddenSet.has(secId) || (galSec && galSec.enabled === false);
+  const isOff = hiddenSet.has(secId) || galSec && galSec.enabled === false;
   if (isOff) {
-    btn.textContent = '🙈 Gallery Section: HIDDEN (Tap to Show)';
-    btn.className = 'min-h-[34px] px-3 py-1.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition cursor-pointer';
+    btn.textContent = "\u{1F648} Gallery Section: HIDDEN (Tap to Show)";
+    btn.className = "min-h-[34px] px-3 py-1.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition cursor-pointer";
   } else {
-    btn.textContent = '👁️ Gallery Section: ON (Tap to Hide)';
-    btn.className = 'min-h-[34px] px-3 py-1.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition cursor-pointer';
+    btn.textContent = "\u{1F441}\uFE0F Gallery Section: ON (Tap to Hide)";
+    btn.className = "min-h-[34px] px-3 py-1.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition cursor-pointer";
   }
 }
-
 window.toggleCustomerFieldVisibility = function(fieldKey, forceState = null) {
-  const cleanKey = String(fieldKey || '').trim();
+  const cleanKey = String(fieldKey || "").trim();
   if (!cleanKey || isMandatoryIdentityField(cleanKey)) return;
   if (!Array.isArray(currentCustomData._hiddenFields)) {
     currentCustomData._hiddenFields = [];
   }
   const isCurrentlyHidden = currentCustomData._hiddenFields.includes(cleanKey);
   const shouldHide = forceState !== null ? !forceState : !isCurrentlyHidden;
-
   if (shouldHide) {
     if (!currentCustomData._hiddenFields.includes(cleanKey)) {
       currentCustomData._hiddenFields.push(cleanKey);
@@ -7100,7 +6273,7 @@ window.toggleCustomerFieldVisibility = function(fieldKey, forceState = null) {
     const numMatch = cleanKey.match(/^photo_(\d+)$/i);
     if (numMatch) {
       const n = numMatch[1];
-      [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach(capKey => {
+      [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach((capKey) => {
         if (!currentCustomData._hiddenFields.includes(capKey)) {
           currentCustomData._hiddenFields.push(capKey);
         }
@@ -7108,107 +6281,87 @@ window.toggleCustomerFieldVisibility = function(fieldKey, forceState = null) {
     }
   } else {
     const numMatch = cleanKey.match(/^photo_(\d+)$/i);
-    const pairedKeys = new Set([cleanKey]);
+    const pairedKeys = /* @__PURE__ */ new Set([cleanKey]);
     if (numMatch) {
       const n = numMatch[1];
-      [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach(k => pairedKeys.add(k));
+      [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach((k) => pairedKeys.add(k));
     }
-    currentCustomData._hiddenFields = currentCustomData._hiddenFields.filter(k => !pairedKeys.has(k));
+    currentCustomData._hiddenFields = currentCustomData._hiddenFields.filter((k) => !pairedKeys.has(k));
   }
   currentCustomData.hiddenFields = [...currentCustomData._hiddenFields];
-
   if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
   renderTemplatePhotoSlotsManager();
   triggerAutosave();
   syncDataToIframe();
-  showToast(`${cleanKey.replace(/_/g, ' ').toUpperCase()} ${shouldHide ? 'hidden from your website 🙈' : 'restored on your website 👁️'}`);
+  showToast(`${cleanKey.replace(/_/g, " ").toUpperCase()} ${shouldHide ? "hidden from your website \u{1F648}" : "restored on your website \u{1F441}\uFE0F"}`);
 };
-
 function getTemplateDeclaredPhotoSlots() {
-  const slotMap = new Map();
+  const slotMap = /* @__PURE__ */ new Map();
   const addSlot = (key, label, defaultSrc) => {
-    const k = String(key || '').trim();
+    const k = String(key || "").trim();
     if (!k) return;
     if (!slotMap.has(k)) {
       slotMap.set(k, {
         key: k,
-        label: label || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        defaultSrc: defaultSrc || ''
+        label: label || k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        defaultSrc: defaultSrc || ""
       });
     }
   };
-
-  const manifestFields = (activeTemplate && activeTemplate.manifest && Array.isArray(activeTemplate.manifest.fields))
-    ? activeTemplate.manifest.fields
-    : [];
-  const tplFields = (activeTemplate && Array.isArray(activeTemplate.fields)) ? activeTemplate.fields : [];
-  const detFields = (activeTemplate && Array.isArray(activeTemplate.detectedFields)) ? activeTemplate.detectedFields : [];
-
-  [...manifestFields, ...tplFields, ...detFields].forEach(f => {
+  const manifestFields = activeTemplate && activeTemplate.manifest && Array.isArray(activeTemplate.manifest.fields) ? activeTemplate.manifest.fields : [];
+  const tplFields = activeTemplate && Array.isArray(activeTemplate.fields) ? activeTemplate.fields : [];
+  const detFields = activeTemplate && Array.isArray(activeTemplate.detectedFields) ? activeTemplate.detectedFields : [];
+  [...manifestFields, ...tplFields, ...detFields].forEach((f) => {
     if (!f) return;
-    const fKey = String(f.id || f.key || '').trim();
-    const fType = String(f.type || '').toLowerCase();
-    if (fType === 'image' || /^photo_\d+$/i.test(fKey) || fKey === 'cover_photo' || fKey.includes('photo') || fKey.includes('image')) {
-      if (fType !== 'text' && fType !== 'textarea') {
-        addSlot(fKey, f.label, f.defaultValue || f.originalSrc || '');
+    const fKey = String(f.id || f.key || "").trim();
+    const fType = String(f.type || "").toLowerCase();
+    if (fType === "image" || /^photo_\d+$/i.test(fKey) || fKey === "cover_photo" || fKey.includes("photo") || fKey.includes("image")) {
+      if (fType !== "text" && fType !== "textarea") {
+        addSlot(fKey, f.label, f.defaultValue || f.originalSrc || "");
       }
     }
   });
-
   try {
-    const iframe = document.getElementById('live-custom-iframe');
+    const iframe = document.getElementById("live-custom-iframe");
     const doc = iframe && (iframe.contentDocument || iframe.contentWindow?.document);
     if (doc) {
-      doc.querySelectorAll('img[data-wm-field], img[data-wm], [data-wm-type="image"], [data-wm-photo-slot]').forEach(el => {
-        const k = el.getAttribute('data-wm-photo-slot') || el.getAttribute('data-wm-field') || el.getAttribute('data-wm');
+      doc.querySelectorAll('img[data-wm-field], img[data-wm], [data-wm-type="image"], [data-wm-photo-slot]').forEach((el) => {
+        const k = el.getAttribute("data-wm-photo-slot") || el.getAttribute("data-wm-field") || el.getAttribute("data-wm");
         if (k) {
-          addSlot(k, el.getAttribute('data-wm-label') || null, el.getAttribute('src') || '');
+          addSlot(k, el.getAttribute("data-wm-label") || null, el.getAttribute("src") || "");
         }
       });
     }
-  } catch (_) {}
-
+  } catch (_) {
+  }
   return Array.from(slotMap.values());
 }
-
 window.toggleExpandExtraPhotoSlots = function() {
   window._showAllPhotoSlots = !window._showAllPhotoSlots;
   window.renderTemplatePhotoSlotsManager();
 };
-
 window.renderTemplatePhotoSlotsManager = function() {
-  const managerEl = document.getElementById('template-photo-slots-manager');
+  const managerEl = document.getElementById("template-photo-slots-manager");
   if (!managerEl) return;
-
   const slots = getTemplateDeclaredPhotoSlots();
   if (slots.length === 0) {
-    managerEl.innerHTML = '';
+    managerEl.innerHTML = "";
     return;
   }
-
-  const uploadedPhotos = (currentCustomData.media && Array.isArray(currentCustomData.media.photos))
-    ? currentCustomData.media.photos
-    : (Array.isArray(currentCustomData.photos) ? currentCustomData.photos : []);
+  const uploadedPhotos = currentCustomData.media && Array.isArray(currentCustomData.media.photos) ? currentCustomData.media.photos : Array.isArray(currentCustomData.photos) ? currentCustomData.photos : [];
   const hiddenFieldsSet = new Set(Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : []);
-
   let unuploadedVisibleSlotsCount = 0;
   let hiddenSlotsCount = 0;
-
-  // Stage 3 Level B Requirement: Show primary photo slot(s) first and keep additional slots accessible via "Add more photos" when collection > 2
   const primaryVisibleLimit = 2;
   const hasMoreSlots = slots.length > primaryVisibleLimit;
-  const visibleSlotsList = (hasMoreSlots && !window._showAllPhotoSlots)
-    ? slots.slice(0, primaryVisibleLimit)
-    : slots;
-
+  const visibleSlotsList = hasMoreSlots && !window._showAllPhotoSlots ? slots.slice(0, primaryVisibleLimit) : slots;
   slots.forEach((slot, idx) => {
     const photoNumMatch = slot.key.match(/^photo_(\d+)$/i);
-    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : (idx + 1);
+    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : idx + 1;
     const uploadedForOrder = uploadedPhotos[slotNum - 1];
     const directVal = currentCustomData[slot.key];
     const hasCustomUpload = Boolean(
-      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== 'photo_default_1') ||
-      (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
+      uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== "photo_default_1" || directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key]
     );
     const isHidden = hiddenFieldsSet.has(slot.key);
     if (isHidden) {
@@ -7217,56 +6370,42 @@ window.renderTemplatePhotoSlotsManager = function() {
       unuploadedVisibleSlotsCount++;
     }
   });
-
   const slotCardsHtml = visibleSlotsList.map((slot, idx) => {
     const photoNumMatch = slot.key.match(/^photo_(\d+)$/i);
-    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : (idx + 1);
+    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : idx + 1;
     const uploadedForOrder = uploadedPhotos[slotNum - 1];
     const directVal = currentCustomData[slot.key];
     const hasCustomUpload = Boolean(
-      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== 'photo_default_1') ||
-      (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
+      uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== "photo_default_1" || directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key]
     );
-    const previewSrc = (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl)) ||
-      directVal ||
-      slot.defaultSrc ||
-      templateDefaultValues[slot.key] ||
-      '/assets/file_ab2082.png';
+    const previewSrc = uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) || directVal || slot.defaultSrc || templateDefaultValues[slot.key] || "/assets/file_ab2082.webp";
     const isHidden = hiddenFieldsSet.has(slot.key);
     const isPrimary = idx === 0;
-
     return `
-      <div class="p-3 rounded-2xl border transition flex items-center justify-between gap-2.5 ${
-        hasCustomUpload
-          ? 'bg-emerald-500/10 border-emerald-500/35'
-          : 'bg-white/80 border-purple-200/70'
-      }">
+      <div class="p-3 rounded-2xl border transition flex items-center justify-between gap-2.5 ${hasCustomUpload ? "bg-emerald-500/10 border-emerald-500/35" : "bg-white/80 border-purple-200/70"}">
         <div class="flex items-center gap-2.5 min-w-0">
           <div class="w-12 h-12 rounded-xl overflow-hidden border border-purple-300/50 shrink-0 bg-purple-100 relative">
-            <img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(slot.label)}" class="w-full h-full object-cover" onerror="this.src='/assets/file_ab2082.png'"/>
+            <img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(slot.label)}" class="w-full h-full object-cover" onerror="this.src='/assets/file_ab2082.webp'"/>
             <span class="absolute bottom-0 right-0 px-1 bg-black/75 text-white font-mono text-[8px] font-bold">#${slotNum}</span>
           </div>
           <div class="min-w-0">
             <div class="text-xs font-extrabold text-purple-950 truncate flex items-center gap-1">
               <span>${escapeHtml(slot.label)}</span>
-              ${isPrimary ? '<span class="px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-600 text-[9px] font-bold">Main</span>' : ''}
+              ${isPrimary ? '<span class="px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-600 text-[9px] font-bold">Main</span>' : ""}
             </div>
-            <div class="text-[10px] font-semibold ${
-              hasCustomUpload ? 'text-emerald-600' : 'text-purple-600'
-            }">
-              ${hasCustomUpload ? '🟢 Custom Photo Uploaded' : '⚪ Default Photo'}
+            <div class="text-[10px] font-semibold ${hasCustomUpload ? "text-emerald-600" : "text-purple-600"}">
+              ${hasCustomUpload ? "\u{1F7E2} Custom Photo Uploaded" : "\u26AA Default Photo"}
             </div>
           </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <button type="button" onclick="triggerSlotSpecificPhotoUpload('${slot.key}')" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-950 text-[11px] font-bold transition cursor-pointer" title="Upload photo for this slot">
-            📁 Upload
+            \u{1F4C1} Upload
           </button>
         </div>
       </div>
     `;
-  }).join('');
-
+  }).join("");
   managerEl.innerHTML = `
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
       ${slotCardsHtml}
@@ -7274,25 +6413,22 @@ window.renderTemplatePhotoSlotsManager = function() {
     ${hasMoreSlots ? `
       <div class="pt-1 flex justify-center">
         <button type="button" id="btn-toggle-more-photo-slots" onclick="window.toggleExpandExtraPhotoSlots()" class="min-h-[38px] px-4 py-2 rounded-xl bg-purple-100/80 hover:bg-purple-200 text-purple-900 text-xs font-extrabold border border-purple-300/60 transition cursor-pointer">
-          ${window._showAllPhotoSlots ? '🔼 Show Fewer Photo Slots' : `➕ Add More Photos (${slots.length - primaryVisibleLimit} More Slot${slots.length - primaryVisibleLimit === 1 ? '' : 's'})`}
+          ${window._showAllPhotoSlots ? "\u{1F53C} Show Fewer Photo Slots" : `\u2795 Add More Photos (${slots.length - primaryVisibleLimit} More Slot${slots.length - primaryVisibleLimit === 1 ? "" : "s"})`}
         </button>
       </div>
-    ` : ''}
+    ` : ""}
   `;
 };
-
 window.triggerSlotSpecificPhotoUpload = function(slotKey) {
   window._pendingSlotPhotoFieldKey = slotKey;
-  const picker = document.getElementById('slot-specific-photo-picker');
+  const picker = document.getElementById("slot-specific-photo-picker");
   if (picker) picker.click();
 };
-
 window.handleSlotSpecificPhotoFile = async function(input) {
   if (!input.files || input.files.length === 0 || !window._pendingSlotPhotoFieldKey) return;
   const file = input.files[0];
   const slotKey = window._pendingSlotPhotoFieldKey;
   window._pendingSlotPhotoFieldKey = null;
-
   try {
     const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
     currentCustomData[slotKey] = optimized.src;
@@ -7305,8 +6441,8 @@ window.handleSlotSpecificPhotoFile = async function(input) {
         currentCustomData.media.photos[slotIdx].url = optimized.src;
       } else {
         currentCustomData.media.photos.push({
-          id: 'photo_' + Date.now().toString(36),
-          name: file.name.replace(/\.[^/.]+$/, ''),
+          id: "photo_" + Date.now().toString(36),
+          name: file.name.replace(/\.[^/.]+$/, ""),
           src: optimized.src,
           url: optimized.src,
           isCover: currentCustomData.media.photos.length === 0,
@@ -7315,7 +6451,7 @@ window.handleSlotSpecificPhotoFile = async function(input) {
       }
       window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
     }
-    if (slotKey === 'photo_1' || slotKey === 'cover_photo' || slotKey === 'hero_photo') {
+    if (slotKey === "photo_1" || slotKey === "cover_photo" || slotKey === "hero_photo") {
       currentCustomData.photo_1 = optimized.src;
       currentCustomData.cover_photo = optimized.src;
       if (currentCustomData.media) {
@@ -7323,8 +6459,8 @@ window.handleSlotSpecificPhotoFile = async function(input) {
         if (!Array.isArray(currentCustomData.media.photos)) currentCustomData.media.photos = [];
         if (currentCustomData.media.photos.length === 0) {
           currentCustomData.media.photos.push({
-            id: 'photo_' + Date.now().toString(36),
-            name: file.name.replace(/\.[^/.]+$/, ''),
+            id: "photo_" + Date.now().toString(36),
+            name: file.name.replace(/\.[^/.]+$/, ""),
             src: optimized.src,
             url: optimized.src,
             isCover: true,
@@ -7345,34 +6481,30 @@ window.handleSlotSpecificPhotoFile = async function(input) {
       renderTemplatePhotoSlotsManager();
       triggerAutosave();
       syncDataToIframe();
-      showToast(`📸 Uploaded photo to ${slotKey.replace(/_/g, ' ').toUpperCase()}!`);
+      showToast(`\u{1F4F8} Uploaded photo to ${slotKey.replace(/_/g, " ").toUpperCase()}!`);
     }
   } catch (err) {
-    showPhotoError(err.message || 'Could not process image.');
+    showPhotoError(err.message || "Could not process image.");
   }
-  input.value = '';
+  input.value = "";
 };
-
-// Accessible Keyboard Navigation for Stepper, Level Switcher & Subtabs
 function initAccessibleTabKeyboardNavigation() {
-  document.addEventListener('keydown', (e) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  document.addEventListener("keydown", (e) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     const target = e.target;
-    if (!target || target.getAttribute('role') !== 'tab') return;
+    if (!target || target.getAttribute("role") !== "tab") return;
     const tablist = target.closest('[role="tablist"]');
     if (!tablist) return;
     const tabs = Array.from(tablist.querySelectorAll('[role="tab"]:not(.hidden):not([disabled])'));
     if (tabs.length <= 1) return;
     const idx = tabs.indexOf(target);
     if (idx === -1) return;
-
     e.preventDefault();
     let nextIdx = idx;
-    if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
-    else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
-    else if (e.key === 'Home') nextIdx = 0;
-    else if (e.key === 'End') nextIdx = tabs.length - 1;
-
+    if (e.key === "ArrowRight") nextIdx = (idx + 1) % tabs.length;
+    else if (e.key === "ArrowLeft") nextIdx = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === "Home") nextIdx = 0;
+    else if (e.key === "End") nextIdx = tabs.length - 1;
     const nextTab = tabs[nextIdx];
     if (nextTab) {
       nextTab.focus();
@@ -7380,26 +6512,23 @@ function initAccessibleTabKeyboardNavigation() {
     }
   });
 }
-
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   initAccessibleTabKeyboardNavigation();
-  if (typeof window.switchStep1SubTab === 'function') window.switchStep1SubTab(window._activeStep1SubTab || 'all');
-  if (typeof window.switchStep2SubTab === 'function') window.switchStep2SubTab(window._activeStep2SubTab || 'colors');
-  if (typeof window.renderTemplatePhotoSlotsManager === 'function') window.renderTemplatePhotoSlotsManager();
-  if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
+  if (typeof window.switchStep1SubTab === "function") window.switchStep1SubTab(window._activeStep1SubTab || "all");
+  if (typeof window.switchStep2SubTab === "function") window.switchStep2SubTab(window._activeStep2SubTab || "colors");
+  if (typeof window.renderTemplatePhotoSlotsManager === "function") window.renderTemplatePhotoSlotsManager();
+  if (typeof window.updateCustomizationProgressUI === "function") window.updateCustomizationProgressUI();
 });
-
-
 window.showFestivalCampaignExpiredNotice = function(message, details = {}) {
-  let banner = document.getElementById('wm-festival-campaign-expired-banner');
+  let banner = document.getElementById("wm-festival-campaign-expired-banner");
   if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'wm-festival-campaign-expired-banner';
-    banner.setAttribute('role', 'alert');
-    banner.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999;max-width:560px;width:calc(100% - 32px);background:#2e1065;border:2px solid #f43f5e;border-radius:16px;padding:16px 20px;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,0.65);font-family:Plus Jakarta Sans,sans-serif;';
+    banner = document.createElement("div");
+    banner.id = "wm-festival-campaign-expired-banner";
+    banner.setAttribute("role", "alert");
+    banner.style.cssText = "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999;max-width:560px;width:calc(100% - 32px);background:#2e1065;border:2px solid #f43f5e;border-radius:16px;padding:16px 20px;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,0.65);font-family:Plus Jakarta Sans,sans-serif;";
     document.body.appendChild(banner);
   }
-  const safeMsg = String(message || 'This festival campaign has ended and is no longer accepting new wish creations.').replace(/[<>&"]/g, '');
+  const safeMsg = String(message || "This festival campaign has ended and is no longer accepting new wish creations.").replace(/[<>&"]/g, "");
   banner.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
       <div>

@@ -16,20 +16,14 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261118_minimal_v1"></script>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261118_minimal_v1"></script>
-  <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261118_minimal_v1"></script>
-  <script>
-    if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") {
-      tailwind.config = sharedTailwindConfig;
-    }
-  </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261118_minimal_v1"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
+  <link rel="stylesheet" href="/css/admin-tailwind.min.css?v=20261118_admin_fast_v1"/>
+  <script defer src="js/WishMagicCore.js"></script>
+  <script defer src="js/admin-theme.js?v=20261118_admin_fast_v1"></script>
+  <script defer src="js/api-client.js"></script>
+  <script defer src="js/auth-service.js?v=20261118_minimal_v1"></script>
+<link rel="stylesheet" href="css/admin-theme.css?v=20261118_admin_fast_v1"/>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
 
@@ -684,28 +678,57 @@
       </div>
     `;
 
+    // 0ms Instant Paint from sessionStorage cache while live data refreshes silently
+    let paintedFromCache = false;
     try {
-      // 1. Fetch live Hero Image configuration
-      const heroRes = await fetch('/api/admin/hero-image?t=' + Date.now(), { credentials: 'include', cache: 'no-store' });
-      if (heroRes.ok) {
-        const heroData = await heroRes.json();
+      const cachedMedia = window.wmAdminFastCache ? window.wmAdminFastCache.get('media_library_v1', 180000) : null;
+      if (cachedMedia && Array.isArray(cachedMedia.assets)) {
+        if (cachedMedia.heroImageUrl) {
+          currentHeroImage = cachedMedia.heroImageUrl;
+          updateHeroDisplay(currentHeroImage);
+        }
+        if (cachedMedia.heroBgMode) updateHeroBgModeBadge(cachedMedia.heroBgMode);
+        allMediaAssets = cachedMedia.assets;
+        const cs = cachedMedia.summary || {};
+        const setElTextCache = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        setElTextCache('stat-total-assets', cs.totalAssets || allMediaAssets.length);
+        setElTextCache('stat-photos-count', cs.photosCount || allMediaAssets.filter(a => a.type === 'image').length);
+        setElTextCache('stat-videos-count', cs.videosCount || allMediaAssets.filter(a => a.type === 'video').length);
+        setElTextCache('stat-audios-count', cs.audioCount || allMediaAssets.filter(a => a.type === 'audio').length);
+        populateUserFilterDropdown(cachedMedia.users || []);
+        renderMediaGrid();
+        paintedFromCache = true;
+      }
+    } catch (_) {}
+
+    try {
+      // Parallel fetch Hero Image config + live media inventory (no-store so deleted items never return from cache)
+      const [heroRes, res] = await Promise.all([
+        fetch('/api/admin/hero-image?t=' + Date.now(), { credentials: 'include', cache: 'no-store' }).catch(() => null),
+        fetch('/api/admin/media/all?t=' + Date.now(), { credentials: 'include', cache: 'no-store' })
+      ]);
+
+      let latestHeroBgMode = null;
+      if (heroRes && heroRes.ok) {
+        const heroData = await heroRes.json().catch(() => ({}));
         if (heroData.success) {
           if (heroData.heroImageUrl) {
             currentHeroImage = heroData.heroImageUrl;
             updateHeroDisplay(currentHeroImage);
           }
           if (heroData.heroBgMode) {
+            latestHeroBgMode = heroData.heroBgMode;
             updateHeroBgModeBadge(heroData.heroBgMode);
           }
         }
       }
 
-      // 2. Fetch all media assets with live usage tracking (no-store so deleted items never return from cache)
-      const res = await fetch('/api/admin/media/all?t=' + Date.now(), { credentials: 'include', cache: 'no-store' });
       const data = await res.json();
 
       if (!data.success) {
-        grid.innerHTML = `<div class="col-span-full p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold">Failed to load media: ${escapeHtml(data.message || 'Error')}</div>`;
+        if (!paintedFromCache) {
+          grid.innerHTML = `<div class="col-span-full p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold">Failed to load media: ${escapeHtml(data.message || 'Error')}</div>`;
+        }
         return;
       }
 
@@ -722,6 +745,19 @@
         currentHeroImage = s.currentHeroImage;
         updateHeroDisplay(currentHeroImage);
       }
+
+      // Save slim snapshot to fast session cache
+      try {
+        if (window.wmAdminFastCache) {
+          window.wmAdminFastCache.set('media_library_v1', {
+            heroImageUrl: currentHeroImage,
+            heroBgMode: latestHeroBgMode,
+            summary: s,
+            users: data.users || [],
+            assets: allMediaAssets.slice(0, 120)
+          });
+        }
+      } catch (_) {}
 
       // Update KPI Bento Cards
       const setElText = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
@@ -780,6 +816,20 @@
   let currentProviderFilter = 'all';
   let currentUploaderRoleFilter = 'both';
   let currentUserKeyFilter = 'all';
+  const MEDIA_BATCH_SIZE = 24;
+  let adminMediaVisibleLimit = MEDIA_BATCH_SIZE;
+  let userMediaVisibleLimit = MEDIA_BATCH_SIZE;
+
+  function resetMediaBatchLimits() {
+    adminMediaVisibleLimit = MEDIA_BATCH_SIZE;
+    userMediaVisibleLimit = MEDIA_BATCH_SIZE;
+  }
+
+  function loadMoreMediaBatch(section) {
+    if (section === 'admin') adminMediaVisibleLimit += MEDIA_BATCH_SIZE;
+    else if (section === 'user') userMediaVisibleLimit += MEDIA_BATCH_SIZE;
+    renderMediaGrid();
+  }
 
   function populateUserFilterDropdown(serverUsers) {
     const sel = document.getElementById('filter-media-user');
@@ -811,6 +861,7 @@
 
   function setUploaderRoleFilter(role) {
     currentUploaderRoleFilter = role;
+    resetMediaBatchLimits();
     ['both', 'admin', 'user'].forEach(r => {
       const btn = document.getElementById(`role-${r}`);
       if (btn) {
@@ -826,6 +877,7 @@
 
   function setUserMediaFilter(userKey) {
     currentUserKeyFilter = userKey || 'all';
+    resetMediaBatchLimits();
     const sel = document.getElementById('filter-media-user');
     if (sel && sel.value !== currentUserKeyFilter) sel.value = currentUserKeyFilter;
     const clearBtn = document.getElementById('btn-clear-user-filter');
@@ -842,6 +894,7 @@
 
   function setProviderFilter(prov) {
     currentProviderFilter = prov;
+    resetMediaBatchLimits();
     ['all', 'b2', 'imgbb', 'd1'].forEach(p => {
       const btn = document.getElementById(`prov-${p}`);
       if (btn) {
@@ -857,6 +910,7 @@
 
   function setMediaFilter(filter) {
     currentFilter = filter;
+    resetMediaBatchLimits();
     ['all', 'image', 'template', 'video', 'audio', 'inuse'].forEach(f => {
       const btn = document.getElementById(`tab-${f}`);
       if (btn) {
@@ -871,6 +925,7 @@
   }
 
   function filterMediaCatalog() {
+    resetMediaBatchLimits();
     renderMediaGrid();
   }
 
@@ -940,9 +995,9 @@
           <div class="flex flex-col gap-2">
             <div class="relative w-full h-32 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
               ${isImage ? `
-                <img src="${a.url}" alt="${escapeHtml(a.title)}" class="w-full h-full object-cover cursor-pointer" loading="lazy" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/icons/admin-icon-192.png';"/>
+                <img src="${a.url}" alt="${escapeHtml(a.title)}" class="w-full h-full object-cover cursor-pointer" loading="lazy" decoding="async" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/icons/admin-icon-192.png';"/>
               ` : isVideo ? `
-                <video src="${a.streamUrl || a.url}" class="w-full h-full object-cover cursor-pointer" controls preload="metadata" onclick="openLightboxVideo('${a.url}', '${escapeHtml(a.title)}', '${a.streamUrl || ''}')" onerror="if(this.src!=='${a.playbackUrl||a.url}')this.src='${a.playbackUrl||a.url}';"></video>
+                <video src="${a.streamUrl || a.url}" class="w-full h-full object-cover cursor-pointer" controls preload="none" onclick="openLightboxVideo('${a.url}', '${escapeHtml(a.title)}', '${a.streamUrl || ''}')" onerror="if(this.src!=='${a.playbackUrl||a.url}')this.src='${a.playbackUrl||a.url}';"></video>
               ` : `
                 <div class="flex flex-col items-center justify-center gap-1.5 p-2.5 text-center">
                   <div class="w-10 h-10 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-100 text-emerald-700 animate-pulse' : 'bg-blue-50 text-blue-700'} flex items-center justify-center">
@@ -1044,14 +1099,28 @@
     };
 
     if (adminGrid) {
-      adminGrid.innerHTML = adminFiltered.length > 0
-        ? adminFiltered.map(renderCardHtml).join('')
-        : `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No admin media.</div>`;
+      if (adminFiltered.length > 0) {
+        const visibleAdmin = adminFiltered.slice(0, adminMediaVisibleLimit);
+        const remainingAdmin = adminFiltered.length - visibleAdmin.length;
+        const loadMoreAdminBtn = remainingAdmin > 0
+          ? `<div class="col-span-full flex justify-center pt-2"><button type="button" onclick="loadMoreMediaBatch('admin')" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition">Load More Admin Media (${remainingAdmin} remaining)</button></div>`
+          : '';
+        adminGrid.innerHTML = visibleAdmin.map(renderCardHtml).join('') + loadMoreAdminBtn;
+      } else {
+        adminGrid.innerHTML = `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No admin media.</div>`;
+      }
     }
     if (userGrid) {
-      userGrid.innerHTML = userFiltered.length > 0
-        ? userFiltered.map(renderCardHtml).join('')
-        : `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No user media.</div>`;
+      if (userFiltered.length > 0) {
+        const visibleUser = userFiltered.slice(0, userMediaVisibleLimit);
+        const remainingUser = userFiltered.length - visibleUser.length;
+        const loadMoreUserBtn = remainingUser > 0
+          ? `<div class="col-span-full flex justify-center pt-2"><button type="button" onclick="loadMoreMediaBatch('user')" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition">Load More User Media (${remainingUser} remaining)</button></div>`
+          : '';
+        userGrid.innerHTML = visibleUser.map(renderCardHtml).join('') + loadMoreUserBtn;
+      } else {
+        userGrid.innerHTML = `<div class="col-span-full py-3 px-4 rounded-lg bg-white text-center text-xs text-slate-500 border border-slate-200">No user media.</div>`;
+      }
     }
     updateMediaBulkSelectionUI();
   }

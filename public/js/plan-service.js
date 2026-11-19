@@ -1,103 +1,71 @@
-// WishMagic Monetization Architecture - Plan & Feature Models
-// Part 11: Premium Access & Monetization Architecture
+(function (window2) {
+  "use strict";
 
-(function(window) {
-  'use strict';
-
-  // ---------------------------------------------------------------------------
-  // 1. NORMALIZED FEATURE CATALOG
-  // ---------------------------------------------------------------------------
   const FEATURE_CATALOG = {
+    custom_link: {
+      key: "custom_link",
+      name: "Custom Branded Link",
+      description: "Choose a memorable personal URL like /w/happy-birthday-priya.",
+      icon: "link",
+      category: "links"
+    },
+    yearly_custom_link: {
+      key: "yearly_custom_link",
+      name: "1-Year Custom Link (365 Days)",
+      description: "Keep your custom branded celebration link active for a full year (365 days).",
+      icon: "calendar_month",
+      category: "links"
+    },
+    hd_photos: {
+      key: "hd_photos",
+      name: "HD Photos Upload",
+      description: "Upload crystal-clear HD photos on templates that support photo uploads.",
+      icon: "photo_library",
+      category: "media"
+    },
     premium_templates: {
-      key: 'premium_templates',
-      name: 'Premium 3D Templates',
-      description: 'Access exclusive high-fidelity 3D templates with cinematic shaders and immersive animations.',
-      icon: 'style',
-      category: 'templates'
-    },
-    advanced_themes: {
-      key: 'advanced_themes',
-      name: 'Advanced Visual Themes',
-      description: 'Unlock luxury themes including Royal Violet, Celestial Gold, Dark Synthwave, and custom color accents.',
-      icon: 'palette',
-      category: 'styling'
-    },
-    advanced_sections: {
-      key: 'advanced_sections',
-      name: 'Exclusive Story Sections',
-      description: 'Engage recipients with Countdown Clock, Interactive Timeline, Secret Message, and Grand Finale.',
-      icon: 'view_agenda',
-      category: 'layout'
+      key: "premium_templates",
+      name: "Custom-Priced Templates",
+      description: "Each template has its own Free or custom ₹ price set individually.",
+      icon: "style",
+      category: "templates"
     },
     unlimited_photos: {
-      key: 'unlimited_photos',
-      name: 'Expanded Keepsake Gallery',
-      description: 'Attach up to 16 high-resolution memories with Polaroid, Filmstrip, and Mosaic presentation layouts.',
-      icon: 'photo_library',
-      category: 'media'
-    },
-    voice_note: {
-      key: 'voice_note',
-      name: 'Spoken Voice Dedication',
-      description: 'Record or upload up to 2 minutes of authentic voice notes, laughter, and personalized blessings.',
-      icon: 'mic',
-      category: 'media'
-    },
-    premium_music: {
-      key: 'premium_music',
-      name: 'Custom BGM Soundtrack Upload',
-      description: 'Attach any personal MP3 celebration audio or choose from our full studio acoustic soundscape catalog.',
-      icon: 'music_note',
-      category: 'media'
+      key: "unlimited_photos",
+      name: "HD Photo Gallery",
+      description: "Attach crystal-clear HD memories on photo-enabled templates.",
+      icon: "photo_library",
+      category: "media"
     },
     remove_watermark: {
-      key: 'remove_watermark',
-      name: '100% Zero Watermark',
-      description: 'Deliver a completely white-label, pristine gift link with zero WishMagic branding or badges.',
-      icon: 'branding_watermark',
-      category: 'branding'
-    },
-    premium_effects: {
-      key: 'premium_effects',
-      name: '4K Interactive FX',
-      description: 'Trigger 4K gold confetti showers, realistic interactive wax seal breaks, and midnight fireworks.',
-      icon: 'auto_awesome',
-      category: 'effects'
+      key: "remove_watermark",
+      name: "Clean Branded Experience",
+      description: "Deliver a crisp, personal celebration website with your own custom link.",
+      icon: "branding_watermark",
+      category: "branding"
     },
     keep_memory_forever: {
-      key: 'keep_memory_forever',
-      name: 'Lifetime Memory Preservation',
-      description: 'Preserve celebration websites indefinitely with no 7-day expiration date, safe for lifetime anniversaries.',
-      icon: 'all_inclusive',
-      category: 'preservation'
+      key: "keep_memory_forever",
+      name: "1-Year Memory Hosting",
+      description: "Keep your custom celebration link live for 365 full days.",
+      icon: "all_inclusive",
+      category: "preservation"
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // 2. NORMALIZED PLAN MODELS
-  // ---------------------------------------------------------------------------
   const PLANS = {
     free: {
-      id: 'free',
-      name: 'Free Forever',
-      badge: 'FREE TIER',
-      tagline: 'Delightful celebration websites for friends and loved ones',
-      description: 'Full access to standard templates, heartfelt letters, basic photo gallery, and 7-day celebration link.',
+      id: "free",
+      name: "Free Random Link",
+      badge: "FREE",
+      tagline: "Instant free wish link on free templates",
+      description: "Customize any free template and publish with an instant random link at ₹0.",
       price: 0,
-      currency: 'INR',
-      currencySymbol: '₹',
-      billingType: 'free',
+      currency: "INR",
+      currencySymbol: "₹",
+      billingType: "free",
       isActive: true,
-      features: [
-        'beautiful_templates',
-        'basic_customization',
-        'recipient_sender_names',
-        'personal_letter',
-        'standard_themes',
-        'standard_music',
-        'standard_confetti',
-        '7_day_link'
-      ],
+      features: ["beautiful_templates", "basic_customization", "recipient_sender_names", "personal_letter"],
       limits: {
         maxPhotos: 3,
         maxVoiceDurationSeconds: 0,
@@ -105,35 +73,76 @@
         allowCustomSections: false,
         watermarkRequired: true,
         lifetimePreservation: false,
-        allowedGalleryLayouts: ['grid'],
-        allowedThemes: ['magical', 'cute', 'celebration', 'pastel']
-      },
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-10-04T00:00:00.000Z'
+        allowedGalleryLayouts: ["grid"],
+        allowedThemes: ["magical", "cute", "celebration", "pastel"]
+      }
     },
-
-    premium: {
-      id: 'premium',
-      name: 'VIP Magic Pass',
-      badge: 'VIP PASS',
-      tagline: 'The ultimate, unforgettable celebration experience',
-      description: 'Lifetime permanent link, zero watermark, voice dedications, custom audio, 16 memories, and all VIP blueprints.',
-      price: 49,
-      currency: 'INR',
-      currencySymbol: '₹',
-      billingType: 'one_time_or_pass',
+    personalized_link: {
+      id: "personalized_link",
+      name: "Custom Link",
+      badge: "CUSTOM LINK",
+      tagline: "Memorable /w/your-name link",
+      description: "Publish your wish with your own custom name link (/w/happy-birthday-name).",
+      price: 19,
+      originalPrice: 19,
+      currency: "INR",
+      currencySymbol: "₹",
+      billingLabel: "per wish",
+      billingType: "one_time",
+      ctaText: "Get Custom Link • ₹19",
+      isPopular: false,
       isActive: true,
-      features: [
-        'premium_templates',
-        'advanced_themes',
-        'advanced_sections',
-        'unlimited_photos',
-        'voice_note',
-        'premium_music',
-        'remove_watermark',
-        'premium_effects',
-        'keep_memory_forever'
-      ],
+      features: ["Custom branded URL (/w/your-name)", "Instant link availability check", "Direct WhatsApp & Instagram sharing"],
+      perks: { customLink: true }
+    },
+    hd_photos: {
+      id: "hd_photos",
+      name: "HD Photos",
+      badge: "PHOTO TEMPLATES ONLY",
+      tagline: "Crisp high-definition photo uploads",
+      description: "Available only on templates that support photo uploads. Auto-hidden on text-only templates.",
+      price: 19,
+      originalPrice: 19,
+      currency: "INR",
+      currencySymbol: "₹",
+      billingLabel: "per wish",
+      billingType: "one_time",
+      ctaText: "Add HD Photos • ₹19",
+      isPopular: false,
+      isActive: true,
+      features: ["High-definition lossless photo clarity", "Only shown on photo-enabled templates", "Automatically ₹0 / hidden on non-photo templates"],
+      perks: { hdPhotos: true, maxPhotos: 16 }
+    },
+    custom_link_1yr: {
+      id: "custom_link_1yr",
+      name: "1-Year Custom Link",
+      badge: "BEST VALUE • 1 YEAR",
+      tagline: "Custom /w/your-name link active for 365 days",
+      description: "Includes your custom branded link kept live and shareable for 1 full year (365 days).",
+      price: 149,
+      originalPrice: 149,
+      currency: "INR",
+      currencySymbol: "₹",
+      billingLabel: "for 1 year",
+      billingType: "one_time",
+      ctaText: "Get 1-Year Custom Link • ₹149",
+      isPopular: true,
+      isActive: true,
+      features: ["Custom branded URL (/w/your-name)", "Active for 1 full year (365 days)", "No extra ₹19 custom link fee"],
+      perks: { customLink: true, yearlyLink: true, validityDays: 365 }
+    },
+    premium: {
+      id: "premium",
+      name: "1-Year Custom Link",
+      badge: "1 YEAR",
+      tagline: "Custom branded link active for 365 days",
+      description: "Includes custom branded link active for 1 full year (365 days).",
+      price: 149,
+      currency: "INR",
+      currencySymbol: "₹",
+      billingType: "one_time",
+      isActive: true,
+      features: ["custom_link", "yearly_custom_link", "hd_photos", "unlimited_photos", "keep_memory_forever"],
       limits: {
         maxPhotos: 16,
         maxVoiceDurationSeconds: 120,
@@ -141,78 +150,74 @@
         allowCustomSections: true,
         watermarkRequired: false,
         lifetimePreservation: true,
-        allowedGalleryLayouts: ['grid', 'polaroid', 'carousel', 'masonry'],
-        allowedThemes: ['magical', 'romantic', 'cute', 'elegant', 'royal', 'dark', 'pastel', 'celebration']
-      },
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-10-04T00:00:00.000Z'
+        allowedGalleryLayouts: ["grid", "polaroid", "carousel", "masonry"],
+        allowedThemes: ["magical", "romantic", "cute", "elegant", "royal", "dark", "pastel", "celebration"]
+      }
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // 3. PLAN SERVICE API
-  // ---------------------------------------------------------------------------
   const WishPlanService = {
-    getPlan(planId = 'free') {
-      const id = String(planId || 'free').toLowerCase();
+    getPlan(planId = "free") {
+      const id = String(planId || "free").toLowerCase();
       return PLANS[id] || PLANS.free;
     },
-
     getAllPlans() {
       return Object.values(PLANS);
     },
-
     getFeature(featureKey) {
       return FEATURE_CATALOG[featureKey] || null;
     },
-
     getAllFeatures() {
       return Object.values(FEATURE_CATALOG);
     },
-
-    getPlanFeatures(planId = 'free') {
-      const plan = this.getPlan(planId);
-      return plan.features.map(k => FEATURE_CATALOG[k] || { key: k, name: k });
+    getPlanFeatures(planId = "free") {
+      return (this.getPlan(planId).features || []).map((k) => FEATURE_CATALOG[k] || { key: k, name: k });
     },
-
-    getPlanLimits(planId = 'free') {
-      const plan = this.getPlan(planId);
-      return { ...plan.limits };
+    getPlanLimits(planId = "free") {
+      const base = this.getPlan(planId).limits || PLANS.free.limits;
+      return { ...base };
     },
-
     syncFromServerSettings(settings) {
       if (!settings || typeof settings !== "object") return;
       const a = settings.addons || {};
-      const plansList = Array.isArray(settings.vipPlans) ? settings.vipPlans : [];
-      const vipPlan = plansList.find(p => p && p.id === "vip_pass");
-      if (vipPlan) {
-        PLANS.premium.name = vipPlan.name || PLANS.premium.name;
-        PLANS.premium.badge = vipPlan.badge || PLANS.premium.badge;
-        PLANS.premium.description = vipPlan.description || PLANS.premium.description;
-        PLANS.premium.price = Number.isFinite(Number(vipPlan.price)) ? Number(vipPlan.price) : PLANS.premium.price;
-        PLANS.premium.isActive = vipPlan.isActive !== false;
-        if (vipPlan.perks) {
-          PLANS.premium.limits.maxPhotos = Number(vipPlan.perks.maxPhotos) || 16;
-          PLANS.premium.limits.allowMusicUpload = Boolean(vipPlan.perks.customMusicVoice);
-          PLANS.premium.limits.watermarkRequired = !vipPlan.perks.removeWatermark;
-          PLANS.premium.limits.lifetimePreservation = Boolean(vipPlan.perks.lifetimeLink);
-        }
-        if (Array.isArray(vipPlan.features) && vipPlan.features.length > 0) {
-          PLANS.premium.customBullets = vipPlan.features;
-        }
-      } else if (Number.isFinite(Number(a.vipPassPrice))) {
-        PLANS.premium.price = Number(a.vipPassPrice);
+      const clPrice = Number.isFinite(Number(a.customLinkPrice ?? settings.personalized?.price))
+        ? Number(a.customLinkPrice ?? settings.personalized?.price)
+        : 19;
+      const hdPrice = Number.isFinite(Number(a.hdPhotosPrice ?? a.hdImageStylePrice))
+        ? Number(a.hdPhotosPrice ?? a.hdImageStylePrice)
+        : 19;
+      const yrPrice = Number.isFinite(Number(a.yearlyCustomLinkPrice))
+        ? Number(a.yearlyCustomLinkPrice)
+        : 149;
+
+      if (PLANS.personalized_link) {
+        PLANS.personalized_link.price = clPrice;
+        PLANS.personalized_link.ctaText = `Get Custom Link • ₹${clPrice}`;
       }
-      plansList.forEach(cp => {
+      if (PLANS.hd_photos) {
+        PLANS.hd_photos.price = hdPrice;
+        PLANS.hd_photos.ctaText = `Add HD Photos • ₹${hdPrice}`;
+      }
+      if (PLANS.custom_link_1yr) {
+        PLANS.custom_link_1yr.price = yrPrice;
+        PLANS.custom_link_1yr.ctaText = `Get 1-Year Custom Link • ₹${yrPrice}`;
+      }
+      if (PLANS.premium) {
+        PLANS.premium.price = yrPrice;
+      }
+
+      const plansList = Array.isArray(settings.vipPlans) ? settings.vipPlans : [];
+      plansList.forEach((cp) => {
         if (!cp || !cp.id) return;
         PLANS[cp.id] = {
+          ...(PLANS[cp.id] || {}),
           id: cp.id,
           name: cp.name,
-          badge: cp.badge || "VIP PLAN",
+          badge: cp.badge || "ADD-ON",
           description: cp.description || "",
-          price: Number(cp.price || 0),
-          originalPrice: Number(cp.originalPrice || cp.price || 0),
-          billingLabel: cp.billingLabel || "one-time",
+          price: Number(cp.price ?? 0),
+          originalPrice: Number(cp.originalPrice ?? cp.price ?? 0),
+          billingLabel: cp.billingLabel || "per wish",
           ctaText: cp.ctaText || `Unlock ${cp.name} • ₹${cp.price}`,
           isPopular: Boolean(cp.isPopular),
           isActive: cp.isActive !== false,
@@ -224,8 +229,7 @@
     }
   };
 
-  window.WishPlanService = WishPlanService;
-  window.WishPlans = PLANS;
-  window.WishFeatures = FEATURE_CATALOG;
-
-})(typeof window !== 'undefined' ? window : globalThis);
+  window2.WishPlanService = WishPlanService;
+  window2.WishPlans = PLANS;
+  window2.WishFeatures = FEATURE_CATALOG;
+})(typeof window !== "undefined" ? window : globalThis);

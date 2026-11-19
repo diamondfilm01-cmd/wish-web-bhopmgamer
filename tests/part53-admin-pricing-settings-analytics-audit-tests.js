@@ -189,11 +189,11 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
       assert.match(getRes1.headers.get('cache-control') || '', /no-store/i);
       const getBody1 = await getRes1.json();
       const initSettings = getBody1.data?.settings || getBody1.settings;
-      assert.equal(initSettings.personalized.price, 59);
-      assert.equal(initSettings.addons.customLinkPrice, 59);
-      assert.equal(initSettings.addons.hdImageStylePrice, 59);
-      assert.equal(initSettings.addons.freeTemplateComboPrice, 99);
-      assert.equal(initSettings.addons.premiumComboAddonPrice, 70);
+      assert.equal(initSettings.personalized.price, 19);
+      assert.equal(initSettings.addons.customLinkPrice, 19);
+      assert.equal(initSettings.addons.hdPhotosPrice, 19);
+      assert.equal(initSettings.addons.hdImageStylePrice, 19);
+      assert.equal(initSettings.addons.yearlyCustomLinkPrice, 149);
 
       // 2. Save custom prefix/length in random first
       const putRandomRes = await worker.fetch(new Request('https://wishmagic.pages.dev/api/admin/settings/wish-links', {
@@ -205,14 +205,14 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
         },
         body: JSON.stringify({
           settings: {
-            personalized: { enabled: true, currency: 'INR', displayName: 'Custom Link Only' },
+            personalized: { enabled: true, currency: 'INR', displayName: 'Custom Link' },
             random: { enabled: true, prefix: 'w-', length: 8, allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789' }
           }
         })
       }), env);
       assert.equal(putRandomRes.status, 200);
 
-      // 3. Now save updated pricing from Pricing Studio (e.g. Free Combo = ₹29, Premium Combo Add-On = +₹29, Custom Link = ₹49)
+      // 3. Save updated pricing from Pricing Studio (e.g. Custom Link = ₹25, HD Photos = ₹29, 1-Year Custom Link = ₹199)
       const putPricingRes = await worker.fetch(new Request('https://wishmagic.pages.dev/api/admin/settings/wish-links', {
         method: 'PUT',
         headers: {
@@ -222,14 +222,12 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
         },
         body: JSON.stringify({
           settings: {
-            personalized: { enabled: true, price: 49 },
+            personalized: { enabled: true, price: 25 },
             addons: {
-              customLinkPrice: 49,
-              hdImageStylePrice: 45,
-              freeTemplateComboPrice: 29,
-              premiumComboAddonPrice: 29,
-              creatorPackPrice: 179,
-              templatePriceTiers: [0, 59, 149]
+              customLinkPrice: 25,
+              hdPhotosPrice: 29,
+              hdImageStylePrice: 29,
+              yearlyCustomLinkPrice: 199
             },
             referral: {
               enabled: true,
@@ -241,22 +239,19 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
         })
       }), env);
       assert.equal(putPricingRes.status, 200);
-      const savedPricingBody = await putPricingRes.json();
-      const savedSettings = savedPricingBody.data?.settings || savedPricingBody.settings;
 
       // Verify D1 persistence in system_announcements ('config_wish_links')
       assert.ok(mock.store.system_announcements.has('config_wish_links'), 'D1 must persist config_wish_links');
       const d1Parsed = JSON.parse(mock.store.system_announcements.get('config_wish_links').message);
-      assert.equal(d1Parsed.addons.freeTemplateComboPrice, 29);
-      assert.equal(d1Parsed.addons.premiumComboAddonPrice, 29);
-      assert.equal(d1Parsed.addons.customLinkPrice, 49);
-      assert.equal(d1Parsed.personalized.price, 49);
-      assert.equal(d1Parsed.addons.creatorPackPrice, 179);
-      // Verify random settings were preserved during pricing save!
+      assert.equal(d1Parsed.addons.customLinkPrice, 25);
+      assert.equal(d1Parsed.addons.hdPhotosPrice, 29);
+      assert.equal(d1Parsed.addons.yearlyCustomLinkPrice, 199);
+      assert.equal(d1Parsed.personalized.price, 25);
+      // Verify random settings were preserved during pricing save
       assert.equal(d1Parsed.random.prefix, 'w-', 'Saving pricing must preserve random.prefix');
       assert.equal(d1Parsed.random.length, 8, 'Saving pricing must preserve random.length');
 
-      // 4. Verify saving Wish Link settings from Admin Settings (without price/addons) preserves the saved ₹29/₹49 prices!
+      // 4. Verify saving Wish Link settings from Admin Settings (without price/addons) preserves saved prices
       const putSlugOnlyRes = await worker.fetch(new Request('https://wishmagic.pages.dev/api/admin/settings/wish-links', {
         method: 'PUT',
         headers: {
@@ -288,10 +283,10 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
       }), env);
       const afterSlugBody = await getAfterSlugRes.json();
       const afterSlugSettings = afterSlugBody.data?.settings || afterSlugBody.settings;
-      assert.equal(afterSlugSettings.addons.freeTemplateComboPrice, 29, 'Free Combo price must remain 29 after slug settings save');
-      assert.equal(afterSlugSettings.addons.premiumComboAddonPrice, 29, 'Premium Add-On price must remain 29 after slug settings save');
-      assert.equal(afterSlugSettings.addons.customLinkPrice, 49, 'Custom Link price must remain 49 after slug settings save');
-      assert.equal(afterSlugSettings.personalized.price, 49, 'Personalized price must remain 49 after slug settings save');
+      assert.equal(afterSlugSettings.addons.customLinkPrice, 25, 'Custom Link price must remain 25 after slug settings save');
+      assert.equal(afterSlugSettings.addons.hdPhotosPrice, 29, 'HD Photos price must remain 29 after slug settings save');
+      assert.equal(afterSlugSettings.addons.yearlyCustomLinkPrice, 199, '1-Year Custom Link price must remain 199 after slug settings save');
+      assert.equal(afterSlugSettings.personalized.price, 25, 'Personalized price must remain 25 after slug settings save');
       assert.equal(afterSlugSettings.random.prefix, 'magic-');
 
       // 5. Verify invalid prices are rejected with HTTP 400 and do NOT overwrite saved D1 pricing
@@ -305,12 +300,12 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
         body: JSON.stringify({
           settings: {
             addons: {
-              freeTemplateComboPrice: -50
+              yearlyCustomLinkPrice: -50
             }
           }
         })
       }), env);
-      assert.equal(badPriceRes.status, 400, 'Negative combo price must be rejected with 400');
+      assert.equal(badPriceRes.status, 400, 'Negative yearly link price must be rejected with 400');
 
       const nanPriceRes = await worker.fetch(new Request('https://wishmagic.pages.dev/api/admin/settings/wish-links', {
         method: 'PUT',
@@ -322,57 +317,99 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
         body: JSON.stringify({
           settings: {
             addons: {
-              premiumComboAddonPrice: 'not-a-number'
+              hdPhotosPrice: 'not-a-number'
             }
           }
         })
       }), env);
-      assert.equal(nanPriceRes.status, 400, 'Non-numeric addon price must be rejected with 400');
+      assert.equal(nanPriceRes.status, 400, 'Non-numeric HD photos price must be rejected with 400');
 
-      // 6. Verify Server-Side Authoritative Product Quote (resolveAuthoritativeProduct) uses the exact saved pricing
-      const freeComboQuote = resolveAuthoritativeProduct({
-        productId: 'free_template_combo',
-        siteSettings: afterSlugSettings
+      // 6. Verify Server-Side Authoritative Dynamic Additive Pricing (wish_bundle)
+      const defaultAddSettings = { addons: { customLinkPrice: 19, hdPhotosPrice: 19, yearlyCustomLinkPrice: 149 } };
+      const photoPaidTpl = {
+        id: 'tpl_photo_49',
+        name: 'Photo Celebration',
+        price: 49,
+        manifest: { fields: [{ id: 'recipient_name', type: 'text' }, { id: 'photo_1', type: 'image' }] }
+      };
+      const textOnlyPaidTpl = {
+        id: 'tpl_text_39',
+        name: 'Text Only Poem',
+        price: 39,
+        manifest: { fields: [{ id: 'recipient_name', type: 'text' }, { id: 'custom_message', type: 'textarea' }] }
+      };
+      const templatesList = [photoPaidTpl, textOnlyPaidTpl];
+
+      // 6a. Free template + Custom Link = ₹19
+      const q1 = resolveAuthoritativeProduct({
+        productId: 'wish_bundle',
+        options: { includeTemplate: false, includeCustomLink: true, includeHdPhotos: false },
+        templates: templatesList,
+        siteSettings: defaultAddSettings
       });
-      assert.equal(freeComboQuote.price, 29, 'Server checkout quote for free_template_combo must use saved ₹29');
-      assert.equal(freeComboQuote.amountPaise, 2900);
+      assert.equal(q1.price, 19);
+      assert.equal(q1.amountPaise, 1900);
 
-      const premTier1ComboQuote = resolveAuthoritativeProduct({
-        productId: 'premium_template_combo',
-        options: { templatePrice: 59 },
-        siteSettings: afterSlugSettings
+      // 6b. Paid ₹49 photo template + Custom Link (₹19) + HD Photos (₹19) = ₹87
+      const q2 = resolveAuthoritativeProduct({
+        productId: 'wish_bundle',
+        templateId: 'tpl_photo_49',
+        options: { includeTemplate: true, includeCustomLink: true, includeHdPhotos: true },
+        templates: templatesList,
+        siteSettings: defaultAddSettings
       });
-      assert.equal(premTier1ComboQuote.price, 59 + 29, '₹59 template + ₹29 addon must equal ₹88');
+      assert.equal(q2.price, 49 + 19 + 19);
+      assert.equal(q2.amountPaise, 8700);
+      assert.equal(q2.grantsHdPhotos, true);
 
-      const premTier2ComboQuote = resolveAuthoritativeProduct({
-        productId: 'premium_template_combo',
-        options: { templatePrice: 149 },
-        siteSettings: afterSlugSettings
+      // 6c. Paid ₹49 photo template + 1-Year Custom Link (₹149) + HD Photos (₹19) = ₹217 (NOT 49+19+149+19)
+      const q3 = resolveAuthoritativeProduct({
+        productId: 'wish_bundle',
+        templateId: 'tpl_photo_49',
+        options: { includeTemplate: true, includeCustomLink: true, includeYearlyLink: true, includeHdPhotos: true },
+        templates: templatesList,
+        siteSettings: defaultAddSettings
       });
-      assert.equal(premTier2ComboQuote.price, 149 + 29, '₹149 template + ₹29 addon must equal ₹178');
+      assert.equal(q3.price, 49 + 149 + 19);
+      assert.equal(q3.validityDays, 365);
+      assert.equal(q3.linkDuration, '1_year');
 
-      // Also verify standard ₹70 addon rule: ₹59 + ₹70 = ₹129 and ₹149 + ₹70 = ₹219
-      const stdSettings = { addons: { customLinkPrice: 59, hdImageStylePrice: 59, freeTemplateComboPrice: 99, premiumComboAddonPrice: 70 } };
-      assert.equal(resolveAuthoritativeProduct({ productId: 'premium_template_combo', options: { templatePrice: 59 }, siteSettings: stdSettings }).price, 129);
-      assert.equal(resolveAuthoritativeProduct({ productId: 'premium_template_combo', options: { templatePrice: 149 }, siteSettings: stdSettings }).price, 219);
+      // 6d. Non-photo template (₹39) trying to buy HD Photos MUST drop ₹19 HD charge server-side!
+      const q4 = resolveAuthoritativeProduct({
+        productId: 'wish_bundle',
+        templateId: 'tpl_text_39',
+        options: { includeTemplate: true, includeCustomLink: true, includeHdPhotos: true },
+        templates: templatesList,
+        siteSettings: defaultAddSettings
+      });
+      assert.equal(q4.templateSupportsPhotos, false);
+      assert.equal(q4.grantsHdPhotos, false);
+      assert.equal(q4.price, 39 + 19, 'Non-photo template must NOT charge HD Photos ₹19');
 
-      // Verify zero-price add-on is respected (not replaced by falsy fallback)
-      const zeroComboSettings = { addons: { freeTemplateComboPrice: 0, premiumComboAddonPrice: 0 } };
-      assert.equal(resolveAuthoritativeProduct({ productId: 'free_template_combo', siteSettings: zeroComboSettings }).price, 0);
-      assert.equal(resolveAuthoritativeProduct({ productId: 'premium_template_combo', options: { templatePrice: 59 }, siteSettings: zeroComboSettings }).price, 59);
+      // 6e. Client-tampered templatePrice: 0 MUST be ignored in favor of authoritative template.price (₹49)
+      const qTamper = resolveAuthoritativeProduct({
+        productId: 'wish_bundle',
+        templateId: 'tpl_photo_49',
+        options: { includeTemplate: true, templatePrice: 0, includeCustomLink: true },
+        templates: templatesList,
+        siteSettings: defaultAddSettings
+      });
+      assert.equal(qTamper.price, 49 + 19, 'Client-supplied templatePrice must never override authoritative template.price');
+
+      // 6f. Verify zero-price add-on is respected (not replaced by falsy fallback)
+      const zeroSettings = { addons: { customLinkPrice: 0, hdPhotosPrice: 0, yearlyCustomLinkPrice: 0 } };
+      assert.equal(resolveAuthoritativeProduct({ productId: 'personalized_link', siteSettings: zeroSettings }).price, 0);
+      assert.equal(resolveAuthoritativeProduct({ productId: 'custom_link_1yr', siteSettings: zeroSettings }).price, 0);
     });
 
-    it('verifies public/admin-pricing.html dynamically binds buttons, badges, descriptions, calculated totals, and unsaved indicators', () => {
+    it('verifies public/admin-pricing.html dynamically binds buttons, badges, calculated totals, and unsaved indicators', () => {
       const pricingHtml = fs.readFileSync(path.join(ROOT_DIR, 'public/admin-pricing.html'), 'utf-8');
       assert.ok(pricingHtml.includes('id="btn-save-custom-link"'), 'Must have dynamic button #btn-save-custom-link');
       assert.ok(pricingHtml.includes('id="btn-save-hd-style"'), 'Must have dynamic button #btn-save-hd-style');
-      assert.ok(pricingHtml.includes('id="btn-save-free-combo"'), 'Must have dynamic button #btn-save-free-combo');
-      assert.ok(pricingHtml.includes('id="btn-save-premium-addon"'), 'Must have dynamic button #btn-save-premium-addon');
-      assert.ok(pricingHtml.includes('id="free-combo-savings-badge"'), 'Must have dynamic savings badge #free-combo-savings-badge');
-      assert.ok(pricingHtml.includes('id="premium-addon-badge"'), 'Must have dynamic addon badge #premium-addon-badge');
-      assert.ok(pricingHtml.includes('id="premium-addon-desc"'), 'Must have dynamic description #premium-addon-desc');
-      assert.ok(pricingHtml.includes('id="prem-tier-1-total"'), 'Must have dynamic tier 1 total #prem-tier-1-total');
-      assert.ok(pricingHtml.includes('id="prem-tier-2-total"'), 'Must have dynamic tier 2 total #prem-tier-2-total');
+      assert.ok(pricingHtml.includes('id="btn-save-yearly-link"'), 'Must have dynamic button #btn-save-yearly-link');
+      assert.ok(pricingHtml.includes('id="yearly-link-price-input"'), 'Must have input #yearly-link-price-input');
+      assert.ok(pricingHtml.includes('id="example-std-total"'), 'Must have dynamic example total #example-std-total');
+      assert.ok(pricingHtml.includes('id="example-yr-total"'), 'Must have dynamic example yearly total #example-yr-total');
       assert.ok(pricingHtml.includes('id="pricing-unsaved-banner"'), 'Must have unsaved changes banner #pricing-unsaved-banner');
       assert.ok(pricingHtml.includes('id="pricing-error-banner"'), 'Must have error banner #pricing-error-banner');
       assert.ok(pricingHtml.includes('function syncPricingDynamicLabelsAndTotals()'), 'Must define syncPricingDynamicLabelsAndTotals()');
@@ -478,7 +515,7 @@ describe('Part 53 — Admin Pricing Synchronization, 12-Category Settings & Real
 
   describe('C. Real Dashboard & Analytics Data Only (Zero Fabricated Metrics) Tests', () => {
     it('calculates revenue strictly from settled D1 orders net of refunds, excludes pending/failed/comp orders, deduplicates retries, and never fabricates revenue from wishes', async () => {
-      const nowIso = '2026-10-20T12:00:00.000Z';
+      const nowIso = new Date().toISOString();
       const sampleOrders = [
         // 1. Valid settled order: ₹99 (9900 paise)
         { id: 'ord_paid_1', amount: 9900, currency: 'INR', status: 'PAID', provider: 'Razorpay', created_at: nowIso },

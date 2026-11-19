@@ -4,282 +4,217 @@
   <meta charset="utf-8"/>
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-  <title>Pricing, Custom Link (₹59), HD Style (₹59) & Combo Offers (₹99) | WishMagic</title>
-  <meta name="description" content="Flexible per-wish pricing: ₹59 Custom Link, ₹59 HD Images & Style, ₹99 All-in-One Combo on Free Templates, or Template Price + ₹70 Combo on Premium Templates."/>
+  <title>Simple Pricing — Custom Link (₹19), HD Photos (₹19) &amp; 1-Year Custom Link (₹149) | WishMagic</title>
+  <meta name="description" content="Pay only for what you pick: Template price set per template (Free or custom), Custom Link ₹19, HD Photos ₹19 (photo templates only), or 1-Year Custom Link ₹149 (365 days)."/>
 
-  <!-- Site Theme Controller -->
-  <script src="/js/site-theme.js?v=20261117_light_v3"></script>
-
-  <!-- Tailwind CSS CDN with forms and container queries -->
-  <script src="/js/tailwind-config.js?v=20261117_light_v3"></script>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
-
-  <!-- Google Fonts: Outfit, Plus Jakarta Sans, Material Symbols -->
+  <link rel="stylesheet" href="/css/tailwind.min.css?v=20261118_perf_v1"/>
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
-
-  <!-- WishMagic Core Architecture -->
-  <script src="js/WishMagicCore.js?v=20261027_mobile2col_v1"></script>
-  <script src="js/api-client.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="/js/firebase-auth.js?v=20261015_wm47944_v7"></script>
-  <script src="/js/auth-service.js?v=20261015_wm47944_v7"></script>
-  <script src="js/plan-service.js"></script>
-  <script src="js/entitlement-service.js"></script>
-  <script src="js/feature-access-service.js"></script>
-  <script src="js/payment-service.js"></script>
-  <script src="/js/premium-lock-modal.js?v=20261015_wm47944_v7"></script>
-
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+  <script defer src="/js/bundles/pricing.min.js?v=20261118_pricing_v3"></script>
   <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261117_light_v3"/>
 </head>
 <body class="w-full min-h-screen antialiased selection:bg-pink-500 selection:text-white flex flex-col justify-between">
 
-  <!-- Unified Header injected by site-theme.js?v=20261027_mobile2col_v1 -->
   <header class="sticky top-2 sm:top-5 z-40 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all"></header>
 
-  <main class="flex-grow pt-8 sm:pt-12 pb-24 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full flex flex-col gap-12 sm:gap-14">
-    
+  <main class="flex-grow pt-4 sm:pt-7 pb-12 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8">
+
     <!-- Hero Header -->
-    <section class="text-center max-w-3xl mx-auto flex flex-col items-center">
-      <h1 class="font-display font-extrabold text-3xl sm:text-4xl tracking-tight text-slate-900 leading-tight">
-        Simple <span class="bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">Pricing &amp; Combos</span>
+    <section class="text-center max-w-2xl mx-auto flex flex-col items-center">
+      <h1 class="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-slate-900 leading-tight">
+        Simple, Transparent <span class="bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">Pricing</span>
       </h1>
-      <p class="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto mt-3 leading-relaxed">
-        Pay per wish: <strong>Custom Link (₹59)</strong>, <strong>HD Photos &amp; Style (₹59)</strong>, or save with our <strong>₹99 Combo</strong> on Free templates and <strong>Template + ₹70 Combo</strong> on Premium templates.
+      <p id="pricing-page-hero-sub" class="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto mt-1.5 leading-snug">
+        Template price is set per template (Free or custom ₹) · Add <strong>Custom Link (₹19)</strong>, <strong>HD Photos (₹19 — photo templates only)</strong>, or <strong>1-Year Custom Link (₹149)</strong>.
       </p>
     </section>
 
-    <!-- ========================================================================= -->
-    <!-- LIVE DYNAMIC VIP & CELEBRATION PLANS (SYNCED FROM ADMIN & ANDROID APP)     -->
-    <!-- ========================================================================= -->
-    <section id="dynamic-vip-plans-section" class="space-y-4">
+    <!-- LIVE DYNAMIC PLANS (SYNCED FROM ADMIN) -->
+    <section id="dynamic-vip-plans-section" class="space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <span class="px-3 py-1 rounded-full bg-pink-500/15 text-pink-600 text-xs font-extrabold uppercase tracking-wider">👑 Active VIP &amp; Add-On Plans</span>
-          <h2 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 mt-1">Choose Your Celebration Upgrade</h2>
+          <span class="px-2.5 py-0.5 rounded-full bg-pink-500/15 text-pink-600 text-[11px] font-extrabold uppercase tracking-wider">✨ Active Plans &amp; Add-Ons</span>
+          <h2 class="font-display font-extrabold text-lg sm:text-xl text-purple-950 mt-1">Pay Only For What You Choose</h2>
         </div>
-        <span id="live-plans-sync-pill" class="text-xs font-bold text-emerald-600">● Live Storefront Plans</span>
+        <span id="live-plans-sync-pill" class="text-xs font-bold text-emerald-600">● Live Pricing</span>
       </div>
-      <div id="dynamic-vip-plans-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
+      <div id="dynamic-vip-plans-grid" class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 items-stretch">
         <!-- Populated dynamically by renderPublicVipPlans() -->
       </div>
     </section>
 
-    <!-- ========================================================================= -->
-    <!-- 4 MODULAR & COMBO PRICING CARDS                                            -->
-    <!-- ========================================================================= -->
-    <section id="legacy-modular-cards-section" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+    <!-- FALLBACK 3 MODULAR CARDS -->
+    <section id="legacy-modular-cards-section" class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 items-stretch">
 
-      <!-- CARD 1: CUSTOM LINK ONLY (₹59) -->
-      <div class="wm-card rounded-3xl p-6 flex flex-col justify-between shadow-lg border border-purple-200/80">
+      <!-- CARD 1: CUSTOM LINK (₹19) -->
+      <div class="wm-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm border border-purple-200/80">
         <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-pink-500/15 text-pink-600">
-              Add-On Pack 1
-            </span>
-          </div>
-          <h3 class="font-display font-extrabold text-xl text-purple-950">Custom Link Only</h3>
-          <div class="my-3 flex items-baseline gap-1.5">
-            <span class="font-display font-black text-4xl text-purple-950" id="price-card-custom-link">₹59</span>
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-500/15 text-pink-600 mb-2">
+            Custom Link
+          </span>
+          <h3 class="font-display font-extrabold text-lg text-purple-950">Custom Link</h3>
+          <div class="my-2 flex items-baseline gap-1">
+            <span class="font-display font-black text-3xl text-purple-950" id="price-card-custom-link">₹19</span>
             <span class="text-xs font-semibold text-purple-700/70">/ wish</span>
           </div>
-          <p class="text-xs text-purple-800/80 mb-4 leading-relaxed">
-            Create your own personalized celebration link on any Free template (or add to any template).
+          <p class="text-xs text-purple-800/80 mb-3 leading-snug">
+            Create a memorable personal link with their name.
           </p>
-          <ul class="space-y-2 text-xs text-purple-900 pt-4 border-t border-purple-200/60">
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> Custom URL (<code>/w/rahul-turns-21</code>)</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> Live link availability checker</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> Custom QR Code &amp; WhatsApp card</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> <strong>FREE (₹0)</strong> if you refer 7 friends!</li>
+          <ul class="space-y-1.5 text-xs text-purple-900 pt-2.5 border-t border-purple-200/60">
+            <li class="flex items-center gap-1.5"><span class="text-emerald-500 font-bold">✓</span> Custom URL (<code>/w/your-name</code>)</li>
+            <li class="flex items-center gap-1.5"><span class="text-emerald-500 font-bold">✓</span> Instant availability check</li>
+            <li class="flex items-center gap-1.5"><span class="text-emerald-500 font-bold">✓</span> Works with any Free or paid template</li>
           </ul>
         </div>
-        <a href="/customize.html?pack=custom_link" class="mt-6 w-full py-3 px-4 rounded-2xl bg-purple-100 hover:bg-purple-200 text-purple-950 font-extrabold text-xs text-center block transition">
-          Choose Custom Link (₹59)
+        <a href="/customize.html?pack=custom_link" class="mt-4 w-full py-2.5 px-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-950 font-extrabold text-xs text-center block transition">
+          Choose Custom Link
         </a>
       </div>
 
-      <!-- CARD 2: HD IMAGES + CUSTOM STYLE (₹59) -->
-      <div class="wm-card rounded-3xl p-6 flex flex-col justify-between shadow-lg border border-purple-200/80">
+      <!-- CARD 2: HD PHOTOS (₹19 — PHOTO TEMPLATES ONLY) -->
+      <div class="wm-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm border border-purple-200/80">
         <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-700">
-              Add-On Pack 2
-            </span>
-            <span class="text-xs font-bold text-purple-600">HD Visuals</span>
-          </div>
-          <h3 class="font-display font-extrabold text-xl text-purple-950">HD Images + Style</h3>
-          <div class="my-3 flex items-baseline gap-1.5">
-            <span class="font-display font-black text-4xl text-purple-950" id="price-card-hd-style">₹59</span>
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-700 mb-2">
+            Photo Templates Only
+          </span>
+          <h3 class="font-display font-extrabold text-lg text-purple-950">HD Photos</h3>
+          <div class="my-2 flex items-baseline gap-1">
+            <span class="font-display font-black text-3xl text-purple-950" id="price-card-hd-photos">₹19</span>
             <span class="text-xs font-semibold text-purple-700/70">/ wish</span>
           </div>
-          <p class="text-xs text-purple-800/80 mb-4 leading-relaxed">
-            Upload crystal-clear High Quality (HD) photos and customize fonts, colors, frames &amp; particle styles.
+          <p class="text-xs text-purple-800/80 mb-3 leading-snug">
+            Upload sharp HD photos on templates with photo slots. Auto-hidden on text-only templates.
           </p>
-          <ul class="space-y-2 text-xs text-purple-900 pt-4 border-t border-purple-200/60">
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> Uncompressed High-Quality (HD) Photos</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> Custom Fonts, Color Themes &amp; Frames</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> Polaroid, Filmstrip &amp; Mosaic Layouts</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> Custom Particle &amp; Celebration Effects</li>
+          <ul class="space-y-1.5 text-xs text-purple-900 pt-2.5 border-t border-purple-200/60">
+            <li class="flex items-center gap-1.5"><span class="text-emerald-500 font-bold">✓</span> Crystal-clear HD photo uploads</li>
+            <li class="flex items-center gap-1.5"><span class="text-emerald-500 font-bold">✓</span> Shown only on photo-enabled templates</li>
+            <li class="flex items-center gap-1.5"><span class="text-emerald-500 font-bold">✓</span> ₹0 / hidden when template has no photos</li>
           </ul>
         </div>
-        <a href="/customize.html?pack=hd_style" class="mt-6 w-full py-3 px-4 rounded-2xl bg-purple-100 hover:bg-purple-200 text-purple-950 font-extrabold text-xs text-center block transition">
-          Choose HD Images &amp; Style (₹59)
+        <a href="/customize.html?pack=hd_photos" class="mt-4 w-full py-2.5 px-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-950 font-extrabold text-xs text-center block transition">
+          Add HD Photos
         </a>
       </div>
 
-      <!-- CARD 3: FREE TEMPLATE ALL-IN-ONE COMBO (₹99) -->
-      <div class="wm-card rounded-3xl p-6 flex flex-col justify-between shadow-2xl border-2 border-pink-500 relative overflow-hidden">
-        <div class="absolute top-0 right-0 px-3 py-1 rounded-bl-2xl bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white font-black text-[10px] uppercase tracking-wider">
-          🔥 SAVE ₹19 COMBO
+      <!-- CARD 3: 1-YEAR CUSTOM LINK (₹149) -->
+      <div class="wm-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-md border-2 border-pink-500 relative overflow-hidden">
+        <div class="absolute top-0 right-0 px-2.5 py-0.5 rounded-bl-xl bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white font-black text-[10px] uppercase tracking-wider">
+          1 FULL YEAR
         </div>
         <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-pink-500 text-white">
-              Free Template Combo
-            </span>
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-500 text-white mb-2">
+            365 Days Validity
+          </span>
+          <h3 class="font-display font-extrabold text-lg text-purple-950">1-Year Custom Link</h3>
+          <div class="my-2 flex items-baseline gap-1.5">
+            <span class="font-display font-black text-3xl text-pink-600" id="price-card-yearly-link">₹149</span>
+            <span class="text-xs font-semibold text-purple-700/70">/ 1 year</span>
           </div>
-          <h3 class="font-display font-extrabold text-xl text-purple-950">Custom Link + HD &amp; Style Combo</h3>
-          <div class="my-3 flex items-baseline gap-2">
-            <span class="font-display font-black text-4xl text-pink-600" id="price-card-free-combo">₹99</span>
-            <span class="text-xs line-through text-purple-500">₹118</span>
-            <span class="text-xs font-bold text-emerald-600">All-in-One</span>
-          </div>
-          <p class="text-xs text-purple-800/80 mb-4 leading-relaxed">
-            For any Free Template: Get <strong>both Custom Link + High Quality Images + Custom Style</strong> together in one combo!
+          <p class="text-xs text-purple-800/80 mb-3 leading-snug">
+            Keep your custom <code>/w/your-name</code> link active and shareable for 365 full days.
           </p>
-          <ul class="space-y-2 text-xs text-purple-950 font-medium pt-4 border-t border-purple-200/60">
-            <li class="flex items-center gap-2"><span class="text-pink-500 font-bold">★</span> <strong>Custom Link Included</strong> (Worth ₹59)</li>
-            <li class="flex items-center gap-2"><span class="text-pink-500 font-bold">★</span> <strong>HD Quality Images Included</strong> (Worth ₹59)</li>
-            <li class="flex items-center gap-2"><span class="text-pink-500 font-bold">★</span> <strong>Full Custom Style &amp; Themes</strong></li>
-            <li class="flex items-center gap-2"><span class="text-pink-500 font-bold">★</span> <strong>Zero Watermark &amp; QR Share Card</strong></li>
+          <ul class="space-y-1.5 text-xs text-purple-950 font-medium pt-2.5 border-t border-purple-200/60">
+            <li class="flex items-center gap-1.5"><span class="text-pink-500 font-bold">★</span> Custom URL (<code>/w/your-name</code>) included</li>
+            <li class="flex items-center gap-1.5"><span class="text-pink-500 font-bold">★</span> Active for 1 full year (365 days)</li>
+            <li class="flex items-center gap-1.5"><span class="text-pink-500 font-bold">★</span> No separate ₹19 custom link fee</li>
           </ul>
         </div>
-        <a href="/customize.html?pack=combo_99" class="mt-6 w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white font-extrabold text-xs text-center block shadow-lg transition">
-          Unlock ₹99 All-in-One Combo ✨
-        </a>
-      </div>
-
-      <!-- CARD 4: PREMIUM TEMPLATE ROYAL COMBO (TEMPLATE PRICE + ₹70) -->
-      <div class="wm-card rounded-3xl p-6 flex flex-col justify-between shadow-2xl border-2 border-amber-400 relative overflow-hidden">
-        <div class="absolute top-0 right-0 px-3 py-1 rounded-bl-2xl bg-amber-400 text-purple-950 font-black text-[10px] uppercase tracking-wider">
-          👑 SAVE ₹48 ROYAL COMBO
-        </div>
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400 text-purple-950">
-              Premium Template Combo
-            </span>
-          </div>
-          <h3 class="font-display font-extrabold text-xl text-purple-950">Template + Full Combo</h3>
-          <div class="my-3 flex items-baseline gap-1.5">
-            <span class="font-display font-black text-2xl sm:text-3xl text-amber-600" id="price-card-prem-combo">Template + ₹70</span>
-          </div>
-          <p class="text-xs text-purple-800/80 mb-4 leading-relaxed">
-            Picking a Premium Template (₹59 or ₹149)? Add <strong>just +₹70</strong> to get the Template + Custom Link + HD Images + Custom Style!
-          </p>
-          <ul class="space-y-2 text-xs text-purple-950 font-medium pt-4 border-t border-purple-200/60">
-            <li class="flex items-center gap-2"><span class="text-amber-500 font-bold">★</span> <strong>₹59 Template + Combo = ₹129</strong> (Save ₹48)</li>
-            <li class="flex items-center gap-2"><span class="text-amber-500 font-bold">★</span> <strong>₹149 Template + Combo = ₹219</strong> (Save ₹48)</li>
-            <li class="flex items-center gap-2"><span class="text-amber-500 font-bold">★</span> <strong>Includes Custom Link + HD Photos + Style</strong></li>
-            <li class="flex items-center gap-2"><span class="text-amber-500 font-bold">★</span> <strong>Premium 3D Blueprint + Lifetime Link</strong></li>
-          </ul>
-        </div>
-        <a href="/templates.html?combo=premium_70" class="mt-6 w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 hover:brightness-110 text-purple-950 font-black text-xs text-center block shadow-lg transition">
-          Explore Premium Templates + ₹70 Combo →
+        <a href="/customize.html?pack=custom_link_1yr" class="mt-4 w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white font-extrabold text-xs text-center block shadow-sm transition">
+          Get 1-Year Custom Link ✨
         </a>
       </div>
 
     </section>
 
-    <!-- ========================================================================= -->
-    <!-- INTERACTIVE LIVE PRICE & COMBO CALCULATOR                                  -->
-    <!-- ========================================================================= -->
-    <section class="wm-card rounded-3xl p-6 sm:p-10 max-w-4xl mx-auto w-full shadow-xl border border-purple-200">
-      <div class="text-center mb-6">
-        <span class="px-3 py-1 rounded-full bg-purple-500/15 text-purple-700 text-xs font-extrabold uppercase tracking-wider">Interactive Calculator</span>
-        <h2 class="font-display font-extrabold text-2xl sm:text-3xl text-purple-950 mt-2">
-          Calculate Your Exact Celebration Price
+    <!-- INTERACTIVE LIVE PRICE CALCULATOR -->
+    <section class="wm-card rounded-2xl p-4 sm:p-6 max-w-4xl mx-auto w-full shadow-sm border border-purple-200">
+      <div class="text-center mb-4">
+        <span class="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 text-[10px] font-extrabold uppercase tracking-wider">Live Price Calculator</span>
+        <h2 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 mt-1">
+          Calculate Your Exact Total
         </h2>
-        <p class="text-xs sm:text-sm text-purple-800/80 mt-1">
-          Select a template tier and your desired add-ons to see how much you save with our Combo Offers.
+        <p class="text-xs text-purple-800/80 mt-0.5">
+          Total = Template Price + Link Type + HD Photos (if template supports photos).
         </p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-        <div class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+        <div class="space-y-3">
           <div>
-            <label class="block text-xs font-extrabold uppercase tracking-wider text-purple-800 mb-2">1. Select Template Price Tier</label>
-            <div class="grid grid-cols-3 gap-2.5">
-              <button type="button" onclick="setCalcTemplatePrice(0)" id="calc-tpl-0" class="py-2.5 px-3 rounded-xl border-2 border-pink-500 bg-pink-500/15 text-purple-950 font-extrabold text-xs cursor-pointer transition">
-                Free (₹0)
-              </button>
-              <button type="button" onclick="setCalcTemplatePrice(59)" id="calc-tpl-59" class="py-2.5 px-3 rounded-xl border border-purple-200 text-purple-900 font-bold text-xs cursor-pointer transition">
-                Premium (₹59)
-              </button>
-              <button type="button" onclick="setCalcTemplatePrice(149)" id="calc-tpl-149" class="py-2.5 px-3 rounded-xl border border-purple-200 text-purple-900 font-bold text-xs cursor-pointer transition">
-                Royal VIP (₹149)
-              </button>
+            <label class="block text-[11px] font-extrabold uppercase tracking-wider text-purple-800 mb-1.5">1. Template Price (Set Per Template)</label>
+            <div class="grid grid-cols-4 gap-1.5 mb-2">
+              <button type="button" onclick="setCalcTemplatePrice(0)" id="calc-tpl-0" class="py-2 px-2 rounded-xl border-2 border-pink-500 bg-pink-500/15 text-purple-950 font-extrabold text-xs cursor-pointer transition">Free ₹0</button>
+              <button type="button" onclick="setCalcTemplatePrice(29)" id="calc-tpl-29" class="py-2 px-2 rounded-xl border border-purple-200 text-purple-900 font-bold text-xs cursor-pointer transition">₹29</button>
+              <button type="button" onclick="setCalcTemplatePrice(49)" id="calc-tpl-49" class="py-2 px-2 rounded-xl border border-purple-200 text-purple-900 font-bold text-xs cursor-pointer transition">₹49</button>
+              <button type="button" onclick="setCalcTemplatePrice(99)" id="calc-tpl-99" class="py-2 px-2 rounded-xl border border-purple-200 text-purple-900 font-bold text-xs cursor-pointer transition">₹99</button>
+            </div>
+            <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/80 border border-purple-200 text-xs">
+              <span class="font-semibold text-purple-900">Or enter custom template price (₹):</span>
+              <input type="number" id="calc-custom-tpl-input" min="0" max="10000" value="0" oninput="setCalcTemplatePrice(this.value, true)" class="w-20 px-2 py-1 rounded-lg border border-purple-300 font-extrabold text-right text-purple-950 focus:outline-none focus:border-pink-500"/>
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-extrabold uppercase tracking-wider text-purple-800 mb-2">2. Choose Features / Combo</label>
-            <div class="space-y-2">
-              <label class="flex items-center justify-between p-3 rounded-xl bg-white/80 border border-purple-200 cursor-pointer">
+            <label class="block text-[11px] font-extrabold uppercase tracking-wider text-purple-800 mb-1.5">2. Choose Link Type</label>
+            <div class="space-y-1.5">
+              <label class="flex items-center justify-between p-2.5 rounded-xl bg-white/80 border border-purple-200 cursor-pointer">
                 <span class="flex items-center gap-2 text-xs font-bold text-purple-950">
-                  <input type="checkbox" id="calc-chk-link" checked onchange="updateInteractiveCalc()" class="rounded text-pink-500 focus:ring-pink-500"/>
-                  <span>Custom Link (<code>/w/your-name</code>)</span>
+                  <input type="radio" name="calc-link-mode" value="random" onchange="updateInteractiveCalc()" class="text-pink-500 focus:ring-pink-500"/>
+                  <span>🎲 Free Random Link</span>
                 </span>
-                <span class="text-xs font-extrabold text-pink-600" id="calc-lbl-link">₹59</span>
+                <span class="text-xs font-extrabold text-emerald-600">₹0</span>
               </label>
 
-              <label class="flex items-center justify-between p-3 rounded-xl bg-white/80 border border-purple-200 cursor-pointer">
+              <label class="flex items-center justify-between p-2.5 rounded-xl bg-white/80 border border-purple-200 cursor-pointer">
                 <span class="flex items-center gap-2 text-xs font-bold text-purple-950">
-                  <input type="checkbox" id="calc-chk-hd" checked onchange="updateInteractiveCalc()" class="rounded text-pink-500 focus:ring-pink-500"/>
-                  <span>High Quality (HD) Images + Custom Style</span>
+                  <input type="radio" name="calc-link-mode" value="custom" checked onchange="updateInteractiveCalc()" class="text-pink-500 focus:ring-pink-500"/>
+                  <span>🔗 Custom Link (<code>/w/name</code>)</span>
                 </span>
-                <span class="text-xs font-extrabold text-purple-600" id="calc-lbl-hd">₹59</span>
+                <span class="text-xs font-extrabold text-pink-600" id="calc-lbl-link">₹19</span>
               </label>
 
-              <label id="calc-ref-row" class="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 cursor-pointer">
-                <span class="flex items-center gap-2 text-xs font-bold text-emerald-800">
-                  <input type="checkbox" id="calc-chk-ref" onchange="updateInteractiveCalc()" class="rounded text-emerald-500 focus:ring-emerald-500"/>
-                  <span>🎁 Apply 7-Friends Referral Credit (1 Free Custom Link)</span>
+              <label class="flex items-center justify-between p-2.5 rounded-xl bg-white/80 border border-purple-200 cursor-pointer">
+                <span class="flex items-center gap-2 text-xs font-bold text-purple-950">
+                  <input type="radio" name="calc-link-mode" value="1yr" onchange="updateInteractiveCalc()" class="text-pink-500 focus:ring-pink-500"/>
+                  <span>📅 1-Year Custom Link (365 Days)</span>
                 </span>
-                <span class="text-xs font-extrabold text-emerald-600">-₹59 FREE</span>
+                <span class="text-xs font-extrabold text-amber-600" id="calc-lbl-yearly">₹149</span>
               </label>
             </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-extrabold uppercase tracking-wider text-purple-800 mb-1.5">3. Optional Add-On</label>
+            <label class="flex items-center justify-between p-2.5 rounded-xl bg-white/80 border border-purple-200 cursor-pointer">
+              <span class="flex items-center gap-2 text-xs font-bold text-purple-950">
+                <input type="checkbox" id="calc-chk-hd" onchange="updateInteractiveCalc()" class="rounded text-pink-500 focus:ring-pink-500"/>
+                <span>🖼️ HD Photos <span class="text-[10px] font-normal text-purple-700">(Photo templates only)</span></span>
+              </span>
+              <span class="text-xs font-extrabold text-purple-600" id="calc-lbl-hd">+₹19</span>
+            </label>
           </div>
         </div>
 
         <!-- Result Box -->
-        <div class="p-6 rounded-2xl bg-purple-50 text-slate-900 flex flex-col justify-between gap-4 shadow-sm border border-purple-200">
+        <div class="p-4 rounded-xl bg-purple-50 text-slate-900 flex flex-col justify-between gap-3 shadow-xs border border-purple-200">
           <div>
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-purple-700">Selected Package</span>
-              <span id="calc-savings-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">Save ₹19 Combo Applied!</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-purple-700">Price Breakdown</span>
+              <span id="calc-validity-badge" class="px-2 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-black uppercase">Standard</span>
             </div>
-            <h3 id="calc-result-title" class="font-display font-extrabold text-lg text-slate-900 mt-2">
-              Free Template + All-in-One Combo (₹99)
+            <h3 id="calc-result-title" class="font-display font-extrabold text-base text-slate-900 mt-1">
+              Custom Link (₹19)
             </h3>
-            <div class="mt-4 space-y-1.5 text-xs text-slate-700 border-t border-purple-200 pt-3" id="calc-breakdown-lines">
-              <!-- Populated dynamically -->
-            </div>
+            <div class="mt-2.5 space-y-1 text-xs text-slate-700 border-t border-purple-200 pt-2.5" id="calc-breakdown-lines"></div>
           </div>
 
-          <div class="pt-3 border-t border-purple-200 flex items-center justify-between">
+          <div class="pt-2.5 border-t border-purple-200 flex items-center justify-between">
             <div>
-              <span class="text-[11px] text-slate-600 block">Final Payable Amount</span>
-              <div class="flex items-baseline gap-2">
-                <span id="calc-final-price" class="font-display font-black text-3xl text-purple-700">₹99</span>
-                <span id="calc-regular-price" class="text-xs line-through text-slate-400">₹118</span>
-              </div>
+              <span class="text-[10px] text-slate-600 block">Total Payable</span>
+              <span id="calc-final-price" class="font-display font-black text-2xl text-purple-700">₹19</span>
             </div>
-            <a id="calc-cta-link" href="/customize.html?pack=combo_99" class="px-5 py-3 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white font-extrabold text-xs shadow-sm transition">
+            <a id="calc-cta-link" href="/customize.html?pack=custom_link" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white font-extrabold text-xs shadow-sm transition">
               Start Creating →
             </a>
           </div>
@@ -289,93 +224,88 @@
 
   </main>
 
-  <footer class="py-8 px-4 text-center border-t border-purple-200/60 text-xs text-purple-700">
-    <p>© 2026 WishMagic. Crafted with wonder for people who care deeply. ✨</p>
+  <footer class="py-5 px-4 text-center border-t border-purple-200/60 text-xs text-purple-700">
+    <p>© 2026 WishMagic · Personalized celebration links.</p>
   </footer>
 
   <script>
     let selectedCalcTplPrice = 0;
 
-    function setCalcTemplatePrice(price) {
-      selectedCalcTplPrice = Number(price) || 0;
-      [0, 59, 149].forEach(p => {
+    function setCalcTemplatePrice(price, fromInput = false) {
+      selectedCalcTplPrice = Math.max(0, Number(price) || 0);
+      const customInp = document.getElementById('calc-custom-tpl-input');
+      if (customInp && !fromInput) customInp.value = selectedCalcTplPrice;
+      [0, 29, 49, 99].forEach(p => {
         const btn = document.getElementById(`calc-tpl-${p}`);
         if (!btn) return;
         if (p === selectedCalcTplPrice) {
-          btn.className = 'py-2.5 px-3 rounded-xl border-2 border-pink-500 bg-pink-500/15 text-purple-950 dark:text-white font-extrabold text-xs cursor-pointer transition';
+          btn.className = 'py-2 px-2 rounded-xl border-2 border-pink-500 bg-pink-500/15 text-purple-950 font-extrabold text-xs cursor-pointer transition';
         } else {
-          btn.className = 'py-2.5 px-3 rounded-xl border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-xs cursor-pointer transition';
+          btn.className = 'py-2 px-2 rounded-xl border border-purple-200 text-purple-900 font-bold text-xs cursor-pointer transition';
         }
       });
-      const refRow = document.getElementById('calc-ref-row');
-      if (refRow) {
-        if (selectedCalcTplPrice === 0) refRow.classList.remove('opacity-40', 'pointer-events-none');
-        else {
-          refRow.classList.add('opacity-40', 'pointer-events-none');
-          document.getElementById('calc-chk-ref').checked = false;
-        }
-      }
       updateInteractiveCalc();
     }
 
     function updateInteractiveCalc() {
-      const hasCustomLink = document.getElementById('calc-chk-link')?.checked || false;
-      const hasHdImageStyle = document.getElementById('calc-chk-hd')?.checked || false;
-      const useReferralCredit = document.getElementById('calc-chk-ref')?.checked || false;
+      const linkMode = document.querySelector('input[name="calc-link-mode"]:checked')?.value || 'custom';
+      const hasHdPhotos = Boolean(document.getElementById('calc-chk-hd')?.checked);
 
       const engine = window.WishPricingEngine;
-      const rules = engine ? engine.getRules() : { customLinkPrice: 59, hdImageStylePrice: 59, freeTemplateComboPrice: 99, premiumComboAddonPrice: 70, requiredReferrals: 7 };
+      const rules = engine ? engine.getRules() : { customLinkPrice: 19, hdPhotosPrice: 19, yearlyCustomLinkPrice: 149 };
+      const clPrice = Number(rules.customLinkPrice ?? 19);
+      const hdPrice = Number(rules.hdPhotosPrice ?? rules.hdImageStylePrice ?? 19);
+      const yrPrice = Number(rules.yearlyCustomLinkPrice ?? 149);
 
-      document.getElementById('price-card-custom-link').textContent = `₹${rules.customLinkPrice}`;
-      document.getElementById('price-card-hd-style').textContent = `₹${rules.hdImageStylePrice}`;
-      document.getElementById('price-card-free-combo').textContent = `₹${rules.freeTemplateComboPrice}`;
-      document.getElementById('price-card-prem-combo').textContent = `Template + ₹${rules.premiumComboAddonPrice}`;
-      document.getElementById('calc-lbl-link').textContent = `₹${rules.customLinkPrice}`;
-      document.getElementById('calc-lbl-hd').textContent = `₹${rules.hdImageStylePrice}`;
-      document.getElementById('ref-banner-target').textContent = String(rules.requiredReferrals || 7);
+      const elCl = document.getElementById('price-card-custom-link');
+      const elHd = document.getElementById('price-card-hd-photos');
+      const elYr = document.getElementById('price-card-yearly-link');
+      if (elCl) elCl.textContent = `₹${clPrice}`;
+      if (elHd) elHd.textContent = `₹${hdPrice}`;
+      if (elYr) elYr.textContent = `₹${yrPrice}`;
+      document.getElementById('calc-lbl-link').textContent = `₹${clPrice}`;
+      document.getElementById('calc-lbl-yearly').textContent = `₹${yrPrice}`;
+      document.getElementById('calc-lbl-hd').textContent = `+₹${hdPrice}`;
+
+      const heroSub = document.getElementById('pricing-page-hero-sub');
+      if (heroSub) {
+        heroSub.innerHTML = `Template price is set per template (Free or custom ₹) · Add <strong>Custom Link (₹${clPrice})</strong>, <strong>HD Photos (₹${hdPrice} — photo templates only)</strong>, or <strong>1-Year Custom Link (₹${yrPrice})</strong>.`;
+      }
 
       const quote = engine ? engine.calculateQuote({
         templatePrice: selectedCalcTplPrice,
-        hasCustomLink,
-        hasHdImageStyle,
-        isCombo: hasCustomLink && hasHdImageStyle,
-        useReferralCredit
+        linkMode,
+        hasHdPhotos,
+        templateSupportsPhotos: true
       }) : {
-        finalPayable: 99,
-        regularTotal: 118,
-        savings: 19,
-        planLabel: 'All-in-One Combo',
-        planCode: 'free_template_combo'
+        finalPayable: selectedCalcTplPrice + (linkMode === '1yr' ? yrPrice : linkMode === 'custom' ? clPrice : 0) + (hasHdPhotos ? hdPrice : 0),
+        planLabel: 'Selected Package',
+        validityDays: linkMode === '1yr' ? 365 : 30
       };
 
       document.getElementById('calc-result-title').textContent = quote.planLabel;
       document.getElementById('calc-final-price').textContent = `₹${quote.finalPayable}`;
-
-      const regEl = document.getElementById('calc-regular-price');
-      const savEl = document.getElementById('calc-savings-badge');
-      if (quote.savings > 0) {
-        regEl.textContent = `₹${quote.regularTotal}`;
-        regEl.classList.remove('hidden');
-        savEl.textContent = `Save ₹${quote.savings}!`;
-        savEl.classList.remove('hidden');
-      } else {
-        regEl.classList.add('hidden');
-        savEl.classList.add('hidden');
+      const valBadge = document.getElementById('calc-validity-badge');
+      if (valBadge) {
+        valBadge.textContent = linkMode === '1yr' ? '365 Days Validity' : 'Standard Validity';
       }
 
       const lines = [];
-      lines.push(`<div class="flex justify-between"><span>Template Base Price:</span><span class="font-bold">${selectedCalcTplPrice === 0 ? '₹0 (Free)' : '₹' + selectedCalcTplPrice}</span></div>`);
-      if (hasCustomLink) {
-        lines.push(`<div class="flex justify-between"><span>Custom Link (/w/your-name):</span><span class="font-bold">${useReferralCredit && selectedCalcTplPrice === 0 ? '₹0 (7-Referral Free Credit)' : '₹' + rules.customLinkPrice}</span></div>`);
+      lines.push(`<div class="flex justify-between"><span>Template Price:</span><span class="font-bold">${selectedCalcTplPrice === 0 ? '₹0 (Free)' : '₹' + selectedCalcTplPrice}</span></div>`);
+      if (linkMode === 'custom') {
+        lines.push(`<div class="flex justify-between"><span>Custom Link (/w/name):</span><span class="font-bold">₹${clPrice}</span></div>`);
+      } else if (linkMode === '1yr') {
+        lines.push(`<div class="flex justify-between"><span>1-Year Custom Link (365 Days):</span><span class="font-bold">₹${yrPrice}</span></div>`);
+      } else {
+        lines.push(`<div class="flex justify-between"><span>Free Random Link:</span><span class="font-bold text-emerald-700">₹0</span></div>`);
       }
-      if (hasHdImageStyle) {
-        lines.push(`<div class="flex justify-between"><span>HD Images + Custom Style:</span><span class="font-bold">₹${rules.hdImageStylePrice}</span></div>`);
-      }
-      if (quote.savings > 0) {
-        lines.push(`<div class="flex justify-between text-emerald-700 font-bold"><span>Combo / Referral Discount:</span><span>-₹${quote.savings}</span></div>`);
+      if (hasHdPhotos) {
+        lines.push(`<div class="flex justify-between"><span>HD Photos (Photo Templates Only):</span><span class="font-bold">+₹${hdPrice}</span></div>`);
       }
       document.getElementById('calc-breakdown-lines').innerHTML = lines.join('');
-      document.getElementById('calc-cta-link').href = `/customize.html?pack=${encodeURIComponent(quote.planCode)}&templatePrice=${selectedCalcTplPrice}`;
+
+      const packParam = linkMode === '1yr' ? 'custom_link_1yr' : linkMode === 'custom' ? 'custom_link' : (hasHdPhotos ? 'hd_photos' : 'free');
+      document.getElementById('calc-cta-link').href = `/customize.html?pack=${encodeURIComponent(packParam)}`;
     }
 
     function renderPublicVipPlans(vipPlans) {
@@ -389,7 +319,7 @@
       }
       const activePlans = vipPlans.filter(p => p && p.isActive !== false);
       if (activePlans.length === 0) {
-        grid.innerHTML = `<div class="col-span-full wm-card rounded-3xl p-8 text-center text-sm font-bold text-purple-800 dark:text-purple-200">All templates are currently available with standard free links!</div>`;
+        grid.innerHTML = `<div class="col-span-full wm-card rounded-2xl p-5 text-center text-sm font-bold text-purple-800">All templates are currently available with standard free links!</div>`;
         if (legacySec) legacySec.classList.add("hidden");
         return;
       }
@@ -397,48 +327,34 @@
       document.getElementById("dynamic-vip-plans-section")?.classList.remove("hidden");
 
       grid.innerHTML = activePlans.map(plan => {
-        const pk = plan.perks || {};
-        const perkPills = [];
-        if (pk.unlockVipTemplates) perkPills.push("👑 Free VIP Templates");
-        if (pk.freeCustomLink) perkPills.push("🔗 Free Custom Link");
-        if (pk.freeHdPhotos) perkPills.push("🖼️ Free HD Photos");
-        if (pk.freeCustomStyle) perkPills.push("🎨 Free Custom Style");
-        if (pk.customMusicVoice) perkPills.push("🎵 Music & Voice");
-        if (pk.removeWatermark) perkPills.push("✨ Zero Watermark");
-        if (pk.lifetimeLink) perkPills.push("♾️ Lifetime Link");
-
         const feats = Array.isArray(plan.features) ? plan.features : [];
         const isPop = Boolean(plan.isPopular);
-        const packParam = plan.id === "personalized_link" ? "custom_link"
-          : (plan.id === "hd_image_style_pack" ? "hd_style"
-          : (plan.id === "free_template_combo" ? "combo_99"
-          : (plan.id === "premium_template_combo" ? "premium_70" : plan.id)));
+        const packParam = plan.id === "custom_link_1yr" ? "custom_link_1yr"
+          : (plan.id === "hd_photos" || plan.id === "hd_image_style_pack" ? "hd_photos"
+          : (plan.id === "personalized_link" ? "custom_link" : plan.id));
 
         return `
-          <div class="wm-card rounded-3xl p-6 flex flex-col justify-between shadow-xl ${isPop ? "border-2 border-pink-500 relative overflow-hidden" : "border border-purple-200/80 dark:border-purple-800/50"}">
-            ${isPop ? `<div class="absolute top-0 right-0 px-3 py-1 rounded-bl-2xl bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white font-black text-[10px] uppercase tracking-wider">★ MOST POPULAR</div>` : ""}
+          <div class="wm-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm ${isPop ? "border-2 border-pink-500 relative overflow-hidden" : "border border-purple-200/80"}">
+            ${isPop ? `<div class="absolute top-0 right-0 px-2.5 py-0.5 rounded-bl-xl bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white font-black text-[10px] uppercase tracking-wider">★ BEST VALUE</div>` : ""}
             <div>
-              <div class="flex items-center justify-between mb-3">
-                <span class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${isPop ? "bg-pink-500 text-white" : "bg-purple-500/15 text-purple-700 dark:text-purple-300"}">
-                  ${plan.badge || "VIP PLAN"}
+              <div class="flex items-center justify-between mb-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPop ? "bg-pink-500 text-white" : "bg-purple-500/15 text-purple-700"}">
+                  ${plan.badge || "PLAN"}
                 </span>
               </div>
-              <h3 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">${plan.name}</h3>
-              <div class="my-3 flex items-baseline gap-2">
-                <span class="font-display font-black text-4xl ${isPop ? "text-pink-600 dark:text-pink-400" : "text-purple-950 dark:text-white"}">${Number(plan.price) === 0 ? "₹0 FREE" : "₹" + plan.price}</span>
+              <h3 class="font-display font-extrabold text-lg text-purple-950">${plan.name}</h3>
+              <div class="my-2 flex items-baseline gap-1.5">
+                <span class="font-display font-black text-3xl ${isPop ? "text-pink-600" : "text-purple-950"}">${Number(plan.price) === 0 ? "₹0 FREE" : "₹" + plan.price}</span>
                 ${plan.originalPrice && Number(plan.originalPrice) > Number(plan.price) ? `<span class="text-xs line-through text-purple-500">₹${plan.originalPrice}</span>` : ""}
-                <span class="text-xs font-semibold text-purple-700/70 dark:text-purple-300/70">${plan.billingLabel || "one-time"}</span>
+                <span class="text-xs font-semibold text-purple-700/70">${plan.billingLabel || "per wish"}</span>
               </div>
-              <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mb-3 leading-relaxed">${plan.description || ""}</p>
-              <div class="flex flex-wrap gap-1.5 mb-3">
-                ${perkPills.map(b => `<span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">${b}</span>`).join("")}
-              </div>
-              <ul class="space-y-2 text-xs text-purple-950 dark:text-purple-100 font-medium pt-3 border-t border-purple-200/60 dark:border-purple-800/40">
-                ${feats.map(f => `<li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span><span>${f}</span></li>`).join("")}
+              ${plan.description ? `<p class="text-xs text-purple-800/80 mb-2.5 leading-snug">${plan.description}</p>` : ""}
+              <ul class="space-y-1.5 text-xs text-purple-950 font-medium pt-2.5 border-t border-purple-200/60">
+                ${feats.map(f => `<li class="flex items-center gap-1.5"><span class="text-emerald-500 font-bold">✓</span><span>${f}</span></li>`).join("")}
               </ul>
             </div>
-            <a href="/customize.html?pack=${encodeURIComponent(packParam)}" class="mt-6 w-full py-3.5 px-4 rounded-2xl ${isPop ? "bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white shadow-lg" : "bg-purple-100 dark:bg-purple-900/60 hover:bg-purple-200 text-purple-950 dark:text-white"} font-extrabold text-xs text-center block transition">
-              ${plan.ctaText || (`Unlock ${plan.name} • ₹${plan.price}`)}
+            <a href="/customize.html?pack=${encodeURIComponent(packParam)}" class="mt-4 w-full py-2.5 px-3 rounded-xl ${isPop ? "bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white shadow-sm" : "bg-purple-100 hover:bg-purple-200 text-purple-950"} font-extrabold text-xs text-center block transition">
+              ${plan.ctaText || (`Choose ${plan.name} • ₹${plan.price}`)}
             </a>
           </div>
         `;

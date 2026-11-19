@@ -45,9 +45,14 @@ export const REFUND_STATUS = {
 export const PRODUCT_TYPES = {
   VIP_PASS: 'vip_pass',
   PERSONALIZED_LINK: 'personalized_link',
+  CUSTOM_LINK_1YR: 'custom_link_1yr',
+  HD_PHOTOS: 'hd_photos',
   HD_IMAGE_STYLE_PACK: 'hd_image_style_pack',
+  WISH_BUNDLE: 'wish_bundle',
   FREE_TEMPLATE_COMBO: 'free_template_combo',
   PREMIUM_TEMPLATE_COMBO: 'premium_template_combo',
+  PREMIUM_TEMPLATE_CUSTOM_LINK: 'premium_template_custom_link',
+  PREMIUM_TEMPLATE_HD_STYLE: 'premium_template_hd_style',
   TEMPLATE_FAMILY: 'template_family',
   TEMPLATE: 'template'
 };
@@ -130,29 +135,226 @@ export function verifyRazorpayWebhookSignature({ rawBody, signature, webhookSecr
 // ============================================================================
 
 /**
- * Authoritatively resolves product details, price in minor units (paise), and currency
+ * Determines authoritatively on the server whether a template supports photo uploads.
+ * Templates without photo/image upload slots must never offer or charge for HD Photos.
+ */
+export function templateSupportsPhotoUpload(templateObj) {
+  if (!templateObj || typeof templateObj !== 'object') return true;
+  if (templateObj.supportsPhotos === false || templateObj.supportsAnyPhoto === false) return false;
+  if (templateObj.supports_photos === 0 || templateObj.supports_photos === false) return false;
+
+  const parseJsonMaybe = (val) => {
+    if (!val) return null;
+    if (typeof val === 'object') return val;
+    try { return JSON.parse(val); } catch { return null; }
+  };
+
+  const disabledIds = parseJsonMaybe(templateObj.disabledIds || templateObj.disabled_ids);
+  if (Array.isArray(disabledIds)) {
+    const disSet = new Set(disabledIds.map(x => String(x || '').toLowerCase()));
+    if (disSet.has('photos') && disSet.has('gallery')) return false;
+  }
+
+  const manifest = parseJsonMaybe(templateObj.manifest || templateObj.manifest_json) || {};
+  const caps = parseJsonMaybe(templateObj.capabilities || templateObj.capabilities_json) || manifest.capabilities || null;
+  if (caps && typeof caps === 'object') {
+    const capDisabled =
+      caps.photos === false &&
+      caps.gallery === false &&
+      caps['photo-gallery'] === false &&
+      caps.photoGallery === false;
+    if (capDisabled) return false;
+  }
+
+  const rawFields =
+    (Array.isArray(manifest.fields) && manifest.fields) ||
+    (Array.isArray(templateObj.detectedFields) && templateObj.detectedFields) ||
+    (Array.isArray(templateObj.fields) && templateObj.fields) ||
+    null;
+
+  if (Array.isArray(rawFields) && rawFields.length > 0) {
+    const hasImageField = rawFields.some((f) => {
+      if (!f || typeof f !== 'object') return false;
+      const fType = String(f.type || '').toLowerCase();
+      const fKey = String(f.id || f.key || f.name || '').toLowerCase();
+      return (
+        fType === 'image' ||
+        fType === 'photo' ||
+        fType === 'gallery' ||
+        fType === 'media' ||
+        /(^|[_-])(photo|photos|image|images|img|pic|pics|gallery|avatar|portrait|banner)([_-]|$|\d)/i.test(fKey)
+      );
+    });
+    const capExplicitPhoto = Boolean(
+      caps && typeof caps === 'object' && (
+        caps.photos === true ||
+        caps.gallery === true ||
+        caps['photo-gallery'] === true ||
+        caps.photoGallery === true ||
+        (Array.isArray(caps) && caps.some(c => /photo|gallery|image/i.test(String(c))))
+      )
+    );
+    return hasImageField || capExplicitPhoto;
+  }
+
+  // Fallback: inspect inline HTML if present on template record
+  const rawHtml = typeof templateObj.html === 'string' ? templateObj.html
+    : (typeof templateObj.htmlContent === 'string' ? templateObj.htmlContent : '');
+  if (rawHtml && rawHtml.length > 80) {
+    const hasPhotoToken =
+      /data-wm-field=["'][^"']*(photo|image|gallery|pic|avatar)[^"']*["']/i.test(rawHtml) ||
+      /\{\{\s*(photo|image|gallery|pic|avatar)/i.test(rawHtml) ||
+      /<img\b[^>]*data-editable/i.test(rawHtml);
+    if (!hasPhotoToken && !/<img\b/i.test(rawHtml)) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Parses encoded wish_bundle product IDs:
+ * Format: wish_bundle:<tplId|free>:<none|custom|1yr>:<0|1>
+ */
+export function parseWishBundleProductId(productId) {
+  const str = String(productId || '').trim();
+  if (!str.toLowerCase().startsWith('wish_bundle:')) return null;
+  const parts = str.split(':');
+  const rawTpl = parts[1] || 'free';
+  const linkMode = (parts[2] || 'none').toLowerCase();
+  const hdFlag = parts[3] === '1' || parts[3] === 'true';
+  return {
+    templateId: rawTpl && rawTpl !== 'free' && rawTpl !== 'none' ? rawTpl : null,
+    grantsTemplate: Boolean(rawTpl && rawTpl !== 'free' && rawTpl !== 'none'),
+    linkMode: linkMode === '1yr' ? '1yr' : (linkMode === 'custom' ? 'custom' : 'none'),
+    grantsCustomLink: linkMode === 'custom' || linkMode === '1yr',
+    grantsYearlyLink: linkMode === '1yr',
+    grantsHdPhotos: hdFlag,
+    validityDays: linkMode === '1yr' ? 365 : 30
+  };
+}
+
+/**
+ * Authoritatively resolves product details, price in minor units (paise), and currency.
+ * SECURITY: Never trusts client-supplied templatePrice when an authoritative template exists on server.
  */
 export function resolveAuthoritativeProduct({ productId, templateId, options = {}, templates = [], families = [], siteSettings = {} }) {
-  const normId = String(productId || '').trim().toLowerCase();
+  const rawId = String(productId || '').trim();
+  const normId = rawId.toLowerCase();
 
   const toFiniteNonNeg = (val, fallback) => {
-    if (val === undefined || val === null || val === '') return fallback;
+    if (val === undefined || val === null || val === '' || typeof val === 'boolean') return fallback;
     const n = Number(val);
     return Number.isFinite(n) && n >= 0 ? n : fallback;
   };
 
   const addons = siteSettings?.addons || {};
-  const customLinkUnit = toFiniteNonNeg(addons.customLinkPrice ?? siteSettings?.personalized?.price, 59);
-  const hdStyleUnit = toFiniteNonNeg(addons.hdImageStylePrice, 59);
-  const freeComboUnit = toFiniteNonNeg(addons.freeTemplateComboPrice, 99);
-  const premComboAddon = toFiniteNonNeg(addons.premiumComboAddonPrice, 70);
+  const customLinkUnit = toFiniteNonNeg(addons.customLinkPrice ?? siteSettings?.personalized?.price, 19);
+  const hdPhotosUnit = toFiniteNonNeg(addons.hdPhotosPrice ?? addons.hdImageStylePrice, 19);
+  const yearlyCustomLinkUnit = toFiniteNonNeg(addons.yearlyCustomLinkPrice, 149);
+  const freeComboUnit = toFiniteNonNeg(addons.freeTemplateComboPrice, customLinkUnit + hdPhotosUnit);
+  const premComboAddon = toFiniteNonNeg(addons.premiumComboAddonPrice, customLinkUnit + hdPhotosUnit);
   const vipPassUnit = toFiniteNonNeg(addons.vipPassPrice, 49);
   const resolvedCurrency = String(siteSettings?.personalized?.currency || siteSettings?.currency || 'INR').trim().toUpperCase() || 'INR';
 
   const configuredPlans = Array.isArray(siteSettings?.vipPlans) ? siteSettings.vipPlans : [];
-  const matchedVipPlan = configuredPlans.find(p => p && String(p.id || "").toLowerCase() === normId);
+  const matchedVipPlan = configuredPlans.find(p => p && String(p.id || '').toLowerCase() === normId);
 
-  // 1. VIP Pass (Universal creator upgrade)
+  const findTemplate = (tId) => {
+    if (!tId) return null;
+    return (templates || []).find(t => t && (t.id === tId || String(t.id).toLowerCase() === String(tId).toLowerCase())) || null;
+  };
+
+  // Authoritative template price helper: ALWAYS prefers server template catalog over client options!
+  const getAuthoritativeTemplatePrice = (tplObj, fallbackOptionPrice = 0) => {
+    if (tplObj) {
+      return toFiniteNonNeg(tplObj.price, 0);
+    }
+    return toFiniteNonNeg(fallbackOptionPrice, 0);
+  };
+
+  // 0. Dynamic Additive Wish Bundle (Template Price + Custom Link ₹19 OR 1-Year Link ₹149 + HD Photos ₹19 if photo-capable)
+  if (normId === 'wish_bundle' || normId.startsWith('wish_bundle:') || normId === 'custom_order') {
+    const parsedBundle = normId.startsWith('wish_bundle:') ? parseWishBundleProductId(rawId) : null;
+    const targetTplId = templateId || options.templateId || (parsedBundle && parsedBundle.templateId) || null;
+    const tplObj = findTemplate(targetTplId);
+    const baseTplPrice = getAuthoritativeTemplatePrice(tplObj, options.templatePrice ?? 0);
+
+    const wantsTemplate = options.includeTemplate !== undefined
+      ? Boolean(options.includeTemplate)
+      : Boolean(parsedBundle ? parsedBundle.grantsTemplate : baseTplPrice > 0);
+    const includeTemplate = wantsTemplate && baseTplPrice > 0;
+
+    const wantsYearlyLink = Boolean(
+      options.includeYearlyLink ||
+      options.linkDuration === '1_year' ||
+      options.linkMode === '1yr' ||
+      options.linkMode === 'yearly' ||
+      (parsedBundle && parsedBundle.grantsYearlyLink)
+    );
+    const wantsCustomLink = !wantsYearlyLink && Boolean(
+      options.includeCustomLink ||
+      options.linkMode === 'custom' ||
+      (parsedBundle && parsedBundle.grantsCustomLink && !parsedBundle.grantsYearlyLink)
+    );
+    const linkMode = wantsYearlyLink ? '1yr' : (wantsCustomLink ? 'custom' : 'none');
+
+    // Enforce photo-upload capability on server: non-photo templates NEVER charge for HD Photos
+    const tplSupportsPhotos = tplObj
+      ? templateSupportsPhotoUpload(tplObj)
+      : (options.templateSupportsPhotos !== false);
+    const wantsHdPhotos = Boolean(options.includeHdPhotos || (parsedBundle && parsedBundle.grantsHdPhotos));
+    const includeHdPhotos = wantsHdPhotos && tplSupportsPhotos;
+
+    const tplCost = includeTemplate ? baseTplPrice : 0;
+    const linkCost = linkMode === '1yr' ? yearlyCustomLinkUnit : (linkMode === 'custom' ? customLinkUnit : 0);
+    const hdCost = includeHdPhotos ? hdPhotosUnit : 0;
+    const totalRupees = tplCost + linkCost + hdCost;
+    const paise = Math.round(totalRupees * 100);
+
+    const partsLabel = [];
+    if (includeTemplate) partsLabel.push(`${tplObj?.name || 'Template'} (₹${tplCost})`);
+    if (linkMode === '1yr') partsLabel.push(`1-Year Custom Link (₹${linkCost})`);
+    else if (linkMode === 'custom') partsLabel.push(`Custom Link (₹${linkCost})`);
+    if (includeHdPhotos) partsLabel.push(`HD Photos (₹${hdCost})`);
+
+    const encodedProductId = `wish_bundle:${includeTemplate && targetTplId ? targetTplId : 'free'}:${linkMode}:${includeHdPhotos ? '1' : '0'}`;
+
+    return {
+      productId: encodedProductId,
+      productType: PRODUCT_TYPES.WISH_BUNDLE,
+      productName: partsLabel.length > 0 ? partsLabel.join(' + ') : 'WishMagic Free Wish',
+      description: partsLabel.length > 0
+        ? `Includes: ${partsLabel.join(', ')}${linkMode === '1yr' ? ' — active for 365 days' : ''}.`
+        : 'No paid items selected.',
+      templateId: targetTplId || null,
+      templateFamilyId: tplObj?.familyId || tplObj?.family_id || null,
+      amountPaise: paise,
+      price: totalRupees,
+      currency: resolvedCurrency,
+      priceDisplay: `₹${totalRupees}`,
+      scope: 'wish_bundle',
+      validityDays: linkMode === '1yr' ? 365 : 30,
+      linkDuration: linkMode === '1yr' ? '1_year' : (linkMode === 'custom' ? 'standard' : 'random'),
+      grantsTemplate: includeTemplate,
+      grantsCustomLink: linkMode === 'custom' || linkMode === '1yr',
+      grantsYearlyLink: linkMode === '1yr',
+      grantsHdPhotos: includeHdPhotos,
+      templateSupportsPhotos: tplSupportsPhotos,
+      breakdown: {
+        templatePrice: tplCost,
+        customLinkPrice: linkMode === 'custom' ? linkCost : 0,
+        yearlyCustomLinkPrice: linkMode === '1yr' ? linkCost : 0,
+        hdPhotosPrice: hdCost,
+        totalRupees,
+        templateSupportsPhotos: tplSupportsPhotos,
+        linkMode,
+        validityDays: linkMode === '1yr' ? 365 : 30
+      },
+      isFree: paise === 0
+    };
+  }
+
+  // 1. VIP Pass (Legacy / Admin VIP universal upgrade)
   if (normId === 'vip_pass' || normId === 'vip' || normId === 'premium') {
     const vipPlanObj = matchedVipPlan || configuredPlans.find(p => p && (p.id === 'vip_pass' || p.id === 'plan_vip_49'));
     const effectiveVipPrice = vipPlanObj && Number.isFinite(Number(vipPlanObj.price)) && Number(vipPlanObj.price) >= 0
@@ -163,7 +365,7 @@ export function resolveAuthoritativeProduct({ productId, templateId, options = {
       productId: 'vip_pass',
       productType: PRODUCT_TYPES.VIP_PASS,
       productName: (vipPlanObj && vipPlanObj.name) || 'WishMagic VIP Creator Pass',
-      description: (vipPlanObj && vipPlanObj.description) || 'Unlimited VIP blueprints, custom audio, watermark removal & permanent link preservation.',
+      description: (vipPlanObj && vipPlanObj.description) || 'Unlimited VIP blueprints, custom link, HD photos & permanent link preservation.',
       amountPaise: paise,
       price: effectiveVipPrice,
       currency: resolvedCurrency,
@@ -174,27 +376,30 @@ export function resolveAuthoritativeProduct({ productId, templateId, options = {
     };
   }
 
-  // 1b. Any Custom or Admin-Configured VIP Plan in siteSettings.vipPlans
-  if (matchedVipPlan && !['personalized_link', 'custom_link_only', 'hd_image_style_pack', 'hd_style', 'free_template_combo', 'combo_99', 'premium_template_combo'].includes(normId)) {
-    const planPrice = toFiniteNonNeg(matchedVipPlan.price, 49);
-    const paise = Math.round(planPrice * 100);
+  // 2. 1-Year Custom Link (₹149 default — 365 days validity)
+  if (normId === 'custom_link_1yr' || normId === 'yearly_custom_link' || normId === 'custom_link_year' || normId === '1_year_custom_link') {
+    const price = toFiniteNonNeg(addons.yearlyCustomLinkPrice, yearlyCustomLinkUnit);
+    const paise = Math.round(price * 100);
     return {
-      productId: matchedVipPlan.id,
-      productType: PRODUCT_TYPES.VIP_PASS,
-      productName: matchedVipPlan.name || 'WishMagic VIP Plan',
-      description: matchedVipPlan.description || 'Custom VIP celebration plan.',
+      productId: 'custom_link_1yr',
+      productType: PRODUCT_TYPES.CUSTOM_LINK_1YR,
+      productName: '1-Year Custom Link (365 Days)',
+      description: `Custom branded link (${options.requestedSlug || '/w/your-name'}) active for 1 full year (365 days).`,
       amountPaise: paise,
-      price: planPrice,
+      price,
       currency: resolvedCurrency,
-      priceDisplay: `₹${planPrice}`,
-      scope: matchedVipPlan.perks && matchedVipPlan.perks.unlockVipTemplates ? 'all_templates' : 'combo_pack',
-      perks: matchedVipPlan.perks || {},
+      priceDisplay: `₹${price}`,
+      scope: 'custom_slug_1yr',
+      validityDays: 365,
+      linkDuration: '1_year',
+      grantsCustomLink: true,
+      grantsYearlyLink: true,
       isFree: paise === 0
     };
   }
 
-  // 2. Personalized Link Only (₹59 default)
-  if (normId === 'personalized_link' || normId === 'custom_link_only') {
+  // 2b. Personalized Custom Link (₹19 default)
+  if (normId === 'personalized_link' || normId === 'custom_link_only' || normId === 'custom_link') {
     const customPrice = toFiniteNonNeg(
       siteSettings?.monetization?.personalizedLinkPrice ?? addons.customLinkPrice ?? siteSettings?.personalized?.price,
       customLinkUnit
@@ -205,113 +410,229 @@ export function resolveAuthoritativeProduct({ productId, templateId, options = {
       productId: 'personalized_link',
       productType: PRODUCT_TYPES.PERSONALIZED_LINK,
       productName: 'Custom Celebration Link',
-      description: `Custom branded link reservation (${options.requestedSlug || 'custom-name'}).`,
+      description: `Custom branded link reservation (${options.requestedSlug || '/w/your-name'}).`,
       amountPaise: paise,
       price,
-      currency: 'INR',
+      currency: resolvedCurrency,
       priceDisplay: `₹${price}`,
       scope: 'custom_slug',
-      isFree: false
+      validityDays: 30,
+      linkDuration: 'standard',
+      grantsCustomLink: true,
+      isFree: paise === 0
     };
   }
 
-  // 2b. High Quality Images + Custom Style Pack (₹59 default)
-  if (normId === 'hd_image_style_pack' || normId === 'hd_style') {
-    const paise = Math.round(hdStyleUnit * 100);
+  // 2c. HD Photos Add-On (₹19 default — ONLY for templates with photo upload slots)
+  if (normId === 'hd_photos' || normId === 'hd_image_style_pack' || normId === 'hd_style') {
+    const targetTplId = templateId || options.templateId || null;
+    const tplObj = findTemplate(targetTplId);
+    const tplSupportsPhotos = tplObj
+      ? templateSupportsPhotoUpload(tplObj)
+      : (options.templateSupportsPhotos !== false);
+
+    if (!tplSupportsPhotos) {
+      return {
+        productId: 'hd_photos',
+        productType: PRODUCT_TYPES.HD_PHOTOS,
+        productName: 'HD Photos (Not Applicable)',
+        description: 'This template does not have photo upload slots.',
+        templateId: targetTplId,
+        amountPaise: 0,
+        price: 0,
+        currency: resolvedCurrency,
+        priceDisplay: '₹0',
+        scope: 'hd_photos',
+        templateSupportsPhotos: false,
+        hdPhotosNotApplicable: true,
+        isFree: true
+      };
+    }
+
+    const paise = Math.round(hdPhotosUnit * 100);
     return {
-      productId: 'hd_image_style_pack',
-      productType: PRODUCT_TYPES.HD_IMAGE_STYLE_PACK,
-      productName: 'HD Images & Custom Style Pack',
-      description: 'Upload High Quality (HD) photos and customize fonts, colors, frames & effects.',
+      productId: normId === 'hd_photos' ? 'hd_photos' : 'hd_image_style_pack',
+      productType: PRODUCT_TYPES.HD_PHOTOS,
+      productName: 'HD Photos Pack',
+      description: 'Upload crystal-clear High Quality (HD) photos for photo-enabled templates.',
+      templateId: targetTplId,
       amountPaise: paise,
-      price: hdStyleUnit,
-      currency: 'INR',
-      priceDisplay: `₹${hdStyleUnit}`,
-      scope: 'hd_style',
-      isFree: false
+      price: hdPhotosUnit,
+      currency: resolvedCurrency,
+      priceDisplay: `₹${hdPhotosUnit}`,
+      scope: 'hd_photos',
+      grantsHdPhotos: true,
+      templateSupportsPhotos: true,
+      isFree: paise === 0
     };
   }
 
-  // 2c. Free Template Super Combo (₹99 default: Custom Link + HD Images + Custom Style)
+  // 2d. Any Admin-Configured Custom Plan in siteSettings.vipPlans
+  if (matchedVipPlan && !['free_template_combo', 'combo_99', 'premium_template_combo', 'premium_template_custom_link', 'premium_template_hd_style'].includes(normId)) {
+    const planPrice = toFiniteNonNeg(matchedVipPlan.price, 19);
+    const paise = Math.round(planPrice * 100);
+    const pk = matchedVipPlan.perks || {};
+    return {
+      productId: matchedVipPlan.id,
+      productType: PRODUCT_TYPES.VIP_PASS,
+      productName: matchedVipPlan.name || 'WishMagic Plan',
+      description: matchedVipPlan.description || 'Custom celebration plan.',
+      amountPaise: paise,
+      price: planPrice,
+      currency: resolvedCurrency,
+      priceDisplay: `₹${planPrice}`,
+      scope: pk.unlockVipTemplates ? 'all_templates' : 'combo_pack',
+      perks: pk,
+      validityDays: Number(pk.validityDays || 30),
+      isFree: paise === 0
+    };
+  }
+
+  // 2e. Legacy compatibility: Free Template Combo (only when explicitly requested)
   if (normId === 'free_template_combo' || normId === 'combo_99') {
     const paise = Math.round(freeComboUnit * 100);
     return {
       productId: 'free_template_combo',
       productType: PRODUCT_TYPES.FREE_TEMPLATE_COMBO,
-      productName: 'All-in-One Celebration Combo (Custom Link + HD Images + Style)',
-      description: 'Includes Custom Link (/w/your-name) + High Quality (HD) Images + Custom Style.',
+      productName: 'Custom Link + HD Photos Bundle',
+      description: 'Includes Custom Link (/w/your-name) + HD Photos.',
       amountPaise: paise,
       price: freeComboUnit,
-      currency: 'INR',
+      currency: resolvedCurrency,
       priceDisplay: `₹${freeComboUnit}`,
       scope: 'combo_pack',
-      isFree: false
+      grantsCustomLink: true,
+      grantsHdPhotos: true,
+      isFree: paise === 0
     };
   }
 
-  // 2d. Premium Template Royal Combo (Template Price + ₹70: Template + Custom Link + HD Images + Style)
+  // 2f. Legacy compatibility: Premium Template Combo (authoritative template price FIRST)
   if (normId === 'premium_template_combo' || normId.startsWith('premium_combo:')) {
-    const targetTplId = templateId || normId.replace('premium_combo:', '');
-    const tplObj = templates.find(t => t.id === targetTplId);
-    const baseTplPrice = toFiniteNonNeg(options.templatePrice ?? tplObj?.price, 59);
+    const targetTplId = templateId || (normId.startsWith('premium_combo:') ? rawId.slice('premium_combo:'.length) : '');
+    const tplObj = findTemplate(targetTplId);
+    const baseTplPrice = getAuthoritativeTemplatePrice(tplObj, options.templatePrice ?? 0);
     const totalRupees = baseTplPrice + premComboAddon;
     const paise = Math.round(totalRupees * 100);
     return {
       productId: targetTplId ? `premium_combo:${targetTplId}` : 'premium_template_combo',
       productType: PRODUCT_TYPES.PREMIUM_TEMPLATE_COMBO,
-      productName: `${tplObj?.name || 'Premium Template'} + Full Combo (Custom Link + HD Images + Style)`,
-      description: `Premium Template (₹${baseTplPrice}) + Custom Link + High Quality Images + Custom Style (+₹${premComboAddon} Combo).`,
+      productName: `${tplObj?.name || 'Template'} + Custom Link & HD Photos`,
+      description: `Template (₹${baseTplPrice}) + Add-Ons (+₹${premComboAddon}).`,
       templateId: targetTplId || null,
       amountPaise: paise,
       price: totalRupees,
-      currency: 'INR',
+      currency: resolvedCurrency,
       priceDisplay: `₹${totalRupees}`,
       scope: 'premium_combo',
-      isFree: false
+      grantsTemplate: baseTplPrice > 0,
+      grantsCustomLink: true,
+      grantsHdPhotos: true,
+      isFree: paise === 0
     };
   }
 
-  // 3. Specific Template
-  const tpl = templates.find(t => t.id === normId || t.id === templateId);
+  // 2g. Legacy compatibility: Premium Template + Custom Link (authoritative template price FIRST)
+  if (normId === 'premium_template_custom_link' || normId.startsWith('premium_link:')) {
+    const targetTplId = templateId || (normId.startsWith('premium_link:') ? rawId.slice('premium_link:'.length) : '');
+    const tplObj = findTemplate(targetTplId);
+    const baseTplPrice = getAuthoritativeTemplatePrice(tplObj, options.templatePrice ?? 0);
+    const customPrice = toFiniteNonNeg(
+      siteSettings?.monetization?.personalizedLinkPrice ?? addons.customLinkPrice ?? siteSettings?.personalized?.price,
+      customLinkUnit
+    );
+    const totalRupees = baseTplPrice + customPrice;
+    const paise = Math.round(totalRupees * 100);
+    return {
+      productId: targetTplId ? `premium_link:${targetTplId}` : 'premium_template_custom_link',
+      productType: PRODUCT_TYPES.PREMIUM_TEMPLATE_CUSTOM_LINK,
+      productName: `${tplObj?.name || 'Template'} + Custom Link`,
+      description: `Template (₹${baseTplPrice}) + Custom Link (₹${customPrice}).`,
+      templateId: targetTplId || null,
+      amountPaise: paise,
+      price: totalRupees,
+      currency: resolvedCurrency,
+      priceDisplay: `₹${totalRupees}`,
+      scope: 'premium_custom_link',
+      grantsTemplate: baseTplPrice > 0,
+      grantsCustomLink: true,
+      isFree: paise === 0
+    };
+  }
+
+  // 2h. Legacy compatibility: Premium Template + HD Photos (authoritative template price FIRST, checks photo capability)
+  if (normId === 'premium_template_hd_style' || normId.startsWith('premium_hd:')) {
+    const targetTplId = templateId || (normId.startsWith('premium_hd:') ? rawId.slice('premium_hd:'.length) : '');
+    const tplObj = findTemplate(targetTplId);
+    const baseTplPrice = getAuthoritativeTemplatePrice(tplObj, options.templatePrice ?? 0);
+    const tplSupportsPhotos = tplObj ? templateSupportsPhotoUpload(tplObj) : (options.templateSupportsPhotos !== false);
+    const hdCost = tplSupportsPhotos ? hdPhotosUnit : 0;
+    const totalRupees = baseTplPrice + hdCost;
+    const paise = Math.round(totalRupees * 100);
+    return {
+      productId: targetTplId ? `premium_hd:${targetTplId}` : 'premium_template_hd_style',
+      productType: PRODUCT_TYPES.PREMIUM_TEMPLATE_HD_STYLE,
+      productName: tplSupportsPhotos ? `${tplObj?.name || 'Template'} + HD Photos` : `${tplObj?.name || 'Template'}`,
+      description: tplSupportsPhotos
+        ? `Template (₹${baseTplPrice}) + HD Photos (₹${hdCost}).`
+        : `Template (₹${baseTplPrice}).`,
+      templateId: targetTplId || null,
+      amountPaise: paise,
+      price: totalRupees,
+      currency: resolvedCurrency,
+      priceDisplay: `₹${totalRupees}`,
+      scope: 'premium_hd_style',
+      grantsTemplate: baseTplPrice > 0,
+      grantsHdPhotos: tplSupportsPhotos,
+      templateSupportsPhotos: tplSupportsPhotos,
+      isFree: paise === 0
+    };
+  }
+
+  // 3. Specific Template (strictly uses Admin-set template.price)
+  const cleanTplLookupId = normId.startsWith('template:') ? rawId.slice('template:'.length) : rawId;
+  const tpl = findTemplate(cleanTplLookupId) || findTemplate(templateId);
   if (tpl) {
-    const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
-    const rupees = Number(tpl.price) || (isVip ? 49 : 0);
+    const rupees = toFiniteNonNeg(tpl.price, 0);
+    const isPaid = rupees > 0;
     const paise = Math.round(rupees * 100);
 
     return {
       productId: `template:${tpl.id}`,
       productType: PRODUCT_TYPES.TEMPLATE,
-      productName: tpl.name || 'Premium Celebration Blueprint',
+      productName: tpl.name || 'Celebration Template',
       description: tpl.description || `Single template access for ${tpl.name || tpl.id}`,
       templateId: tpl.id,
       templateFamilyId: tpl.familyId || tpl.family_id || null,
       versionId: tpl.activeVersionId || tpl.version || 'v1.0.0',
       amountPaise: paise,
       price: rupees,
-      currency: 'INR',
-      priceDisplay: isVip ? `₹${rupees}` : 'Free',
+      currency: resolvedCurrency,
+      priceDisplay: isPaid ? `₹${rupees}` : 'Free',
       scope: 'single_template',
-      isFree: !isVip || paise === 0
+      grantsTemplate: isPaid,
+      templateSupportsPhotos: templateSupportsPhotoUpload(tpl),
+      isFree: !isPaid || paise === 0
     };
   }
 
   // 4. Template Family
-  const fam = families.find(f => f.id === normId || f.id === options.familyId);
+  const fam = (families || []).find(f => f && (f.id === normId || f.id === options.familyId));
   if (fam) {
-    const rupees = Number(fam.price) || 49;
+    const rupees = toFiniteNonNeg(fam.price, 49);
     const paise = Math.round(rupees * 100);
     return {
       productId: `family:${fam.id}`,
       productType: PRODUCT_TYPES.TEMPLATE_FAMILY,
-      productName: fam.name ? `${fam.name} (All Variations)` : 'Premium Blueprint Family',
+      productName: fam.name ? `${fam.name} (All Variations)` : 'Template Family',
       description: fam.description || 'Full access to this template family across all relationships & themes.',
       templateFamilyId: fam.id,
       amountPaise: paise,
       price: rupees,
-      currency: 'INR',
+      currency: resolvedCurrency,
       priceDisplay: `₹${rupees}`,
       scope: 'template_family',
-      isFree: false
+      isFree: paise === 0
     };
   }
 
@@ -333,22 +654,31 @@ export function evaluateUserEntitlement({
   entitlements = [],
   templates = []
 }) {
-  // If checking template entitlement itself and the template is inherently free, allow
   const normProd = String(productId || '').trim().toLowerCase();
   const isPaidAddonCheck = (
     normProd === 'vip_pass' ||
     normProd === 'personalized_link' ||
     normProd === 'custom_link_only' ||
+    normProd === 'custom_link' ||
+    normProd === 'custom_link_1yr' ||
+    normProd === 'yearly_custom_link' ||
+    normProd === 'hd_photos' ||
     normProd === 'hd_image_style_pack' ||
     normProd === 'hd_style' ||
+    normProd === 'wish_bundle' ||
+    normProd.startsWith('wish_bundle:') ||
     normProd === 'free_template_combo' ||
     normProd === 'combo_99' ||
     normProd === 'premium_template_combo' ||
-    normProd.startsWith('premium_combo:')
+    normProd.startsWith('premium_combo:') ||
+    normProd === 'premium_template_custom_link' ||
+    normProd.startsWith('premium_link:') ||
+    normProd === 'premium_template_hd_style' ||
+    normProd.startsWith('premium_hd:')
   );
   if (templateId && !isPaidAddonCheck) {
-    const tpl = templates.find(t => t.id === templateId);
-    if (tpl && (tpl.tier === 'free' || !tpl.price || Number(tpl.price) === 0)) {
+    const tpl = (templates || []).find(t => t && t.id === templateId);
+    if (tpl && (!tpl.price || Number(tpl.price) <= 0)) {
       return { allowed: true, isFree: true, reason: 'FREE_TEMPLATE' };
     }
   }
@@ -371,7 +701,7 @@ export function evaluateUserEntitlement({
   const userEnts = (entitlements || []).filter(e => {
     const uMatch = (e.userId === user.id || e.user_id === user.id);
     const active = (e.status === 'active' || e.status === 'ACTIVE');
-    const notExpired = !e.expiresAt && !e.expires_at || new Date(e.expiresAt || e.expires_at).getTime() > Date.now();
+    const notExpired = (!e.expiresAt && !e.expires_at) || new Date(e.expiresAt || e.expires_at).getTime() > Date.now();
     return uMatch && active && notExpired;
   });
 
@@ -383,20 +713,28 @@ export function evaluateUserEntitlement({
     return { allowed: true, isFree: false, reason: 'VIP_PASS_ENTITLEMENT' };
   }
 
-  // 2. Check for specific template entitlement
-  if (templateId) {
-    const hasTpl = userEnts.some(e =>
-      e.productId === `template:${templateId}` ||
-      e.templateId === templateId ||
-      e.template_id === templateId
-    );
+  // 2. Check for specific template entitlement (when checking template access directly)
+  if (templateId && !isPaidAddonCheck) {
+    const hasTpl = userEnts.some(e => {
+      const ep = String(e.productId || e.product_id || '');
+      const parsedB = parseWishBundleProductId(ep);
+      return (
+        ep === `template:${templateId}` ||
+        ep === `premium_combo:${templateId}` ||
+        ep === `premium_link:${templateId}` ||
+        ep === `premium_hd:${templateId}` ||
+        (parsedB && parsedB.grantsTemplate && parsedB.templateId === templateId) ||
+        e.templateId === templateId ||
+        e.template_id === templateId
+      );
+    });
     if (hasTpl) {
       return { allowed: true, isFree: false, reason: 'SPECIFIC_TEMPLATE_PURCHASE' };
     }
   }
 
   // 3. Check for template family entitlement
-  if (templateFamilyId) {
+  if (templateFamilyId && !isPaidAddonCheck) {
     const hasFam = userEnts.some(e =>
       e.productId === `family:${templateFamilyId}` ||
       e.templateFamilyId === templateFamilyId ||
@@ -407,8 +745,8 @@ export function evaluateUserEntitlement({
     }
   }
 
-  // 4. Check matching product ID directly
-  if (productId) {
+  // 4. Check matching product ID directly (for exact standalone products only)
+  if (productId && !normProd.startsWith('wish_bundle:')) {
     const hasProd = userEnts.some(e => e.productId === productId || e.product_id === productId);
     if (hasProd) {
       return { allowed: true, isFree: false, reason: 'PRODUCT_PURCHASE' };
@@ -665,21 +1003,31 @@ export async function createCheckoutSession({
     throw err;
   }
 
-  // 3. Check if user already owns active entitlement for this product
-  const entitlementCheck = evaluateUserEntitlement({
-    user,
-    productId: product.productId,
-    templateId: product.templateId,
-    templateFamilyId: product.templateFamilyId,
-    entitlements,
-    templates
-  });
+  // 3. Check if user already owns active entitlement for non-repeatable items
+  // Repeatable per-wish add-ons (custom link, 1-year link, HD photos, wish_bundle) must NOT be blocked
+  const isRepeatablePerWishPurchase = (
+    product.productType === PRODUCT_TYPES.WISH_BUNDLE ||
+    product.productType === PRODUCT_TYPES.PERSONALIZED_LINK ||
+    product.productType === PRODUCT_TYPES.CUSTOM_LINK_1YR ||
+    product.productType === PRODUCT_TYPES.HD_PHOTOS ||
+    product.productType === PRODUCT_TYPES.HD_IMAGE_STYLE_PACK
+  );
+  if (!isRepeatablePerWishPurchase) {
+    const entitlementCheck = evaluateUserEntitlement({
+      user,
+      productId: product.productId,
+      templateId: product.templateId,
+      templateFamilyId: product.templateFamilyId,
+      entitlements,
+      templates
+    });
 
-  if (entitlementCheck.allowed) {
-    const err = new Error('You already own an active pass for this product');
-    err.code = ERROR_CODES.ALREADY_ENTITLED;
-    err.status = 400;
-    throw err;
+    if (entitlementCheck.allowed) {
+      const err = new Error('You already own an active pass for this product');
+      err.code = ERROR_CODES.ALREADY_ENTITLED;
+      err.status = 400;
+      throw err;
+    }
   }
 
   // 4. Verify payment gateway configuration
@@ -749,8 +1097,14 @@ export async function createCheckoutSession({
     orderNotes: JSON.stringify({
       productName: product.productName,
       customerEmail: user.email || null,
-      scope: product.scope
+      scope: product.scope,
+      validityDays: product.validityDays || 30,
+      linkDuration: product.linkDuration || 'standard',
+      breakdown: product.breakdown || null
     }),
+    validityDays: product.validityDays || 30,
+    linkDuration: product.linkDuration || 'standard',
+    breakdown: product.breakdown || null,
     refundStatus: 'NONE',
     refund_status: 'NONE',
     totalRefunded: 0,
@@ -784,6 +1138,7 @@ export async function createCheckoutSession({
     unitPrice: product.amountPaise,
     unit_price: product.amountPaise,
     currency: product.currency,
+    breakdown: product.breakdown || null,
     createdAt: now,
     created_at: now
   };
@@ -828,6 +1183,7 @@ export async function createCheckoutSession({
     order: orderRecord,
     item: itemRecord,
     attempt: attemptRecord,
+    product,
     providerOrder,
     keyId: adapter.keyId,
     isIdempotentReplay: false
@@ -1140,6 +1496,9 @@ export async function verifyAndFinalizePayment({
     const resolvedTplId = orderItem?.templateId || order.templateId || order.template_id || null;
     const resolvedSlug = order.requestedSlug || order.requested_slug || null;
     const resolvedWishId = order.wishId || order.wish_id || null;
+    const parsedBundle = parseWishBundleProductId(order.plan);
+    const grantsYearly = Boolean(order.plan === 'custom_link_1yr' || (parsedBundle && parsedBundle.grantsYearlyLink) || order.linkDuration === '1_year');
+    const validityDays = grantsYearly ? 365 : Number(order.validityDays || 30);
     entitlement = {
       id: entitlementId,
       userId: order.userId,
@@ -1159,6 +1518,8 @@ export async function verifyAndFinalizePayment({
       wish_id: resolvedWishId,
       requestedSlug: resolvedSlug,
       requested_slug: resolvedSlug,
+      validityDays,
+      linkDuration: grantsYearly ? '1_year' : 'standard',
       amountPaise: order.amount,
       amount_paise: order.amount,
       templateFamilyId: orderItem?.templateFamilyId || null,
