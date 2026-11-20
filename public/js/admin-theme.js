@@ -3,7 +3,7 @@
   const originalFetch = window.fetch.bind(window);
   const inFlightGets = /* @__PURE__ */ new Map();
   const CACHE_PREFIX = "wm_api_fastcache_v1:";
-  const CACHE_TTL_MS = 4e3;
+  const CACHE_TTL_MS = 0;
   const TOKEN_KEYS = ["wm_admin_session_token", "wishmagic_admin_token", "clay_admin_token"];
   function getAdminStoredSessionToken() {
     try {
@@ -169,22 +169,28 @@
     } catch (_) {
     }
     try {
+      localStorage.removeItem("wm_public_templates_cache_v1");
       localStorage.removeItem("wm_public_templates_cache_v2");
       localStorage.removeItem("wishmagic_templates_v1");
       localStorage.removeItem("wishmagic_site_settings_v1");
       localStorage.removeItem("wishmagic_pricing_rules_v4");
+      localStorage.removeItem("wishmagic_pricing_rules_v5");
+      localStorage.removeItem("wm_storefront_bootstrap_v1");
     } catch (_) {
     }
   }
   window.clearAdminApiCache = clearAdminApiCache;
   window.wmAdminFastCache = {
-    get(key, ttlMs = 300000) {
+    get(key, ttlMs = 15000) {
       try {
         const raw = sessionStorage.getItem("wm_admin_fast_v1_" + key);
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== "object") return null;
-        if (Date.now() - Number(parsed.ts || 0) > ttlMs) return null;
+        const effectiveTtl = Math.min(Number(ttlMs) || 15000, 15000);
+        const ts = Number(parsed.ts || 0);
+        if (window.__wmLastMutationTs && ts < window.__wmLastMutationTs) return null;
+        if (Date.now() - ts > effectiveTtl) return null;
         return parsed.data;
       } catch (_) {
         return null;
@@ -287,18 +293,20 @@
     }
     if (typeof input === "string" && !callerExplicitNoStore && isCacheableGetUrl(urlStr)) {
       const cacheKey = CACHE_PREFIX + urlStr;
-      try {
-        const rawCached = sessionStorage.getItem(cacheKey);
-        if (rawCached) {
-          const parsed = JSON.parse(rawCached);
-          if (parsed && parsed.ts && Date.now() - parsed.ts < CACHE_TTL_MS && typeof parsed.body === "string") {
-            return Promise.resolve(new Response(parsed.body, {
-              status: parsed.status || 200,
-              headers: { "Content-Type": parsed.contentType || "application/json", "X-WM-Fast-Cache": "HIT" }
-            }));
+      if (CACHE_TTL_MS > 0) {
+        try {
+          const rawCached = sessionStorage.getItem(cacheKey);
+          if (rawCached) {
+            const parsed = JSON.parse(rawCached);
+            if (parsed && parsed.ts && Date.now() - parsed.ts < CACHE_TTL_MS && typeof parsed.body === "string") {
+              return Promise.resolve(new Response(parsed.body, {
+                status: parsed.status || 200,
+                headers: { "Content-Type": parsed.contentType || "application/json", "X-WM-Fast-Cache": "HIT" }
+              }));
+            }
           }
+        } catch (_) {
         }
-      } catch (_) {
       }
       if (inFlightGets.has(urlStr)) {
         return inFlightGets.get(urlStr).then((r) => r.clone());

@@ -2106,7 +2106,8 @@ async function processMultiplePhotoFiles(files) {
       break;
     }
     try {
-      const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
+      const maxDim = (typeof selectedHdPhotosAddon !== "undefined" && selectedHdPhotosAddon) || (typeof selectedRandomHdPhotos !== "undefined" && selectedRandomHdPhotos) ? 2400 : 1600;
+      const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, maxDim, 0.8);
       const photoId = "photo_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 4);
       const isFirst = media.photos.length === 0;
       const newPhoto = {
@@ -2164,7 +2165,8 @@ window.handleReplacePhotoFile = async function(input) {
   const targetId = replacePhotoTargetId;
   replacePhotoTargetId = null;
   try {
-    const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
+    const maxDim = (typeof selectedHdPhotosAddon !== "undefined" && selectedHdPhotosAddon) || (typeof selectedRandomHdPhotos !== "undefined" && selectedRandomHdPhotos) ? 2400 : 1600;
+    const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, maxDim, 0.8);
     const media = currentCustomData.media;
     const idx = media.photos.findIndex((p) => p.id === targetId);
     if (idx !== -1) {
@@ -6430,7 +6432,8 @@ window.handleSlotSpecificPhotoFile = async function(input) {
   const slotKey = window._pendingSlotPhotoFieldKey;
   window._pendingSlotPhotoFieldKey = null;
   try {
-    const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
+    const maxDim = (typeof selectedHdPhotosAddon !== "undefined" && selectedHdPhotosAddon) || (typeof selectedRandomHdPhotos !== "undefined" && selectedRandomHdPhotos) ? 2400 : 1600;
+    const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, maxDim, 0.8);
     currentCustomData[slotKey] = optimized.src;
     if (window._userModifiedFields instanceof Set) window._userModifiedFields.add(slotKey);
     const photoNumMatch = slotKey.match(/^photo_(\d+)$/i);

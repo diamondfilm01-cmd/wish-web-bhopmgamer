@@ -732,32 +732,40 @@
             uploadBtn.innerHTML = "<span>\u23F3 Uploading " + escapeHtml(file.name) + "...</span>";
             try {
               if (isImg && global2.WishMediaSystem && global2.WishMediaSystem.ImageProcessor) {
-                const processed = await global2.WishMediaSystem.ImageProcessor.processImageFile(file);
+                const processed = await global2.WishMediaSystem.ImageProcessor.processImageFile(file, 1920, 0.8);
                 const finalUrl = processed.displayUrl || processed.url || processed.src;
-                renderPreviewContent(finalUrl, "\u2713 Uploaded to ImgBB (" + file.name + ")");
+                renderPreviewContent(finalUrl, "\u2713 Uploaded WebP (80%) (" + (processed.filename || file.name) + ")");
                 onChange(finalUrl);
               } else {
-                const dataUrl = await new Promise((res, rej) => {
-                  const r = new FileReader();
-                  r.onload = () => res(r.result);
-                  r.onerror = rej;
-                  r.readAsDataURL(file);
-                });
+                let dataUrl = null;
+                let uploadFilename = file.name;
+                if (isImg && global2.WishImageOptimizer && typeof global2.WishImageOptimizer.convertFileToWebP === "function") {
+                  const opt = await global2.WishImageOptimizer.convertFileToWebP(file, { quality: 0.8, maxDimension: 1920 });
+                  dataUrl = opt.dataUrl;
+                  uploadFilename = opt.filename || file.name;
+                } else {
+                  dataUrl = await new Promise((res, rej) => {
+                    const r = new FileReader();
+                    r.onload = () => res(r.result);
+                    r.onerror = rej;
+                    r.readAsDataURL(file);
+                  });
+                }
                 const endpoint = isImg ? "/api/imgbb/upload" : "/api/media/upload";
                 const upRes = await fetch(endpoint, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     fileData: dataUrl,
-                    filename: file.name,
+                    filename: uploadFilename,
                     type: isImg ? "image" : isVid ? "video" : "audio",
-                    title: file.name.replace(/\.[^/.]+$/, "")
+                    title: uploadFilename.replace(/\.[^/.]+$/, "")
                   })
                 });
                 const upJson = await upRes.json().catch(() => ({}));
                 const payload = upJson?.data || upJson || {};
                 const cloudUrl = payload.displayUrl || payload.url || payload.track?.playbackUrl || payload.track?.url || dataUrl;
-                renderPreviewContent(cloudUrl, "\u2713 Uploaded (" + file.name + ")");
+                renderPreviewContent(cloudUrl, "\u2713 Uploaded (" + uploadFilename + ")");
                 onChange(cloudUrl);
               }
             } catch (err) {

@@ -4145,6 +4145,9 @@ app.get('/api/admin/diagnostic', (req, res) => {
 
 // API: Get all templates (supports ?includeDrafts=true for admin, ?category=..., ?search=..., ?tier=..., ?featured=...)
 app.get('/api/templates', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   const { includeDrafts, category, search, tier, featured } = req.query;
   const isAdminDraftView = includeDrafts === 'true' || includeDrafts === '1';
   const rawTemplates = getTemplates();
@@ -4316,9 +4319,9 @@ app.get('/api/storefront/bootstrap', (req, res) => {
   const rawWishLinks = getServerWishLinkSettings();
   const sampleSlug = `${rawWishLinks.random.prefix}${generateSecureRandomId(rawWishLinks.random.length, rawWishLinks.random.allowedCharacters)}`;
   const wishLinks = { ...rawWishLinks, random: { ...rawWishLinks.random, sampleSlug } };
-  if (!req.query._t && !req.headers.authorization) {
-    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
-  }
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json({
     success: true,
     data: { templates, total: templates.length, settings: publicSettings, wishLinks },

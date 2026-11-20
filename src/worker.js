@@ -9561,16 +9561,15 @@ export default {
           ...rawWishLinks,
           random: { ...rawWishLinks.random, sampleSlug }
         };
-        const isCacheableBootstrap = !url.searchParams.has('_t') && !request.headers.get('Authorization');
         response = jsonSuccess({
           templates,
           total: templates.length,
           settings: publicSettings,
           wishLinks
-        }, 200, isCacheableBootstrap ? {
-          'Cache-Control': 'public, max-age=30, stale-while-revalidate=300'
-        } : {
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }, requestId);
       }
 
@@ -9861,8 +9860,11 @@ export default {
           );
         }
 
-        const isCacheablePublicCatalog = !url.searchParams.has('_t') && url.searchParams.get('includeDrafts') !== 'true' && url.searchParams.get('all') !== 'true' && !request.headers.get('Authorization');
-        response = jsonSuccess({ templates, total: templates.length, activeFestivalCampaigns }, 200, isCacheablePublicCatalog ? { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=300' } : {}, requestId);
+        response = jsonSuccess({ templates, total: templates.length, activeFestivalCampaigns }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }, requestId);
       }
 
       else if ((pathname === '/api/templates' || pathname === '/api/templates/create') && method === 'POST') {
@@ -18335,10 +18337,7 @@ export default {
       else if (pathname === '/api/settings/site' && method === 'GET') {
         const settings = await getSiteSettings(env);
         const publicSettings = formatPublicSiteSettings(settings);
-        const isCacheablePublicSettings = !url.searchParams.has('_t') && !request.headers.get('Authorization');
-        response = jsonSuccess({ settings: publicSettings }, 200, isCacheablePublicSettings ? {
-          'Cache-Control': 'public, max-age=30, stale-while-revalidate=300'
-        } : {
+        response = jsonSuccess({ settings: publicSettings }, 200, {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
           'Expires': '0'
@@ -18753,9 +18752,10 @@ export default {
 
       else if ((pathname === '/api/public/branding-footer' || pathname === '/api/admin/branding-footer') && method === 'GET') {
         const brandingFooter = await getBrandingFooterSettings(env);
-        const isCacheableBranding = pathname === '/api/public/branding-footer' && !url.searchParams.has('_t');
         response = jsonSuccess({ brandingFooter }, 200, {
-          'Cache-Control': isCacheableBranding ? 'public, max-age=60, stale-while-revalidate=600' : 'no-cache, no-store, must-revalidate'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }, requestId);
       }
 
@@ -27205,13 +27205,16 @@ export default {
         const inWindowFestivals = upcomingFestivals.filter(f => f.isWindowOpen);
         const storefrontSpotlight = publicActiveCampaigns[0] || inWindowFestivals[0] || upcomingFestivals[0] || null;
 
-        const isCacheableFestivals = !url.searchParams.has('_t') && !request.headers.get('Authorization');
         response = jsonSuccess({
           activeCampaigns: publicActiveCampaigns,
           inWindowFestivals,
           upcomingFestivals: upcomingFestivals.slice(0, 12),
           storefrontSpotlight
-        }, 200, { 'Cache-Control': isCacheableFestivals ? 'public, max-age=30, stale-while-revalidate=300' : 'no-cache, no-store, must-revalidate' }, requestId);
+        }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }, requestId);
       }
 
       else if (pathname.startsWith('/api/admin/festivals')) {

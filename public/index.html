@@ -9,16 +9,16 @@
 <meta property="og:title" content="WishMagic | Gift a Magical Web-Experience!"/>
 <meta property="og:description" content="Gift a magical, interactive web experience with customizable wishes, animations, and templates."/>
 <meta property="og:type" content="website"/>
-<!-- Instant Single Combined Storefront Bootstrap Pre-Fetch (1 edge-cached call instead of 3) -->
+<!-- Instant Single Combined Storefront Bootstrap Pre-Fetch (Always Live, Zero Stale Cache) -->
 <script>
-  window.__wmBootstrapPromise = fetch("/api/storefront/bootstrap", { credentials: "same-origin" })
+  window.__wmBootstrapPromise = fetch("/api/storefront/bootstrap", { credentials: "same-origin", cache: "no-store" })
     .then(function(r) { return r.ok ? r.json() : null; })
     .catch(function() { return null; });
   window.__wmEarlyTemplatesPromise = window.__wmBootstrapPromise.then(function(boot) {
     if (boot && ((boot.data && Array.isArray(boot.data.templates)) || Array.isArray(boot.templates))) {
       return boot;
     }
-    return fetch("/api/templates", { credentials: "same-origin" })
+    return fetch("/api/templates", { credentials: "same-origin", cache: "no-store" })
       .then(function(r) { return r.ok ? r.json() : null; })
       .catch(function() { return null; });
   });

@@ -661,4 +661,131 @@ window.WishMagicCore = {
     setTimeout(runInitialScan, 800);
     setTimeout(runInitialScan, 2200);
   }
+
+  // --- Universal 80% Quality WebP Image Optimizer (User Photos + Admin Templates & Media) ---
+  const DEFAULT_WEBP_QUALITY = 0.8;
+  const DEFAULT_MAX_DIMENSION = 1920;
+
+  function toWebpFilename(filename) {
+    const clean = String(filename || "image.webp").trim() || "image.webp";
+    if (/\.(svg|gif)$/i.test(clean)) return clean;
+    if (/\.webp$/i.test(clean)) return clean;
+    if (/\.[a-z0-9]{2,5}$/i.test(clean)) {
+      return clean.replace(/\.[a-z0-9]{2,5}$/i, ".webp");
+    }
+    return clean + ".webp";
+  }
+
+  function isSkippedImageFormat(mimeOrName) {
+    const s = String(mimeOrName || "").toLowerCase();
+    return s.includes("image/svg") || s.includes("image/gif") || /\.svg(\?|$)/i.test(s) || /\.gif(\?|$)/i.test(s);
+  }
+
+  function estimateDataUrlBytes(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== "string") return 0;
+    const commaIdx = dataUrl.indexOf(",");
+    const b64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+    return Math.floor((b64.length * 3) / 4);
+  }
+
+  function convertDataUrlToWebP(rawDataUrl, filename = "photo.jpg", options = {}) {
+    return new Promise((resolve) => {
+      const quality = typeof options.quality === "number" && options.quality > 0 && options.quality <= 1 ? options.quality : DEFAULT_WEBP_QUALITY;
+      const maxDimension = typeof options.maxDimension === "number" && options.maxDimension > 0 ? options.maxDimension : DEFAULT_MAX_DIMENSION;
+      const origName = String(filename || "photo.jpg");
+      const originalBytes = estimateDataUrlBytes(rawDataUrl);
+
+      if (!rawDataUrl || typeof rawDataUrl !== "string" || !rawDataUrl.startsWith("data:image/")) {
+        return resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: "application/octet-stream", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: 0, height: 0 });
+      }
+      if (isSkippedImageFormat(rawDataUrl.slice(0, 64)) || isSkippedImageFormat(origName)) {
+        const mimeMatch = rawDataUrl.match(/^data:([^;]+);/i);
+        return resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: mimeMatch ? mimeMatch[1] : "image/gif", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: 0, height: 0 });
+      }
+      if (typeof document === "undefined" || typeof Image === "undefined") {
+        return resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: "image/jpeg", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: 0, height: 0 });
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const origW = img.naturalWidth || img.width || 0;
+          const origH = img.naturalHeight || img.height || 0;
+          if (!origW || !origH) {
+            return resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: "image/jpeg", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: 0, height: 0 });
+          }
+
+          let targetW = origW;
+          let targetH = origH;
+          if (maxDimension > 0 && (origW > maxDimension || origH > maxDimension)) {
+            const scale = Math.min(maxDimension / origW, maxDimension / origH);
+            targetW = Math.max(1, Math.round(origW * scale));
+            targetH = Math.max(1, Math.round(origH * scale));
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            return resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: "image/jpeg", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: origW, height: origH });
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.clearRect(0, 0, targetW, targetH);
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+
+          const webpDataUrl = canvas.toDataURL("image/webp", quality);
+          if (webpDataUrl && webpDataUrl.startsWith("data:image/webp")) {
+            const optimizedBytes = estimateDataUrlBytes(webpDataUrl);
+            const webpName = toWebpFilename(origName);
+            return resolve({
+              dataUrl: webpDataUrl,
+              filename: webpName,
+              mimeType: "image/webp",
+              converted: true,
+              quality,
+              width: targetW,
+              height: targetH,
+              originalWidth: origW,
+              originalHeight: origH,
+              originalBytes,
+              optimizedBytes
+            });
+          }
+          return resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: "image/jpeg", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: origW, height: origH });
+        } catch (_) {
+          return resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: "image/jpeg", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: 0, height: 0 });
+        }
+      };
+      img.onerror = () => {
+        resolve({ dataUrl: rawDataUrl, filename: origName, mimeType: "image/jpeg", converted: false, quality, originalBytes, optimizedBytes: originalBytes, width: 0, height: 0 });
+      };
+      img.src = rawDataUrl;
+    });
+  }
+
+  function convertFileToWebP(file, options = {}) {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject(new Error("No image file provided."));
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Unable to read the image file."));
+      reader.onload = async (e) => {
+        const rawDataUrl = e.target.result;
+        const result = await convertDataUrlToWebP(rawDataUrl, file.name || "photo.jpg", options);
+        result.originalSize = file.size || result.originalBytes;
+        resolve(result);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  window.WishImageOptimizer = {
+    DEFAULT_WEBP_QUALITY,
+    DEFAULT_MAX_DIMENSION,
+    toWebpFilename,
+    convertDataUrlToWebP,
+    convertFileToWebP
+  };
 })();

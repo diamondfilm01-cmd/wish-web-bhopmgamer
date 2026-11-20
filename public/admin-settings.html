@@ -19,11 +19,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
   <link rel="stylesheet" href="/css/admin-tailwind.min.css?v=20261118_admin_fast_v1"/>
-  <script defer src="js/api-client.js"></script>
-  <script defer src="js/auth-service.js?v=20261118_minimal_v1"></script>
-  <script defer src="js/WishMagicCore.js"></script>
-  <script defer src="js/admin-theme.js?v=20261118_admin_fast_v1"></script>
-  <script defer src="js/wish-lifecycle.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
+  <script src="js/WishMagicCore.js?v=20261119_webp_v1"></script>
+  <script src="js/admin-theme.js?v=20261119_live_v2"></script>
+  <script src="js/bundles/admin-extras.min.js?v=20261119_live_v2"></script>
 <link rel="stylesheet" href="css/admin-theme.css?v=20261118_admin_fast_v1"/>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
@@ -850,32 +850,42 @@
   async function uploadHeroImageFromSettings(input) {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
-    showStatusBanner('⏳ Uploading hero background image...', 'info');
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const res = await fetch('/api/admin/hero-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            imagePayload: e.target.result,
-            fileName: file.name
-          })
+    showStatusBanner('⏳ Converting hero image to WebP (80%) & uploading...', 'info');
+    try {
+      let imagePayload = null;
+      let fileName = file.name;
+      if (window.WishImageOptimizer && typeof window.WishImageOptimizer.convertFileToWebP === 'function') {
+        const opt = await window.WishImageOptimizer.convertFileToWebP(file, { quality: 0.8, maxDimension: 1920 });
+        imagePayload = opt.dataUrl;
+        fileName = opt.filename || file.name;
+      } else {
+        imagePayload = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
         });
-        const data = await res.json();
-        if (data.success && data.heroImageUrl) {
-          document.getElementById('setting-hero-image-url').value = data.heroImageUrl;
-          document.getElementById('setting-hero-bg-mode').value = 'custom-photo';
-          showStatusBanner('🌟 New Hero Photo uploaded successfully! Remember to click "Save All Site Settings".', 'success');
-        } else {
-          showStatusBanner('Upload failed: ' + (data.message || 'Unknown error'), 'error');
-        }
-      } catch (err) {
-        showStatusBanner('Network error during upload: ' + err.message, 'error');
       }
-    };
-    reader.readAsDataURL(file);
+      const res = await fetch('/api/admin/hero-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          imagePayload,
+          fileName
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.heroImageUrl) {
+        document.getElementById('setting-hero-image-url').value = data.heroImageUrl;
+        document.getElementById('setting-hero-bg-mode').value = 'custom-photo';
+        showStatusBanner('🌟 New Hero Photo converted to WebP (80%) & uploaded! Click "Save All Site Settings".', 'success');
+      } else {
+        showStatusBanner('Upload failed: ' + (data.message || 'Unknown error'), 'error');
+      }
+    } catch (err) {
+      showStatusBanner('Network error during upload: ' + err.message, 'error');
+    }
   }
 
   let _settingsFloatingConfirmTimer = null;

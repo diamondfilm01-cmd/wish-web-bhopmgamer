@@ -137,13 +137,71 @@
         provider: "local"
       };
     },
-    // Preserves exact original format & filename and automatically uploads to ImgBB
-    processImageFile(file, maxDimension = 1600, quality = 0.92) {
+    // Automatically converts raster photos to WebP (80% quality) and uploads to ImgBB
+    processImageFile(file, maxDimension = 1920, quality = 0.8) {
       return new Promise((resolve, reject) => {
         const validation = this.validateFile(file);
         if (!validation.valid) {
           return reject(new Error(validation.error));
         }
+        const effectiveQuality = typeof quality === "number" && quality > 0 && quality <= 1 ? quality : 0.8;
+        const effectiveMaxDim = typeof maxDimension === "number" && maxDimension > 0 ? maxDimension : 1920;
+
+        const runUpload = async (finalDataUrl, finalFilename, width, height, optimizedBytes) => {
+          try {
+            const cloudRes = await this.uploadToImgBB(finalDataUrl, finalFilename);
+            const finalUrl = cloudRes.displayUrl || cloudRes.url || finalDataUrl;
+            resolve({
+              src: finalUrl,
+              url: finalUrl,
+              displayUrl: finalUrl,
+              originalUrl: cloudRes.originalUrl || finalUrl,
+              thumbnailUrl: cloudRes.thumbnailUrl || finalUrl,
+              mediaId: cloudRes.mediaId,
+              provider: cloudRes.provider,
+              width,
+              height,
+              name: finalFilename,
+              filename: finalFilename,
+              mimeType: finalDataUrl.startsWith("data:image/webp") ? "image/webp" : (file.type || "image/jpeg"),
+              originalSize: file.size,
+              optimizedSize: optimizedBytes || file.size,
+              webpConverted: finalDataUrl.startsWith("data:image/webp"),
+              webpQuality: effectiveQuality
+            });
+          } catch (err) {
+            resolve({
+              src: finalDataUrl,
+              url: finalDataUrl,
+              displayUrl: finalDataUrl,
+              width: width || 800,
+              height: height || 600,
+              name: finalFilename,
+              filename: finalFilename,
+              mimeType: finalDataUrl.startsWith("data:image/webp") ? "image/webp" : (file.type || "image/jpeg"),
+              originalSize: file.size,
+              optimizedSize: optimizedBytes || file.size,
+              webpConverted: finalDataUrl.startsWith("data:image/webp"),
+              webpQuality: effectiveQuality
+            });
+          }
+        };
+
+        if (typeof window2 !== "undefined" && window2.WishImageOptimizer && typeof window2.WishImageOptimizer.convertFileToWebP === "function") {
+          window2.WishImageOptimizer.convertFileToWebP(file, {
+            quality: effectiveQuality,
+            maxDimension: effectiveMaxDim
+          }).then((opt) => {
+            if (!opt || !opt.dataUrl) {
+              return reject(new Error("Unable to decode image. The file may be corrupted or unreadable."));
+            }
+            return runUpload(opt.dataUrl, opt.filename || file.name, opt.width || 800, opt.height || 600, opt.optimizedBytes);
+          }).catch((err) => {
+            reject(err instanceof Error ? err : new Error("Unable to process image file."));
+          });
+          return;
+        }
+
         const reader = new FileReader();
         reader.onerror = () => {
           reject(new Error("Unable to read the image file. Please choose another image."));
@@ -155,40 +213,41 @@
             reject(new Error("Unable to decode image. The file may be corrupted or unreadable."));
           };
           img.onload = async () => {
-            try {
-              const width = img.naturalWidth || img.width;
-              const height = img.naturalHeight || img.height;
-              if (!width || !height) {
-                return reject(new Error("Image dimensions could not be read. File may be corrupted."));
-              }
-              const cloudRes = await this.uploadToImgBB(rawDataUrl, file.name);
-              const finalUrl = cloudRes.displayUrl || cloudRes.url || rawDataUrl;
-              resolve({
-                src: finalUrl,
-                url: finalUrl,
-                displayUrl: finalUrl,
-                originalUrl: cloudRes.originalUrl || finalUrl,
-                thumbnailUrl: cloudRes.thumbnailUrl || finalUrl,
-                mediaId: cloudRes.mediaId,
-                provider: cloudRes.provider,
-                width,
-                height,
-                name: file.name,
-                filename: file.name,
-                originalSize: file.size
-              });
-            } catch (err) {
-              resolve({
-                src: rawDataUrl,
-                url: rawDataUrl,
-                displayUrl: rawDataUrl,
-                width: img.width || 800,
-                height: img.height || 600,
-                name: file.name,
-                filename: file.name,
-                originalSize: file.size
-              });
+            const origW = img.naturalWidth || img.width;
+            const origH = img.naturalHeight || img.height;
+            if (!origW || !origH) {
+              return reject(new Error("Image dimensions could not be read. File may be corrupted."));
             }
+            let finalDataUrl = rawDataUrl;
+            let finalFilename = file.name;
+            let targetW = origW;
+            let targetH = origH;
+            const isSkip = /image\/(svg|gif)/i.test(file.type || "") || /\.(svg|gif)$/i.test(file.name || "");
+            if (!isSkip && typeof document !== "undefined") {
+              try {
+                if (origW > effectiveMaxDim || origH > effectiveMaxDim) {
+                  const scale = Math.min(effectiveMaxDim / origW, effectiveMaxDim / origH);
+                  targetW = Math.max(1, Math.round(origW * scale));
+                  targetH = Math.max(1, Math.round(origH * scale));
+                }
+                const canvas = document.createElement("canvas");
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                  ctx.imageSmoothingEnabled = true;
+                  ctx.imageSmoothingQuality = "high";
+                  ctx.drawImage(img, 0, 0, targetW, targetH);
+                  const webpUrl = canvas.toDataURL("image/webp", effectiveQuality);
+                  if (webpUrl && webpUrl.startsWith("data:image/webp")) {
+                    finalDataUrl = webpUrl;
+                    finalFilename = /\.webp$/i.test(file.name) ? file.name : file.name.replace(/\.[^/.]+$/, "") + ".webp";
+                  }
+                }
+              } catch (_) {
+              }
+            }
+            await runUpload(finalDataUrl, finalFilename, targetW, targetH, Math.floor((finalDataUrl.length * 3) / 4));
           };
           img.src = rawDataUrl;
         };

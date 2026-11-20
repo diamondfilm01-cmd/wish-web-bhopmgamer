@@ -19,10 +19,10 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap" media="print" onload="this.media='all'"/>
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&amp;display=swap"/></noscript>
   <link rel="stylesheet" href="/css/admin-tailwind.min.css?v=20261118_admin_fast_v1"/>
-  <script defer src="js/WishMagicCore.js"></script>
-  <script defer src="js/admin-theme.js?v=20261118_admin_fast_v1"></script>
-  <script defer src="js/api-client.js"></script>
-  <script defer src="js/auth-service.js?v=20261118_minimal_v1"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
+  <script src="js/WishMagicCore.js?v=20261119_webp_v1"></script>
+  <script src="js/admin-theme.js?v=20261119_live_v2"></script>
 <link rel="stylesheet" href="css/admin-theme.css?v=20261118_admin_fast_v1"/>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
@@ -1232,47 +1232,57 @@
     const fileInput = document.getElementById('hero-photo-file-input');
     const btn = document.getElementById('btn-save-hero-photo');
 
-    // If file is selected, upload file first!
+    // If file is selected, upload file first (auto-converted to 80% WebP)!
     if (fileInput.files && fileInput.files.length > 0) {
       const file = fileInput.files[0];
       btn.disabled = true;
-      btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Uploading File...</span>`;
+      btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Converting to WebP (80%) & Uploading...</span>`;
 
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const res = await fetch('/api/admin/media/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              title: 'Storefront Hero Showcase Photo',
-              type: 'image',
-              category: 'Hero & Showcase',
-              filename: file.name,
-              fileData: e.target.result,
-              setAsHeroImage: true
-            })
+      try {
+        let uploadDataUrl = null;
+        let uploadFilename = file.name;
+        if (window.WishImageOptimizer && typeof window.WishImageOptimizer.convertFileToWebP === 'function') {
+          const opt = await window.WishImageOptimizer.convertFileToWebP(file, { quality: 0.8, maxDimension: 1920 });
+          uploadDataUrl = opt.dataUrl;
+          uploadFilename = opt.filename || file.name;
+        } else {
+          uploadDataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
           });
-
-          const data = await res.json();
-          if (data.success && data.asset) {
-            currentHeroImage = data.asset.url;
-            updateHeroDisplay(currentHeroImage);
-            showToast('🌟 Hero photo updated.');
-            fileInput.value = '';
-            loadAllMedia();
-          } else {
-            showToast('⚠️ Upload failed: ' + (data.message || 'Error'));
-          }
-        } catch (err) {
-          showToast('⚠️ Error: ' + err.message);
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">check_circle</span><span>Save Hero Photo</span>`;
         }
-      };
-      reader.readAsDataURL(file);
+        const res = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: 'Storefront Hero Showcase Photo',
+            type: 'image',
+            category: 'Hero & Showcase',
+            filename: uploadFilename,
+            fileData: uploadDataUrl,
+            setAsHeroImage: true
+          })
+        });
+
+        const data = await res.json();
+        if (data.success && data.asset) {
+          currentHeroImage = data.asset.url;
+          updateHeroDisplay(currentHeroImage);
+          showToast('🌟 Hero photo converted to WebP (80%) & updated.');
+          fileInput.value = '';
+          loadAllMedia();
+        } else {
+          showToast('⚠️ Upload failed: ' + (data.message || 'Error'));
+        }
+      } catch (err) {
+        showToast('⚠️ Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">check_circle</span><span>Save Hero Photo</span>`;
+      }
       return;
     }
 
@@ -1533,15 +1543,23 @@
         if (btnSubmit) {
           btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Reading file ${i + 1}/${filePayloads.length}: ${escapeHtml(item.filename)}...</span>`;
         }
-        const base64Data = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error(`Failed to read file "${item.filename}" from disk.`));
-          reader.readAsDataURL(item.file);
-        });
+        let base64Data = null;
+        let finalFilename = item.filename;
+        if (item.type === 'image' && window.WishImageOptimizer && typeof window.WishImageOptimizer.convertFileToWebP === 'function') {
+          const opt = await window.WishImageOptimizer.convertFileToWebP(item.file, { quality: 0.8, maxDimension: 1920 });
+          base64Data = opt.dataUrl;
+          finalFilename = opt.filename || item.filename;
+        } else {
+          base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error(`Failed to read file "${item.filename}" from disk.`));
+            reader.readAsDataURL(item.file);
+          });
+        }
 
         itemsToSubmit.push({
-          filename: item.filename, // EXACT original filename
+          filename: finalFilename,
           fileData: base64Data,
           title: item.title,
           userProvidedTitle: item.userProvidedTitle,

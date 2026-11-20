@@ -116,36 +116,46 @@ async function handleCustomCoverThumb(input) {
     const file = input.files[0];
     customCoverThumbnailName = file.name;
     customCoverThumbnailIsManual = true;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target.result;
+    try {
+      let dataUrl = null;
+      let uploadName = file.name;
+      if (window.WishImageOptimizer && typeof window.WishImageOptimizer.convertFileToWebP === "function") {
+        const opt = await window.WishImageOptimizer.convertFileToWebP(file, { quality: 0.8, maxDimension: 1920 });
+        dataUrl = opt.dataUrl;
+        uploadName = opt.filename || file.name;
+        customCoverThumbnailName = uploadName;
+      } else {
+        dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
       customCoverThumbnail = dataUrl;
       const thumb = document.getElementById("thumbnail-preview-img");
       if (thumb) thumb.src = dataUrl;
-      try {
-        const res = await fetch("/api/imgbb/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileData: dataUrl,
-            filename: file.name,
-            type: "image",
-            title: file.name.replace(/\.[^/.]+$/, "")
-          })
-        });
-        const json = await res.json().catch(() => ({}));
-        const uploadedUrl = json?.data?.displayUrl || json?.displayUrl || json?.data?.url || json?.url;
-        if (res.ok && uploadedUrl) {
-          customCoverThumbnail = uploadedUrl;
-          if (thumb) thumb.src = uploadedUrl;
-          if (typeof showToast === "function") {
-            showToast("\u{1F5BC}\uFE0F Cover thumbnail uploaded to ImgBB (" + file.name + ")");
-          }
+      const res = await fetch("/api/imgbb/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileData: dataUrl,
+          filename: uploadName,
+          type: "image",
+          title: uploadName.replace(/\.[^/.]+$/, "")
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      const uploadedUrl = json?.data?.displayUrl || json?.displayUrl || json?.data?.url || json?.url;
+      if (res.ok && uploadedUrl) {
+        customCoverThumbnail = uploadedUrl;
+        if (thumb) thumb.src = uploadedUrl;
+        if (typeof showToast === "function") {
+          showToast("\u{1F5BC}\uFE0F Cover thumbnail converted to WebP (80%) & uploaded (" + uploadName + ")");
         }
-      } catch (_) {
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (_) {
+    }
   }
 }
 function handleMultipleFiles(fileList) {
@@ -2155,9 +2165,23 @@ async function deployUploadedTemplate(publishImmediately = true) {
         await Promise.all(batchPaths.map(async (relPath) => {
           if (skipClientImgbb) return;
           const fileEntry = currentUploadedFiles[relPath];
-          const dataUrl = getOrEncodeEntryDataUrl(fileEntry, getMimeType(relPath));
+          let dataUrl = getOrEncodeEntryDataUrl(fileEntry, getMimeType(relPath));
           if (!dataUrl) return;
-          const exactFileName = relPath.split("/").pop();
+          let exactFileName = relPath.split("/").pop();
+          let finalMime = getMimeType(relPath);
+          let finalSizeBytes = fileEntry && fileEntry.sizeBytes || 0;
+          if (window.WishImageOptimizer && typeof window.WishImageOptimizer.convertDataUrlToWebP === "function" && !/\.(svg|gif)$/i.test(exactFileName)) {
+            try {
+              const opt = await window.WishImageOptimizer.convertDataUrlToWebP(dataUrl, exactFileName, { quality: 0.8, maxDimension: 1920 });
+              if (opt && opt.converted && opt.dataUrl) {
+                dataUrl = opt.dataUrl;
+                exactFileName = opt.filename || exactFileName;
+                finalMime = "image/webp";
+                finalSizeBytes = opt.optimizedBytes || finalSizeBytes;
+              }
+            } catch (_) {
+            }
+          }
           const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
           const timerId = controller ? setTimeout(() => {
             try {
@@ -2195,10 +2219,10 @@ async function deployUploadedTemplate(publishImmediately = true) {
                 originalUrl: resData.originalUrl || liveUrl,
                 thumbnailUrl: resData.thumbnailUrl || resData.thumbUrl || liveUrl,
                 providerAssetId: resData.providerAssetId || resData.imageId || null,
-                mimeType: resData.mimeType || getMimeType(relPath),
+                mimeType: resData.mimeType || finalMime,
                 width: resData.width || null,
                 height: resData.height || null,
-                sizeBytes: fileEntry && fileEntry.sizeBytes || resData.sizeBytes || 0,
+                sizeBytes: finalSizeBytes || resData.sizeBytes || 0,
                 filename: exactFileName
               };
             }
@@ -3252,62 +3276,73 @@ window.handleEditTemplateCoverUpload = async function(input) {
   const btnLabel = document.getElementById("edit-tpl-thumb-upload-btn-label");
   const previewImg = document.getElementById("edit-tpl-thumb-preview");
   const urlInput = document.getElementById("edit-tpl-thumb");
-  if (btnLabel) btnLabel.textContent = "Uploading...";
-  const reader = new FileReader();
-  reader.onload = async (ev) => {
-    const dataUrl = ev.target.result;
+  if (btnLabel) btnLabel.textContent = "Converting to WebP (80%) & Uploading...";
+  try {
+    let dataUrl = null;
+    let uploadName = file.name;
+    let uploadMime = file.type || "image/jpeg";
+    if (window.WishImageOptimizer && typeof window.WishImageOptimizer.convertFileToWebP === "function") {
+      const opt = await window.WishImageOptimizer.convertFileToWebP(file, { quality: 0.8, maxDimension: 1920 });
+      dataUrl = opt.dataUrl;
+      uploadName = opt.filename || file.name;
+      uploadMime = opt.mimeType || uploadMime;
+    } else {
+      dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
     if (previewImg) previewImg.src = dataUrl;
     if (urlInput) urlInput.value = dataUrl;
-    try {
-      const res = await fetch("/api/imgbb/upload", {
+    const res = await fetch("/api/imgbb/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        fileData: dataUrl,
+        filename: uploadName,
+        type: "image",
+        title: uploadName.replace(/\.[^/.]+$/, "")
+      })
+    });
+    const json = await res.json().catch(() => ({}));
+    let uploadedUrl = json?.data?.displayUrl || json?.displayUrl || json?.data?.url || json?.url;
+    if (!uploadedUrl) {
+      const fallbackRes = await fetch("/api/admin/media/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          fileData: dataUrl,
-          filename: file.name,
+          name: uploadName,
+          title: uploadName,
           type: "image",
-          title: file.name.replace(/\.[^/.]+$/, "")
+          mimeType: uploadMime,
+          fileData: dataUrl
         })
       });
-      const json = await res.json().catch(() => ({}));
-      let uploadedUrl = json?.data?.displayUrl || json?.displayUrl || json?.data?.url || json?.url;
-      if (!uploadedUrl) {
-        const fallbackRes = await fetch("/api/admin/media/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            name: file.name,
-            title: file.name,
-            type: "image",
-            mimeType: file.type || "image/jpeg",
-            fileData: dataUrl
-          })
-        });
-        const fallbackJson = await fallbackRes.json().catch(() => ({}));
-        uploadedUrl = fallbackJson?.data?.asset?.url || fallbackJson?.asset?.url || fallbackJson?.url;
-      }
-      if (uploadedUrl) {
-        if (previewImg) previewImg.src = uploadedUrl;
-        if (urlInput) urlInput.value = uploadedUrl;
-        if (typeof showToast === "function") {
-          showToast('\u{1F5BC}\uFE0F New cover image uploaded! Click "Save & Publish Changes" to apply.');
-        }
-      } else if (typeof showToast === "function") {
-        showToast('\u{1F5BC}\uFE0F Cover image ready! Click "Save & Publish Changes" to apply.');
-      }
-    } catch (err) {
-      console.warn("[Cover Upload Notice]:", err);
-    } finally {
-      if (btnLabel) btnLabel.textContent = "Upload New Cover";
-      try {
-        input.value = "";
-      } catch (_) {
-      }
+      const fallbackJson = await fallbackRes.json().catch(() => ({}));
+      uploadedUrl = fallbackJson?.data?.asset?.url || fallbackJson?.asset?.url || fallbackJson?.url;
     }
-  };
-  reader.readAsDataURL(file);
+    if (uploadedUrl) {
+      if (previewImg) previewImg.src = uploadedUrl;
+      if (urlInput) urlInput.value = uploadedUrl;
+      if (typeof showToast === "function") {
+        showToast('\u{1F5BC}\uFE0F New WebP (80%) cover image uploaded! Click "Save & Publish Changes" to apply.');
+      }
+    } else if (typeof showToast === "function") {
+      showToast('\u{1F5BC}\uFE0F Cover image ready! Click "Save & Publish Changes" to apply.');
+    }
+  } catch (err) {
+    console.warn("[Cover Upload Notice]:", err);
+  } finally {
+    if (btnLabel) btnLabel.textContent = "Upload New Cover";
+    try {
+      input.value = "";
+    } catch (_) {
+    }
+  }
 };
 window.closeEditTemplateModal = function() {
   const modal = document.getElementById("edit-template-modal");
@@ -6377,9 +6412,23 @@ window.executeImportStudioConfirmedPublish = async function() {
         await Promise.all(batchPaths.map(async (relPath) => {
           if (skipClientImgbb) return;
           const fileEntry = currentUploadedFiles[relPath];
-          const dataUrl = getOrEncodeEntryDataUrl(fileEntry, getMimeType(relPath));
+          let dataUrl = getOrEncodeEntryDataUrl(fileEntry, getMimeType(relPath));
           if (!dataUrl) return;
-          const exactFileName = relPath.split("/").pop();
+          let exactFileName = relPath.split("/").pop();
+          let finalMime = getMimeType(relPath);
+          let finalSizeBytes = fileEntry && fileEntry.sizeBytes || 0;
+          if (window.WishImageOptimizer && typeof window.WishImageOptimizer.convertDataUrlToWebP === "function" && !/\.(svg|gif)$/i.test(exactFileName)) {
+            try {
+              const opt = await window.WishImageOptimizer.convertDataUrlToWebP(dataUrl, exactFileName, { quality: 0.8, maxDimension: 1920 });
+              if (opt && opt.converted && opt.dataUrl) {
+                dataUrl = opt.dataUrl;
+                exactFileName = opt.filename || exactFileName;
+                finalMime = "image/webp";
+                finalSizeBytes = opt.optimizedBytes || finalSizeBytes;
+              }
+            } catch (_) {
+            }
+          }
           const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
           const timerId = controller ? setTimeout(() => {
             try {
@@ -6418,10 +6467,10 @@ window.executeImportStudioConfirmedPublish = async function() {
                 originalUrl: resData.originalUrl || liveUrl,
                 thumbnailUrl: resData.thumbnailUrl || resData.thumbUrl || liveUrl,
                 providerAssetId: resData.providerAssetId || resData.imageId || null,
-                mimeType: resData.mimeType || getMimeType(relPath),
+                mimeType: resData.mimeType || finalMime,
                 width: resData.width || null,
                 height: resData.height || null,
-                sizeBytes: fileEntry && fileEntry.sizeBytes || resData.sizeBytes || 0,
+                sizeBytes: finalSizeBytes || resData.sizeBytes || 0,
                 filename: exactFileName
               };
             }
