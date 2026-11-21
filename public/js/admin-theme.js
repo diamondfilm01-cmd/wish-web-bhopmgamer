@@ -239,7 +239,7 @@
     } catch (_) {
     }
   }
-  window.fetch = function(input, init) {
+  const wmAdminWrappedFetch = function(input, init) {
     let urlStr = "";
     let method = "GET";
     const callerExplicitNoStore = Boolean(init && (init.cache === "no-store" || init.cache === "reload"));
@@ -343,6 +343,29 @@
       return res;
     });
   };
+  try {
+    const fetchDesc = Object.getOwnPropertyDescriptor(window, "fetch");
+    if (fetchDesc && !fetchDesc.writable && !fetchDesc.set) {
+      if (fetchDesc.configurable) {
+        Object.defineProperty(window, "fetch", {
+          value: wmAdminWrappedFetch,
+          writable: true,
+          configurable: true,
+          enumerable: fetchDesc.enumerable !== false
+        });
+      }
+    } else {
+      window.fetch = wmAdminWrappedFetch;
+    }
+  } catch (_) {
+    try {
+      Object.defineProperty(window, "fetch", {
+        value: wmAdminWrappedFetch,
+        writable: true,
+        configurable: true
+      });
+    } catch (__) {}
+  }
   window.__wmFetchPatched = true;
 })();
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';

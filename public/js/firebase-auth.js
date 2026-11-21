@@ -40,9 +40,34 @@
       ].filter(Boolean)));
       return { projectId: firebaseConfig.projectId, authorizedDomains: domains };
     }
+    function safePatchWindowMethod(target, prop, wrappedFn) {
+      try {
+        const desc = Object.getOwnPropertyDescriptor(target, prop);
+        if (desc && !desc.writable && !desc.set) {
+          if (desc.configurable) {
+            Object.defineProperty(target, prop, {
+              value: wrappedFn,
+              writable: true,
+              configurable: true,
+              enumerable: desc.enumerable !== false
+            });
+          }
+          return;
+        }
+        target[prop] = wrappedFn;
+      } catch (_) {
+        try {
+          Object.defineProperty(target, prop, {
+            value: wrappedFn,
+            writable: true,
+            configurable: true
+          });
+        } catch (__) {}
+      }
+    }
     if (typeof window2.fetch === "function") {
       const origFetch = window2.fetch.bind(window2);
-      window2.fetch = function(input, init) {
+      safePatchWindowMethod(window2, "fetch", function(input, init) {
         const urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
         if (urlStr.includes("getProjectConfig") || urlStr.includes("identitytoolkit.googleapis.com/v1/projects")) {
           const payload = getAuthorizedDomainsPayload();
@@ -51,31 +76,33 @@
           }));
         }
         return origFetch(input, init);
-      };
+      });
     }
     if (typeof window2.XMLHttpRequest === "function") {
-      const OrigXHR = window2.XMLHttpRequest;
-      const origOpen = OrigXHR.prototype.open;
-      OrigXHR.prototype.open = function(method, url) {
-        this.__wmUrl = typeof url === "string" ? url : String(url || "");
-        if (this.__wmUrl.includes("getProjectConfig") || this.__wmUrl.includes("identitytoolkit.googleapis.com/v1/projects")) {
-          this.addEventListener("readystatechange", function() {
-            if (this.readyState === 4 && this.status >= 200 && this.status < 300) {
-              try {
-                const payload = getAuthorizedDomainsPayload();
-                const patchedText = JSON.stringify(payload);
-                Object.defineProperty(this, "responseText", { value: patchedText, configurable: true });
-                Object.defineProperty(this, "response", { value: patchedText, configurable: true });
-              } catch (_) {}
-            }
-          });
-        }
-        return origOpen.apply(this, arguments);
-      };
+      try {
+        const OrigXHR = window2.XMLHttpRequest;
+        const origOpen = OrigXHR.prototype.open;
+        OrigXHR.prototype.open = function(method, url) {
+          this.__wmUrl = typeof url === "string" ? url : String(url || "");
+          if (this.__wmUrl.includes("getProjectConfig") || this.__wmUrl.includes("identitytoolkit.googleapis.com/v1/projects")) {
+            this.addEventListener("readystatechange", function() {
+              if (this.readyState === 4 && this.status >= 200 && this.status < 300) {
+                try {
+                  const payload = getAuthorizedDomainsPayload();
+                  const patchedText = JSON.stringify(payload);
+                  Object.defineProperty(this, "responseText", { value: patchedText, configurable: true });
+                  Object.defineProperty(this, "response", { value: patchedText, configurable: true });
+                } catch (_) {}
+              }
+            });
+          }
+          return origOpen.apply(this, arguments);
+        };
+      } catch (_) {}
     }
     if (typeof window2.open === "function") {
       const origWindowOpen = window2.open.bind(window2);
-      window2.open = function(url, target, features) {
+      safePatchWindowMethod(window2, "open", function(url, target, features) {
         if (typeof url === "string" && (url.includes("1825854.firebaseapp.com") || url.includes("pacific-ember-18chg.firebaseapp.com"))) {
           url = url
             .replace(/[a-zA-Z0-9_-]*1825854\.firebaseapp\.com/g, firebaseConfig.authDomain)
@@ -83,7 +110,7 @@
             .replace(/apiKey=[^&]+/, "apiKey=" + encodeURIComponent(firebaseConfig.apiKey));
         }
         return origWindowOpen(url, target, features);
-      };
+      });
     }
   })();
 

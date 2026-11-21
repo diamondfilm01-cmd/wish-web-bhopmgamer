@@ -364,7 +364,6 @@ window.WishMagicCore = {
     overlay.setAttribute("aria-labelledby", "wm-rel-modal-title");
     overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.5);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;animation:wmFadeIn 0.18s ease-out;";
     const cardsHtml = variants.map((v, idx) => {
-      const thumbHtml = v.thumbnail ? `<img src="${escapeHtmlSafe(v.thumbnail)}" data-wm-tpl-id="${escapeHtmlSafe(family.id || family.slug || "")}" alt="${escapeHtmlSafe(v.relationshipLabel)}" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid #e2e8f0;flex-shrink:0;" onerror="if(!this.dataset.wmImgHealed){this.dataset.wmImgHealed='1';this.src='/api/media/safe-img?u='+encodeURIComponent(this.src)+'&tpl=${escapeHtmlSafe(encodeURIComponent(family.id || family.slug || ""))}';}else{this.style.display='none';}" />` : `<div style="width:44px;height:44px;border-radius:12px;background:#f3e8ff;border:1px solid #e9d5ff;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">${escapeHtmlSafe(v.icon || "\u2728")}</div>`;
       const descHtml = v.description ? `<span style="display:block;font-size:0.74rem;color:#64748b;margin-top:2px;line-height:1.35;">${escapeHtmlSafe(v.description)}</span>` : `<span style="display:block;font-size:0.73rem;color:#64748b;margin-top:2px;">Open ${escapeHtmlSafe(v.relationshipLabel)} version</span>`;
       const previewHref = buildActionDestinationUrl(family, "preview", v);
       const useDirectNewTabLink = !isCustomize && typeof context.onSelectVariant !== "function";
@@ -378,15 +377,12 @@ window.WishMagicCore = {
              data-relation-slug="${escapeHtmlSafe(v.relationshipSlug)}"
              data-option-index="${idx}"
              style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;text-align:left;cursor:pointer;transition:all 0.16s ease;text-decoration:none;">
-            <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
-              ${thumbHtml}
-              <div style="min-width:0;flex:1;">
-                <div style="font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                  <span>${escapeHtmlSafe(v.relationshipLabel)}</span>
-                  ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;font-weight:700;">Default</span>' : ""}
-                </div>
-                ${descHtml}
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span>${escapeHtmlSafe(v.relationshipLabel)}</span>
+                ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;font-weight:700;">Default</span>' : ""}
               </div>
+              ${descHtml}
             </div>
             <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:linear-gradient(135deg,#ec4899,#7c3aed);color:#fff;font-size:0.75rem;font-weight:700;flex-shrink:0;">
               Preview \u2197
@@ -401,15 +397,12 @@ window.WishMagicCore = {
                 data-relation-slug="${escapeHtmlSafe(v.relationshipSlug)}"
                 data-option-index="${idx}"
                 style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;text-align:left;cursor:pointer;transition:all 0.16s ease;">
-          <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
-            ${thumbHtml}
-            <div style="min-width:0;flex:1;">
-              <div style="font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                <span>${escapeHtmlSafe(v.relationshipLabel)}</span>
-                ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;font-weight:700;">Default</span>' : ""}
-              </div>
-              ${descHtml}
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span>${escapeHtmlSafe(v.relationshipLabel)}</span>
+              ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#be185d;border:1px solid #f9a8d4;font-weight:700;">Default</span>' : ""}
             </div>
+            ${descHtml}
           </div>
           <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:linear-gradient(135deg,#ec4899,#7c3aed);color:#fff;font-size:0.75rem;font-weight:700;flex-shrink:0;">
             ${isCustomize ? "Customize \u2192" : "Preview \u2192"}
